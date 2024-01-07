@@ -1,8 +1,11 @@
 #![allow(non_snake_case)]
 
 use ark_std::iterable::Iterable;
-use nalgebra::MatrixXx2;
+use rayon::prelude::*;
 
+use crate::labrador::setup::CommonReferenceString;
+use crate::labrador::util::*;
+pub use crate::labrador::witness::Witness;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
@@ -12,28 +15,6 @@ use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, WithLog2};
 use crate::nimue::arthur::LatticeArthur;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
-use crate::labrador::setup::CommonReferenceString;
-pub use crate::labrador::witness::Witness;
-
-pub fn commit<R: Ring>(A: &Matrix<R>, s: &Vector<R>) -> Vector<R> {
-    //(A * s.into()).into::<Matrix<R>>()
-    A * s
-}
-
-fn inner_prod<R: Ring>(v: &Vector<R>, w: &Vector<R>) -> R {
-    v.dot(w)
-}
-
-fn inner_products<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
-    let mut G = vec![vec![R::zero(); s.len()]; s.len()];
-    for i in 0..s.len() {
-        for j in i..s.len() {
-            G[i][j] = inner_prod(&s[i], &s[j]);
-            G[j][i] = G[i][j].clone();
-        }
-    }
-    G
-}
 
 struct ProverState<R: PolyRing> {
     instance: PrincipalRelation<R>,
@@ -48,13 +29,15 @@ struct ProverState<R: PolyRing> {
     alpha: Option<Vector<R>>,
     beta: Option<Vector<R>>,
     phi__: Option<Vec<Vec<Vector<R>>>>,
-    c: Option<Vec<R>>, // Or Vec<R::ChallengeSet> instead?
+    c: Option<Vec<R>>,
 }
 
+// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
 fn mul_scalar_vector<R: Ring>(s: R, A: &Vector<R>) -> Vector<R> {
     A.map(|a_ij| s * a_ij)
 }
 
+// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
 fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
     A.map(|a_ij| a_ij * s)
 }
@@ -82,14 +65,15 @@ impl<R: PolyRing> ProverState<R> {
 
 fn prove_1<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     let (_, witness, crs) = (&state.instance, &state.witness, &state.crs);
-    let t: Vec<Vector<R>> = witness.s.iter().map(
+    let t: Vec<Vector<R>> = witness.s.par_iter().map(
         |s_i| commit(&crs.A, s_i)
     ).collect();
-    let t_decomp: Vec<Vec<Vector<R>>> = t.iter().map(|t_i| decompose_balanced_vec(t_i, crs.decomposition_basis, Some(crs.t1))).collect();
+    let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.decomposition_basis, Some(crs.t1))).collect();
 
     let G = inner_products(&witness.s);
-    let G_decomp: Vec<Vec<Vec<R>>> = G.iter().map(
-        |G_i| G_i.iter().map(
+
+    let G_decomp: Vec<Vec<Vec<R>>> = G.par_iter().map(
+        |G_i| G_i.par_iter().map(
             |G_ij| decompose_balanced_polyring(G_ij, crs.decomposition_basis, Some(crs.t2))
         ).collect()
     ).collect();
@@ -101,10 +85,10 @@ fn prove_1<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
             u1 += &crs.B[i][k] * &t_decomp[i][k];
         }
 
-        for j in i..crs.r {
+        for j in 0..i+1 {
             assert_eq!(G_decomp[i][j].len(), crs.t2, "decomposition of G has the wrong number of elements");
             for k in 0..crs.t2 {
-                u1 += &crs.C[i][j - i][k] * G_decomp[i][j][k];
+                u1 += &crs.C[i][j][k] * G_decomp[i][j][k];
             }
         }
     }
@@ -121,7 +105,6 @@ fn prove_2<R: PolyRing>(state: &ProverState<R>) -> Vector<R::BaseRing> {
     let mut p = Vector::<R::BaseRing>::zeros(256);
     for j in 0..256 {
         for i in 0..crs.r {
-            // let pi_ij = Vector::<R>::from(Pi[i].row(j).into_owned());
             let pi_ij = Pi[i].row(j).into_owned().transpose();
             p[j] += R::flattened(&pi_ij).dot(&R::flattened(&witness.s[i]));
         }
@@ -182,23 +165,36 @@ fn prove_4<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     let phi__ = state.phi__.as_ref().expect("phi'' not available");
     let mut phi = vec![Vector::<R>::zeros(crs.n); crs.r];
     let mut h = vec![vec![R::zero(); crs.r]; crs.r];
-    for i in 0..crs.r {
-        for k in 0..instance.quad_dot_prod_funcs.len() {
-            phi[i] += mul_scalar_vector(alpha[k], &instance.quad_dot_prod_funcs[k].phi[i]);
-        }
+
+    // Compute phi (in parallel)
+    let phi = (0..crs.r).into_par_iter().map(|i| {
+        let mut phi_i = Vector::<R>::zeros(crs.n);
         for k in 0..instance.ct_quad_dot_prod_funcs.len() {
-            phi[i] += mul_scalar_vector(beta[k], &phi__[k][i]);
+            phi_i += mul_scalar_vector(alpha[k], &instance.ct_quad_dot_prod_funcs[k].phi[i]);
         }
-        for j in 0..crs.r {
-            h[i][j] = inner_prod(&phi[i], &witness.s[j]) + inner_prod(&phi[j], &witness.s[i]); // TODO: divide by 2 //  R::from(2u128);
+        for k in 0..instance.quad_dot_prod_funcs.len() {
+            phi_i += mul_scalar_vector(beta[k], &phi__[k][i]);
         }
-    }
+        phi_i
+    }).collect::<Vec<_>>();
+
+    // Compute H (in parallel)
+    let h = (0..crs.r).into_par_iter().map(|i| {
+        let mut h_i = vec![R::zero(); crs.r];
+
+        for j in 0..i+1 {
+            h_i[j] = inner_prod(&phi[i], &witness.s[j]) + inner_prod(&phi[j], &witness.s[i]); // TODO: divide by 2 //  R::from(2u128);
+        }
+        h_i
+    }).collect::<Vec<_>>();
+
+
     let mut u_2 = Vector::<R>::zeros(crs.k2);
     for i in 0..crs.r {
-        for j in i..crs.r {
+        for j in 0..i+1 {
             let h_ij_decomp = decompose_balanced_polyring(&h[i][j], crs.decomposition_basis, Some(crs.t1));
             for k in 0..crs.t1 {
-                u_2 += &crs.D[i][j - i][k] * h_ij_decomp[k];
+                u_2 += &crs.D[i][j][k] * h_ij_decomp[k];
             }
         }
     }

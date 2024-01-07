@@ -52,7 +52,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
                 ).collect()
             ).collect(),
             C: (0..r).map(
-                |i| (i..r).map(
+                |i| (0..i+1).map(
                     |_|
                         (0..t2).map(
                             |_| sample_uniform_vec(k1)
@@ -60,7 +60,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
                 ).collect()
             ).collect(),
             D: (0..r).map(
-                |i| (i..r).map(
+                |i| (0..i+1).map(
                     |_|
                         (0..t1).map(
                             |_| sample_uniform_vec(k2)
