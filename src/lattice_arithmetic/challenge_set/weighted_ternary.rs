@@ -35,9 +35,9 @@ impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>>
 impl<const Q: u64> ChallengeSet<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>> {}
 
 impl<R: PolyRing> WeightedTernaryChallengeSet<R> {
-    type Ring = R;
-    type BaseRing = R::BaseRing;
-    type BaseChallengeSet = WeightedTernaryChallengeSet<R::BaseRing>;
+    pub type Ring = R;
+    pub type BaseRing = R::BaseRing;
+    pub type BaseChallengeSet = WeightedTernaryChallengeSet<R::BaseRing>;
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {

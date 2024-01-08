@@ -21,14 +21,12 @@ pub struct LabradorChallengeSet<R: PolyRing> {
 /// On average, 6 elements need to be sampled to get some c with ||c||_op < 15.
 /// Differences of distinct challenges are invertible.
 impl<R: PolyRing> LabradorChallengeSet<R> {
-    type Ring = R;
-    type BaseRing = R::BaseRing;
+    pub type Ring = R;
+    pub type BaseRing = R::BaseRing;
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
-    fn byte_size() -> usize {
-        6 * N * Self::BaseRing::byte_size()
-    }
+    fn byte_size() -> usize { todo!()    }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
         assert!(bytes.len() >= Self::byte_size());
@@ -39,7 +37,7 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
-    const EXPECTED_OPERATOR_NORM_REJECTION_SAMPLES: usize = 6;
+    const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 32; // TODO: find a value with a solid theoretical justification
     const OPERATOR_NORM_THRESHOLD: f64 = 15.;
 
     /// Returns an integer uniformly sampled from [0, p[ using rejection sampling, as well as the unused random bytes
@@ -107,18 +105,15 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 
     fn checked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
         let mut i = 0;
-        let sample_bytesize = Self::permutation_byte_size() + Self::sign_bits_bytesize();
+        let sample_bytesize = Self::sample_byte_size();
         loop {
             let coeffs = Self::unchecked_coeffs_from_random_bytes(&bytes[i * sample_bytesize..(i + 1) * sample_bytesize]);
             if Self::operator_norm(&coeffs) < Self::OPERATOR_NORM_THRESHOLD {
                 return coeffs;
             }
             i += 1;
-            if i == Self::EXPECTED_OPERATOR_NORM_REJECTION_SAMPLES {
-                eprintln!("Could not sample a challenge with operator norm < 15 after {} attempts", Self::EXPECTED_OPERATOR_NORM_REJECTION_SAMPLES);
-            }
-            if i >= 100 {
-                panic!("Could not sample a challenge with operator norm < 15 after 100 attempts");
+            if i == Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES {
+                panic!("Could not sample a challenge with operator norm < 15 after {} attempts", Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES);
             }
         }
     }
@@ -152,7 +147,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     fn byte_size() -> usize {
-        Self::EXPECTED_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
+        Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {

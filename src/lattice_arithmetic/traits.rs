@@ -25,7 +25,7 @@ pub trait Modulus {
 }
 
 pub trait FromRandomBytes<T> {
-     fn byte_size() -> usize;
+    fn byte_size() -> usize;
     fn from_random_bytes(bytes: &[u8]) -> Option<T>;
 }
 

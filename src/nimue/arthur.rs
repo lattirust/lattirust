@@ -72,6 +72,10 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
         self.absorb(&r)
     }
 
+    pub fn absorb_lower_triangular_matrix<A: Ring>(&mut self, r: &Vec<Vec<A>>) -> Result<(), InvalidTag> {
+        self.absorb(&r)
+    }
+
     pub fn squeeze_elem<T, A: FromRandomBytes<T>>(&mut self) -> Result<T, InvalidTag> {
         let mut bytes = vec![0u8; A::byte_size()];
         match self.challenge(&mut bytes) {

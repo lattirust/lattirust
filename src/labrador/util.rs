@@ -50,7 +50,7 @@ pub fn lowertriang_from_vec<T>(mut v: VecDeque<T>, n: usize) -> Vec<Vec<T>> {
     debug_assert_eq!(v.len(), n * (n + 1) / 2);
     (0..n).map(|i|
         (0..i + 1).map(
-            |j| v.pop_front().unwrap()
+            |_| v.pop_front().unwrap()
         ).collect()
     ).collect()
 }
@@ -67,20 +67,13 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
 }
 
 pub fn inner_products<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
-    let mut ranges = lower_triang_indices(s.len());
-
-    lowertriang_from_vec(
-        ranges.into_par_iter().map(
-            |(i, j)| inner_prod(&s[i], &s[j])
-        ).collect::<VecDeque<_>>(),
-        s.len(),
-    )
+    inner_products2(s, s)
 }
 
 /// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
 pub fn inner_products2<R: Ring>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     debug_assert_eq!(s.len(), t.len());
-    let mut ranges = lower_triang_indices(s.len());
+    let ranges = lower_triang_indices(s.len());
 
     lowertriang_from_vec(
         ranges.into_par_iter().map(

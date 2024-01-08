@@ -76,6 +76,19 @@ impl<R, H, U> LatticeIOPattern<R, H, U> where
         self.absorb_serializable_like(&Vector::<R>::zeros(size), label)
     }
 
+    pub fn absorb_vectors(self, size: usize, num_vectors: usize, label: &'static str) -> Self {
+        self.absorb_serializable_like(&vec![&Vector::<R>::zeros(size); num_vectors], label)
+    }
+
+    pub fn absorb_lower_triangular_matrix(self, n: usize, label: &'static str) -> Self {
+        let mat = (0..n).map(
+            |i| (0..i + 1).map(
+                |_| R::zero()
+            ).collect::<Vec<R>>()
+        ).collect::<Vec<Vec<R>>>();
+        self.absorb_serializable_like(&mat, label)
+    }
+
     pub fn absorb_vec_baseringelem(self, size: usize, label: &'static str) -> Self {
         self.absorb_serializable_like(&vec![R::BaseRing::zero(); size], label)
     }

@@ -36,7 +36,7 @@ impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
         let num_aggregs = (128. / R::BaseRing::log2_q()).ceil() as usize;
         self.absorb_vector(crs.k1, "prover message 1")
             .squeeze_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r, "verifier message 1")
-            .absorb_vector(256, "prover message 2")
+            .absorb_vector_baseringelem(256, "prover message 2")
             .squeeze_vectors::<R::BaseRing, R::BaseRing>(instance.ct_quad_dot_prod_funcs.len(), num_aggregs, "verifier message 2 (psi)")
             .squeeze_vectors::<R::BaseRing, R::BaseRing>(256, num_aggregs, "verifier message 2 (omega)")
             .absorb_vec(num_aggregs, "prover message 3")
@@ -44,5 +44,9 @@ impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
             .squeeze_vector::<R, R>(num_aggregs, "verifier message 3 (beta)")
             .absorb_vector(crs.k2, "prover message 4")
             .squeeze_vec::<R, LabradorChallengeSet<R>>(crs.r, "verifier message 4")
+            .absorb_vector(crs.n, "prover message 5 (z)")
+            .absorb_vectors(crs.k1, crs.r, "prover message 5 (t)")
+            .absorb_lower_triangular_matrix(crs.r, "prover message 5 (G)")
+            .absorb_lower_triangular_matrix(crs.r, "prover message 5 (H)")
     }
 }

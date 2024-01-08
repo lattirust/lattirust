@@ -167,10 +167,10 @@ fn prove_4<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     // Compute phi (in parallel)
     let phi = (0..crs.r).into_par_iter().map(|i| {
         let mut phi_i = Vector::<R>::zeros(crs.n);
-        for k in 0..instance.ct_quad_dot_prod_funcs.len() {
+        for k in 0..instance.quad_dot_prod_funcs.len() {
             phi_i += mul_scalar_vector(alpha[k], &instance.ct_quad_dot_prod_funcs[k].phi[i]);
         }
-        for k in 0..instance.quad_dot_prod_funcs.len() {
+        for k in 0..crs.num_aggregs {
             phi_i += mul_scalar_vector(beta[k], &phi__[k][i]);
         }
         phi_i
@@ -263,8 +263,8 @@ pub fn prove_principal_relation<R: PolyRing>(arthur: &mut LatticeArthur<R>, inst
     let (z, t, G, H) = prove_5(&state);
     arthur.absorb_vector(&z).expect("error absorbing prover message 5 (z)");
     arthur.absorb_vectors(&t).expect("error absorbing prover message 5 (t)");
-    arthur.absorb::<Vec<Vec<R>>>(&G).expect("error absorbing prover message 5 (G)");
-    arthur.absorb::<Vec<Vec<R>>>(&H).expect("error absorbing prover message 5 (H)");
+    arthur.absorb_lower_triangular_matrix(&G).expect("error absorbing prover message 5 (G)");
+    arthur.absorb_lower_triangular_matrix(&H).expect("error absorbing prover message 5 (H)");
 
     return Ok(arthur.transcript());
     // TODO: absorb last prover message as well?

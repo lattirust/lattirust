@@ -13,6 +13,6 @@ pub mod setup;
 mod tests;
 pub mod prover_r1cs;
 pub mod witness;
-mod iopattern;
-mod util;
+pub mod iopattern;
+pub mod util;
 
