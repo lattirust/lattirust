@@ -64,7 +64,7 @@ pub fn norm_vec_basering<R: PolyRing>(v: &Vector<R::BaseRing>) -> f64
 pub fn norm_sq_vec<R: PolyRing>(v: &Vector<R>) -> u64
     where i128: From<<R as PolyRing>::BaseRing>
 {
-    norm_sq_vec_basering::<R>(&R::flattened(&v))
+    norm_sq_vec_basering::<R>(&R::flattened(v))
 }
 
 pub fn norm_vec<R: PolyRing>(v: &Vector<R>) -> f64

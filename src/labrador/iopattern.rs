@@ -1,13 +1,13 @@
-use nimue::{DefaultHash, DuplexHash};
+use nimue::DuplexHash;
 use nimue::hash::Unit;
 
+use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, WithLog2};
 use crate::nimue::iopattern::LatticeIOPattern;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
-use crate::labrador::common_reference_string::CommonReferenceString;
 
 pub trait LabradorIOPattern<R, H, U = u8>
     where

@@ -1,14 +1,14 @@
 use nimue::InvalidTag;
-use num_traits::Zero;
+
+use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::{norm_sq_ringelem, norm_vec_basering, Vector};
+use crate::lattice_arithmetic::matrix::{norm_vec_basering, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
-use crate::labrador::common_reference_string::CommonReferenceString;
 
 #[macro_export]
 macro_rules! check {

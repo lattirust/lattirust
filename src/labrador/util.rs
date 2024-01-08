@@ -1,4 +1,7 @@
+#![allow(non_snake_case)]
+
 use std::collections::VecDeque;
+
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
@@ -44,7 +47,7 @@ pub fn vec_from_lowertriang<T>(mut m: VecDeque<VecDeque<T>>) -> Vec<T> {
 /// Convert a vector of length (n*(n+1)) / 2 to the sparse representation of a lower triangular n x n matrix
 #[inline(always)]
 pub fn lowertriang_from_vec<T>(mut v: VecDeque<T>, n: usize) -> Vec<Vec<T>> {
-    debug_assert_eq!(v.len(), (n * (n + 1) / 2));
+    debug_assert_eq!(v.len(), n * (n + 1) / 2);
     (0..n).map(|i|
         (0..i + 1).map(
             |j| v.pop_front().unwrap()
@@ -63,7 +66,6 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
     indices
 }
 
-
 pub fn inner_products<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     let mut ranges = lower_triang_indices(s.len());
 
@@ -75,8 +77,31 @@ pub fn inner_products<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     )
 }
 
+/// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
+pub fn inner_products2<R: Ring>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {
+    debug_assert_eq!(s.len(), t.len());
+    let mut ranges = lower_triang_indices(s.len());
+
+    lowertriang_from_vec(
+        ranges.into_par_iter().map(
+            |(i, j)| inner_prod(&s[i], &t[j])
+        ).collect::<VecDeque<_>>(),
+        s.len(),
+    )
+}
+
 mod tests {
+    use crate::lattice_arithmetic::matrix::sample_uniform_vec;
+    use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::lattice_arithmetic::ring::Zq;
+
     use super::*;
+
+    const Q: u64 = 4294967291;
+    const D: usize = 64;
+
+    type R = Zq<Q>;
+    type PR = Pow2CyclotomicPolyRing<R, D>;
 
     #[test]
     fn test_lowertriang_vec() {
@@ -95,5 +120,12 @@ mod tests {
 
 
         assert_eq!(mat, lowertriang_from_vec(vec_from_lowertriang(mat_.clone()).into(), n));
+    }
+
+    #[test]
+    fn test_inner_products() {
+        // Test parallelized implementation against a straightforward serial implementation
+        let v = vec![sample_uniform_vec::<PR>(2); 3];
+        assert_eq!(inner_products_serial(&v), inner_products(&v));
     }
 }

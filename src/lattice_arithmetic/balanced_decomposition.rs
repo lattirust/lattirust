@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use num_traits::Zero;
 
 use crate::lattice_arithmetic::matrix::Vector;
@@ -18,7 +16,7 @@ pub fn decompose_balanced<R: Ring + IntegerDiv>(v: &R, b: R, padding_size: Optio
 
     let b_half_floor = b.integer_div(R::from(2u128));
     let mut decomp_bal = Vec::<R>::new();
-    let mut curr = v.clone();
+    let mut curr = *v;
     loop {
         let rem = curr - (b * curr.integer_div(b)); // rem = curr % b
 
@@ -82,16 +80,16 @@ pub fn decompose_balanced_vec<R: PolyRing>(v: &Vector<R>, b: R::BaseRing, paddin
 
 pub fn recompose<A: Ring, B: Ring>(v: Vec<A>, b: B) -> A
     where A: std::ops::Mul<B, Output=A> {
-    v.iter().enumerate().map(|(i, v_i)| *v_i * b.pow(&[i as u64])).sum()
+    v.iter().enumerate().map(|(i, v_i)| *v_i * b.pow([i as u64])).sum()
 }
 
 mod tests {
-    use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced, decompose_balanced_polyring, decompose_balanced_vec, recompose};
-    use crate::lattice_arithmetic::matrix::Vector;
+    use super::*;
+
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
     use crate::lattice_arithmetic::ring::{Ring, Zq};
-    use crate::lattice_arithmetic::traits::{IntegerDiv, Modulus};
+    use crate::lattice_arithmetic::traits::IntegerDiv;
 
     const Q: u64 = 8191;
     const N: usize = 128;

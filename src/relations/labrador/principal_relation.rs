@@ -1,7 +1,8 @@
 use std::ops::Index;
+
 use rand::thread_rng;
 
-use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, sample_uniform_mat_symmetric, sample_uniform_vec, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat_symmetric, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 
 #[derive(Clone)]

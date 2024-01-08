@@ -85,7 +85,7 @@ fn prove_1<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
             u1 += &crs.B[i][k] * &t_decomp[i][k];
         }
 
-        for j in 0..i+1 {
+        for j in 0..i + 1 {
             assert_eq!(G_decomp[i][j].len(), crs.t2, "decomposition of G has the wrong number of elements");
             for k in 0..crs.t2 {
                 u1 += &crs.C[i][j][k] * G_decomp[i][j][k];
@@ -163,8 +163,6 @@ fn prove_4<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     let alpha = state.alpha.as_ref().expect("alpha not available");
     let beta = state.beta.as_ref().expect("beta not available");
     let phi__ = state.phi__.as_ref().expect("phi'' not available");
-    let mut phi = vec![Vector::<R>::zeros(crs.n); crs.r];
-    let mut h = vec![vec![R::zero(); crs.r]; crs.r];
 
     // Compute phi (in parallel)
     let phi = (0..crs.r).into_par_iter().map(|i| {
@@ -179,33 +177,31 @@ fn prove_4<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     }).collect::<Vec<_>>();
 
     // Compute H (in parallel)
-    let h = (0..crs.r).into_par_iter().map(|i| {
-        let mut h_i = vec![R::zero(); crs.r];
-
-        for j in 0..i+1 {
-            h_i[j] = inner_prod(&phi[i], &witness.s[j]) + inner_prod(&phi[j], &witness.s[i]); // TODO: divide by 2 //  R::from(2u128);
+    let mut H = inner_products2(&phi, &witness.s);
+    let H_2 = inner_products2(&witness.s, &phi);
+    for i in 0..crs.r {
+        for j in 0..i + 1 {
+            H[i][j] += H_2[i][j]; // TODO: divide by 2
         }
-        h_i
-    }).collect::<Vec<_>>();
-
+    }
 
     let mut u_2 = Vector::<R>::zeros(crs.k2);
     for i in 0..crs.r {
-        for j in 0..i+1 {
-            let h_ij_decomp = decompose_balanced_polyring(&h[i][j], crs.decomposition_basis, Some(crs.t1));
+        for j in 0..i + 1 {
+            let h_ij_decomp = decompose_balanced_polyring(&H[i][j], crs.decomposition_basis, Some(crs.t1));
             for k in 0..crs.t1 {
                 u_2 += &crs.D[i][j][k] * h_ij_decomp[k];
             }
         }
     }
 
-    state.H.replace(h);
+    state.H.replace(H);
     u_2
 }
 
 
 fn prove_5<R: PolyRing>(state: &ProverState<R>) -> (Vector<R>, Vec<Vector<R>>, Vec<Vec<R>>, Vec<Vec<R>>) {
-    let (instance, witness, crs) = (&state.instance, &state.witness, &state.crs);
+    let (_, witness, crs) = (&state.instance, &state.witness, &state.crs);
     let c = state.c.as_ref().expect("c not available");
     let mut z = Vector::<R>::zeros(crs.n);
     debug_assert_eq!(c.len(), crs.r);
@@ -243,7 +239,7 @@ pub fn prove_principal_relation<R: PolyRing>(arthur: &mut LatticeArthur<R>, inst
     state.Pi.replace(pis);
 
     let p = prove_2(&state);
-    arthur.absorb_vector(&p).expect("error absorbing prover message 2");
+    arthur.absorb_vector::<R::BaseRing>(&p).expect("error absorbing prover message 2");
 
     let psi = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error squeezing verifier message 2 (psi)");
     let omega = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error squeezing verifier message 2 (omega)");

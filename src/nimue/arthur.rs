@@ -1,13 +1,10 @@
-use std::fmt::Debug;
 use std::ops::Deref;
 
 use bincode;
-use bincode::Options;
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use delegate::delegate;
 use nimue::{Arthur, DefaultHash, DefaultRng, DuplexHash, InvalidTag};
 use nimue::hash::Unit;
-use serde_bytes::Serialize;
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
@@ -35,7 +32,7 @@ impl<PR, H, R, U> LatticeArthur<PR, H, R, U>
         U: Unit
 {
     pub fn new(io_pattern: &LatticeIOPattern<PR, H, U>, csrng: R) -> Self {
-        Self { arthur: Arthur::<H, R, U>::new(&io_pattern.deref(), csrng), _polyring: std::marker::PhantomData::default() }
+        Self { arthur: Arthur::<H, R, U>::new(io_pattern.deref(), csrng), _polyring: std::marker::PhantomData }
     }
 
     delegate! {
@@ -79,7 +76,7 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
         let mut bytes = vec![0u8; A::byte_size()];
         match self.challenge(&mut bytes) {
             Ok(_) => A::from_random_bytes(bytes.as_slice()).ok_or(InvalidTag::from("error while generating ring element from random bytes")),
-            Err(s) => Err(InvalidTag::from(s))
+            Err(s) => Err(s)
         }
     }
 
@@ -88,7 +85,7 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
         for _ in 0..size {
             match self.squeeze_elem::<T, A>() {
                 Ok(v) => vals.push(v),
-                Err(s) => return Err(InvalidTag::from(s))
+                Err(s) => return Err(s)
             }
         }
         Ok(vals)
@@ -103,7 +100,7 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
         for _ in 0..n_vectors {
             match self.squeeze_vector::<T, A>(size) {
                 Ok(val) => vals.push(val),
-                Err(e) => return Err(InvalidTag::from(e))
+                Err(e) => return Err(e)
             }
         }
         Ok(vals)
@@ -118,7 +115,7 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
         for _ in 0..n_matrices {
             match self.squeeze_matrix::<T, A>(n_rows, n_cols) {
                 Ok(val) => vals.push(val),
-                Err(e) => return Err(InvalidTag::from(e))
+                Err(e) => return Err(e)
             }
         }
         Ok(vals)

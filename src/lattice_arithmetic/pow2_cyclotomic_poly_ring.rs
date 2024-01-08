@@ -13,7 +13,6 @@ use num_traits::{One, Zero};
 use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, Normed, WithConjugationAutomorphism, WithLog2};

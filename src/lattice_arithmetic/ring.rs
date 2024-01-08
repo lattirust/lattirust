@@ -59,10 +59,10 @@ pub trait Ring:
 + for<'a> AddAssign<&'a mut Self>
 + for<'a> SubAssign<&'a mut Self>
 + for<'a> MulAssign<&'a mut Self>
-+ core::iter::Sum<Self>
-//+ for<'a> core::iter::Sum<&'a Self>
-+ core::iter::Product<Self>
-+ for<'a> core::iter::Product<&'a Self>
++ Sum<Self>
+// + for<'a> Sum<&'a Self>
++ Product<Self>
+// + for<'a> Product<&'a Self>
 + From<u128>
 + From<u64>
 + From<u32>
@@ -461,7 +461,7 @@ impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
 
 impl<const Q: u64> IntegerDiv for Zq<Q> {
     fn integer_div(&self, rhs: Self) -> Self {
-        Zq::from((u64::from(*self)).div_euclid(u64::from(rhs)))
+        Zq::from(u64::from(*self).div_euclid(u64::from(rhs)))
     }
 
     fn div_round(&self, rhs: Self) -> Self {
@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn test_ser() {
         for v in 0..Q {
-            let r = R::from(v as u64);
+            let r = R::from(v);
             let ser = bincode::serialize(&r);
             assert!(ser.is_ok());
         }
@@ -531,7 +531,7 @@ mod tests {
     #[test]
     fn test_des() {
         for v in 0..Q {
-            let r = R::from(v as u64);
+            let r = R::from(v);
             let s = bincode::serialize(&r);
             let der = bincode::deserialize(&s.unwrap());
             assert!(der.is_ok());

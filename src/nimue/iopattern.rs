@@ -1,4 +1,3 @@
-use delegate::delegate;
 use derive_more::Deref;
 use nimue::{DefaultHash, DefaultRng, DuplexHash, IOPattern};
 use nimue::hash::Unit;

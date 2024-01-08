@@ -23,17 +23,6 @@ pub struct LabradorChallengeSet<R: PolyRing> {
 impl<R: PolyRing> LabradorChallengeSet<R> {
     type Ring = R;
     type BaseRing = R::BaseRing;
-
-    pub fn is_valid(r: &R) -> bool {
-        // let coeffs = r.coeffs();
-        // assert_eq!(coeffs.len(), 64);
-        // let num_zero = coeffs.into_iter().filter(|c| c.is_zero()).count();
-        // let num_one = coeffs.into_iter().filter(|c| c.is_one() || (-*c).is_one()).count();
-        // let num_two = coeffs.into_iter().filter(|c| c == &R::BaseRing::from(2) || (-*c) == R::BaseRing::from(2)).count();
-        //
-        // num_zero == 23 && num_one == 31 && num_two == 10 && Self::operator_norm(&coeffs) < 15.
-        todo!()
-    }
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
@@ -71,7 +60,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
         assert!(bytes.len() >= Self::sample_byte_size());
         assert_eq!(N, 64); // The current implementation can easily be generalized to powers of 2, but this is not implemented yet
-        let num_zeros = 23;
+        let _num_zeros = 23;
         let num_pm_ones = 31;
         let num_pm_twos = 10;
 
@@ -136,7 +125,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 
     fn sign_bits_bytesize() -> usize {
         let num_sign_bits: usize = 31 + 10;
-        num_sign_bits.div_ceil(8) as usize
+        num_sign_bits.div_ceil(8)
     }
 
     fn sample_u8_bytesize(p: u8) -> usize {
@@ -202,13 +191,12 @@ impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>
 mod tests {
     use ark_std::UniformRand;
     use rand::{Rng, thread_rng};
-    use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 
+    use crate::lattice_arithmetic::matrix::{Matrix, Vector};
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::lattice_arithmetic::ring::Zq;
     use crate::lattice_arithmetic::traits::{FromRandomBytes, Normed};
-    use crate::nimue::serialization::ToBytes;
 
     use super::LabradorChallengeSet;
 

@@ -12,7 +12,6 @@ pub mod setup;
 #[allow(non_snake_case)]
 mod tests;
 pub mod prover_r1cs;
-pub mod donut;
 pub mod witness;
 mod iopattern;
 mod util;

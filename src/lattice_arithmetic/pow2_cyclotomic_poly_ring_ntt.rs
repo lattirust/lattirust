@@ -14,9 +14,8 @@ use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::ring::Ring;
-use crate::lattice_arithmetic::traits::{WithConjugationAutomorphism, FromRandomBytes, IntegerDiv, Modulus, Normed, WithLog2};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, Normed, WithConjugationAutomorphism, WithLog2};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
 pub struct Pow2CyclotomicPolyRingNTT<BaseRing: Ring, const N: usize>(SVector<BaseRing, N>);

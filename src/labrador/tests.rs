@@ -43,7 +43,7 @@ fn test_setup() {
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let crs = setup::<PolyR>(10, N, D, beta, 10, 10, 10, b);
+    let _crs = setup::<PolyR>(10, N, D, beta, 10, 10, 10, b);
 }
 
 #[test]
