@@ -58,4 +58,8 @@ impl<R: PolyRing> PrincipalRelation<R> {
             ct_quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_ct_constraints],
         }
     }
+
+    pub fn fold() -> PrincipalRelation<R> {
+        todo!("fold")
+    }
 }

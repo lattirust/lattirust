@@ -7,6 +7,7 @@ use crate::lattice_arithmetic::traits::{IntegerDiv, Normed};
 
 pub type Matrix<R> = nalgebra::DMatrix<R>;
 
+// TODO: implement as Mul trait for Vector<R> so that left-multiplication with a scalar is possible
 pub type Vector<R> = nalgebra::DVector<R>;
 
 

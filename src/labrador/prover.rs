@@ -156,10 +156,10 @@ fn prove_4<R: PolyRing>(state: &mut ProverState<R>) -> Vector<R> {
     let phi = (0..crs.r).into_par_iter().map(|i| {
         let mut phi_i = Vector::<R>::zeros(crs.n);
         for k in 0..instance.quad_dot_prod_funcs.len() {
-            phi_i += mul_scalar_vector(alpha[k], &instance.ct_quad_dot_prod_funcs[k].phi[i]);
+            phi_i += &instance.ct_quad_dot_prod_funcs[k].phi[i] * alpha[k];
         }
         for k in 0..crs.num_aggregs {
-            phi_i += mul_scalar_vector(beta[k], &phi__[k][i]);
+            phi_i +=  &phi__[k][i] * beta[k];
         }
         phi_i
     }).collect::<Vec<_>>();
@@ -194,7 +194,7 @@ fn prove_5<R: PolyRing>(state: &ProverState<R>) -> (Vector<R>, Vec<Vector<R>>, V
     let mut z = Vector::<R>::zeros(crs.n);
     debug_assert_eq!(c.len(), crs.r);
     for i in 0..crs.r {
-        z += mul_scalar_vector(c[i], &witness.s[i]);
+        z += &witness.s[i] * c[i];
     }
     (z, state.t.clone().unwrap(), state.G.clone().unwrap(), state.H.clone().unwrap())
 }

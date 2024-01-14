@@ -85,7 +85,7 @@ pub fn verify_dot_product_constraints<R: PolyRing>(state: &VerifierState<R>) -> 
 
     // Check Az = c1 * t1 + ... + c_r * t_r
     let Az = &crs.A * z;
-    let t_lc = c.into_iter().zip(t).map(|(c_i, t_i)| mul_scalar_vector(*c_i, &t_i)).sum();
+    let t_lc = c.into_iter().zip(t).map(|(c_i, t_i)| t_i * *c_i).sum();
     check_eq!(Az, t_lc);
 
     // Check <z, z> = sum_{i,j in [r]} g_ij * c_i * c_j
@@ -121,10 +121,10 @@ pub fn verify_dot_product_constraints<R: PolyRing>(state: &VerifierState<R>) -> 
     let mut phi_z_lc = R::zero();
     for i in 0..r {
         for k in 0..K {
-            phi[i] += mul_scalar_vector(state.alpha[k], &instance.quad_dot_prod_funcs[k].phi[i]);
+            phi[i] += &instance.quad_dot_prod_funcs[k].phi[i] * state.alpha[k];
         }
         for k in 0..num_aggregs {
-            phi[i] += mul_scalar_vector(state.beta[k], &phi__[i][k]);
+            phi[i] += &phi__[i][k] * state.beta[k];
         }
         phi_z_lc += inner_prod(&phi[i], &z) * c[i];
     }
@@ -142,10 +142,10 @@ pub fn verify_dot_product_constraints<R: PolyRing>(state: &VerifierState<R>) -> 
     let mut a_g_h_lc = R::zero();
     let mut A = Matrix::<R>::zeros(r, r);
     for k in 0..K {
-        A += mul_scalar_matrix(state.alpha[k], &instance.quad_dot_prod_funcs[k].A);
+        A += &instance.quad_dot_prod_funcs[k].A * state.alpha[k];
     }
     for k in 0..num_aggregs {
-        A += mul_scalar_matrix(state.beta[k], &instance.ct_quad_dot_prod_funcs[k].A);
+        A += &instance.ct_quad_dot_prod_funcs[k].A * state.beta[k];
     }
 
     for i in 0..r {

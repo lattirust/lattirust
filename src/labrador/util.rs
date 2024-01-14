@@ -30,17 +30,6 @@ pub fn inner_products_serial<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
 }
 
 // TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
-pub fn mul_scalar_vector<R: Ring>(s: R, v: &Vector<R>) -> Vector<R> {
-    v * s
-    // v.map(|v_ij| s * v_ij)
-}
-
-pub fn mul_scalar_matrix<R: Ring>(s: R, A: &Matrix<R>) -> Matrix<R> {
-    A * s
-    // A.map(|a_ij| s * a_ij)
-}
-
-// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
 pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
     A.map(|a_ij| a_ij * s)
 }
