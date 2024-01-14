@@ -1,13 +1,11 @@
 use bitter::BitReader;
-use nalgebra::ComplexField;
-use num_traits::{One, Zero};
 
 use crate::lattice_arithmetic::challenge_set::challenge::ChallengeSet;
 use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::ring::Zq;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 
 pub struct LabradorChallengeSet<R: PolyRing> {
@@ -26,7 +24,7 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
-    fn byte_size() -> usize { todo!()    }
+    fn byte_size() -> usize { todo!() }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
         assert!(bytes.len() >= Self::byte_size());
@@ -37,7 +35,8 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
-    const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 32; // TODO: find a value with a solid theoretical justification
+    const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 32;
+    // TODO: find a value with a solid theoretical justification
     const OPERATOR_NORM_THRESHOLD: f64 = 15.;
 
     /// Returns an integer uniformly sampled from [0, p[ using rejection sampling, as well as the unused random bytes
@@ -175,7 +174,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     }
 
     pub fn operator_norm(c: &Vec<i8>) -> f64 {
-        let mut c_mat = Self::challenge_to_matrix(c);
+        let c_mat = Self::challenge_to_matrix(c);
         let eig = (c_mat.transpose() * c_mat).symmetric_eigenvalues().iter().map(|e| e.abs()).into_iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
         eig.sqrt()
     }
@@ -183,6 +182,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {}
 
+#[cfg(test)]
 mod tests {
     use ark_std::UniformRand;
     use rand::{Rng, thread_rng};
@@ -233,7 +233,7 @@ mod tests {
 
     #[test]
     fn test_operator_norm() {
-        let mut norm: f64;
+        let norm: f64;
         let z = vec![0i8; D];
         norm = LabCS::operator_norm(&z);
         assert_eq!(norm, 0.);

@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -6,14 +8,14 @@ use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_ff::{BigInt, BitIteratorBE, BitIteratorLE, Field, Fp, Fp64, MontBackend, MontConfig, PrimeField};
-use ark_serialize::{CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeHashExt, CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate};
+use ark_serialize::{CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate};
 use ark_std::UniformRand;
 use delegate_attr::delegate;
 use derive_more::{Deref, DerefMut, Mul, MulAssign, Neg};
 use derive_more::Into;
 use num_traits::{One, Zero};
 use rand::Rng;
-use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{self, Deserialize, Serialize};
 use zeroize::Zeroize;
 
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, WithLog2};
@@ -141,7 +143,7 @@ impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
     const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::zero()); // TODO
 }
 
-type Fq<const Q: u64> = (Fp64<MontBackend<FqConfig<Q>, 1>>);
+type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
 
 #[derive(Deref, DerefMut, Clone, Debug, Eq, PartialEq, Into, Mul, MulAssign, Neg, Zeroize)]
 #[derive(Serialize, Deserialize)]
@@ -485,10 +487,9 @@ impl<const Q: u64> Modulus for Zq<Q> {
     }
 }
 
-
+#[cfg(test)]
 mod tests {
     use num_traits::{One, Zero};
-    use serde::Serialize;
 
     use crate::lattice_arithmetic::ring::Ring;
 

@@ -83,6 +83,7 @@ pub fn recompose<A: Ring, B: Ring>(v: Vec<A>, b: B) -> A
     v.iter().enumerate().map(|(i, v_i)| *v_i * b.pow([i as u64])).sum()
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

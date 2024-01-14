@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::io::{Read, Write};
-use std::iter::{Product, Sum};
+use std::iter::Product;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate};
@@ -23,7 +23,7 @@ pub struct Pow2CyclotomicPolyRingNTT<BaseRing: Ring, const N: usize>(SVector<Bas
 impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N> {
     pub fn from_fn<F>(mut f: F) -> Self
         where F: FnMut(usize) -> BaseRing {
-        Self { 0: SVector::<BaseRing, N>::from_fn(|i, j| f(i)) }
+        Self { 0: SVector::<BaseRing, N>::from_fn(|i, _| f(i)) }
     }
     pub fn from_value(v: BaseRing) -> Self {
         Self { 0: SVector::<BaseRing, N>::from_element(v) }

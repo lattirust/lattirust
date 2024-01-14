@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use ark_std::iterable::Iterable;
 use rayon::prelude::*;
 
 use crate::labrador::setup::CommonReferenceString;
@@ -11,7 +10,6 @@ use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorCh
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, WithLog2};
 use crate::nimue::arthur::LatticeArthur;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
@@ -30,16 +28,6 @@ struct ProverState<R: PolyRing> {
     beta: Option<Vector<R>>,
     phi__: Option<Vec<Vec<Vector<R>>>>,
     c: Option<Vec<R>>,
-}
-
-// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
-fn mul_scalar_vector<R: Ring>(s: R, A: &Vector<R>) -> Vector<R> {
-    A.map(|a_ij| s * a_ij)
-}
-
-// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
-fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
-    A.map(|a_ij| a_ij * s)
 }
 
 impl<R: PolyRing> ProverState<R> {

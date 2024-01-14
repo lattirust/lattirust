@@ -6,6 +6,7 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
 
 pub fn commit<R: Ring>(A: &Matrix<R>, s: &Vector<R>) -> Vector<R> {
@@ -28,6 +29,21 @@ pub fn inner_products_serial<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     G
 }
 
+// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
+pub fn mul_scalar_vector<R: Ring>(s: R, v: &Vector<R>) -> Vector<R> {
+    v * s
+    // v.map(|v_ij| s * v_ij)
+}
+
+pub fn mul_scalar_matrix<R: Ring>(s: R, A: &Matrix<R>) -> Matrix<R> {
+    A * s
+    // A.map(|a_ij| s * a_ij)
+}
+
+// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
+pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
+    A.map(|a_ij| a_ij * s)
+}
 
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
 #[inline(always)]
@@ -83,6 +99,7 @@ pub fn inner_products2<R: Ring>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<V
     )
 }
 
+#[cfg(test)]
 mod tests {
     use crate::lattice_arithmetic::matrix::sample_uniform_vec;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;

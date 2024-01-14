@@ -10,6 +10,7 @@ pub mod verifier;
 pub mod setup;
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 mod tests;
 pub mod prover_r1cs;
 pub mod witness;

@@ -15,4 +15,5 @@ pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
 pub fn prove_r1cs<R: PolyRing>(cs: ConstraintSystem<F64b>,crs: CommonReferenceString<R>) {
     assert_eq!(F64b::extension_degree(), 0);
     assert_eq!(F64b::characteristic(), [1, 1]);
+    todo!("{:?} {:?}", cs, crs);
 }

@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::WithLog2;

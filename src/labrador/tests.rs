@@ -90,5 +90,5 @@ fn test_verify() {
 
     let mut merlin = io.to_merlin(proof.unwrap());
     let result = verify_principal_relation(&mut merlin, instance.clone(), crs.clone());
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "{:?}", result);
 }

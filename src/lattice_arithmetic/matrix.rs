@@ -1,4 +1,4 @@
-#[allow(non_snake_case)]
+#![allow(non_snake_case)]
 use ark_std::rand::thread_rng;
 
 use crate::lattice_arithmetic::poly_ring::PolyRing;
@@ -76,6 +76,7 @@ pub fn norm_vec<R: PolyRing>(v: &Vector<R>) -> f64
 
 
 #[allow(non_snake_case)]
+#[cfg(test)]
 mod tests {
     use crate::lattice_arithmetic::ring::Zq;
 
