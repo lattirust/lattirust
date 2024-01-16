@@ -8,10 +8,60 @@ use rayon::iter::ParallelIterator;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
+use crate::nimue::serialization::ToBytes;
 
 pub fn commit<R: Ring>(A: &Matrix<R>, s: &Vector<R>) -> Vector<R> {
     //(A * s.into()).into::<Matrix<R>>()
     A * s
+}
+
+/// Split a vector of size n into ceil(n/new_len) vectors of size new_len
+pub fn chunk_pad<T: Ring>(v: &Vector<T>, chunk_size: usize) -> Vec<Vector<T>> {
+    let chunk_iter = v.data.as_slice().chunks_exact(chunk_size);
+    let remainder = chunk_iter.remainder();
+    let mut res = chunk_iter.map(|x| Vector::<T>::from_row_slice(x)).collect::<Vec<_>>();
+    // Pad last entry to chunk_size
+    let mut last = vec![T::zero(); chunk_size];
+    last[..remainder.len()].copy_from_slice(remainder);
+    res.push(Vector::<T>::from(last));
+    res
+}
+
+/// Split a vector of size n into m vectors of size ceil(n/m)
+pub fn split<T: Ring>(v: &Vector<T>, m: usize) -> Vec<Vector<T>> {
+    let mut res = Vec::<Vector<T>>::with_capacity(m);
+    let new_len = v.len().div_ceil(m);
+    let mut vals = v.data.as_slice().to_vec();
+    vals.resize(new_len * m, T::zero());
+    let vs = vals.as_slice();
+    for i in 0..m {
+        res.push(Vector::<T>::from_row_slice(&vs[i * new_len..(i + 1) * new_len]));
+    }
+    res
+}
+
+// TODO: implement all of these variants as a macro
+pub fn flatten_vec_vector<R: Ring>(v: &Vec<Vector<R>>) -> Vector<R> {
+    let mut res = Vec::<R>::with_capacity(v.len() * v[0].len());
+    for i in 0..v.len() {
+        res.extend(v[i].data.as_vec());
+    }
+    Vector::<R>::from_vec(res)
+}
+
+pub fn flatten_symmetric_matrix<R: Ring>(v: &Vec<Vec<R>>) -> Vector<R> {
+    Vector::<R>::from_vec(v.into_iter().flatten().cloned().collect())
+}
+
+pub fn concat<R: Ring>(vecs: &[Vector<R>]) -> Vector<R> {
+    let vals = vecs.into_iter().map(|v| v.data.as_vec()).cloned().flatten().collect::<Vec<R>>();
+    Vector::<R>::from_vec(vals)
+}
+
+pub fn shift_right<R: Ring>(v: &Vec<R>, shift: usize) -> Vec<R> {
+    let mut res = vec![R::zero(); shift];
+    res.extend(v);
+    res
 }
 
 pub fn inner_prod<R: Ring>(v: &Vector<R>, w: &Vector<R>) -> R {

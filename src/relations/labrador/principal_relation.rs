@@ -6,7 +6,10 @@ use crate::lattice_arithmetic::poly_ring::PolyRing;
 #[derive(Clone)]
 #[allow(non_snake_case)]
 pub struct QuadDotProdFunction<R: PolyRing> {
+    // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
+    // TODO: in the recursion, A is often 0. Make A an Option<_> instead?
     pub A: Matrix<R>,
+    // TODO: phi can be quite sparse, especially
     pub phi: Vec<Vector<R>>,
     pub b: R,
 }
@@ -57,9 +60,5 @@ impl<R: PolyRing> PrincipalRelation<R> {
             quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_constraints],
             ct_quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_ct_constraints],
         }
-    }
-
-    pub fn fold() -> PrincipalRelation<R> {
-        todo!("fold")
     }
 }

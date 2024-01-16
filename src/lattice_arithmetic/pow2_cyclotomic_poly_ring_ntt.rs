@@ -14,6 +14,7 @@ use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, Normed, WithConjugationAutomorphism, WithLog2};
 
@@ -357,6 +358,10 @@ impl<BaseRing: Ring, const N: usize> From<Vec<BaseRing>> for Pow2CyclotomicPolyR
     fn from(value: Vec<BaseRing>) -> Self {
         Self { 0: SVector::<BaseRing, N>::from_vec(value) }
     }
+}
+
+impl<BaseRing: Ring, const N: usize> From<BaseRing> for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
+    fn from(value: BaseRing) -> Self { Self::from_value(value) }
 }
 
 impl<BaseRing: Ring, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRingNTT<BaseRing, N> {

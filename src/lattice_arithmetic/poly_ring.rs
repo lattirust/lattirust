@@ -11,6 +11,7 @@ pub trait PolyRing: Ring
 + Normed<u64>
 + From<Vec<Self::BaseRing>>
 + WithConjugationAutomorphism
++ From<Self::BaseRing>
 {
     type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus;
     fn coeffs(&self) -> Vec<Self::BaseRing>;

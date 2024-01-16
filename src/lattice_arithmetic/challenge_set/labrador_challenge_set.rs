@@ -21,6 +21,16 @@ pub struct LabradorChallengeSet<R: PolyRing> {
 impl<R: PolyRing> LabradorChallengeSet<R> {
     pub type Ring = R;
     pub type BaseRing = R::BaseRing;
+
+    const NUM_ZEROS: usize = 23;
+    const NUM_PM_ONES: usize = 31;
+    const NUM_PM_TWOS: usize = 10;
+    const NUM_COEFFS: usize = Self::NUM_ZEROS + Self::NUM_PM_ONES + Self::NUM_PM_TWOS; // 64
+
+    // Return the variance of a the sum of the coefficients of a challenge polynomial
+    pub fn challenge_poly_sum_coeffs_variance() -> f64 {
+        Self::NUM_PM_ONES as f64 + 2. * Self::NUM_PM_TWOS as f64
+    }
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
@@ -57,12 +67,9 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
         assert!(bytes.len() >= Self::sample_byte_size());
         assert_eq!(N, 64); // The current implementation can easily be generalized to powers of 2, but this is not implemented yet
-        let _num_zeros = 23;
-        let num_pm_ones = 31;
-        let num_pm_twos = 10;
 
         // Sample 31 + 10 sign bits
-        let num_sign_bits: usize = num_pm_ones + num_pm_twos;
+        let num_sign_bits: usize = Self::NUM_PM_ONES + Self::NUM_PM_TWOS;
         let sign_bits_bytesize: usize = num_sign_bits.div_ceil(8);
         let mut sign_bits = bitter::LittleEndianReader::new(&bytes[0..sign_bits_bytesize]);
         let mut bytes = &bytes[sign_bits_bytesize..];

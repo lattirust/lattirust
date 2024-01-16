@@ -360,6 +360,11 @@ impl<BaseRing: Ring, const N: usize> From<Vec<BaseRing>> for Pow2CyclotomicPolyR
 }
 
 
+impl<BaseRing: Ring, const N: usize> From<BaseRing> for Pow2CyclotomicPolyRing<BaseRing, N> {
+    fn from(value: BaseRing) -> Self { Self::from_value(value) }
+}
+
+
 impl<BaseRing: Ring, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn sigma(&self) -> Self {
         let coeffs = self.0.as_slice();
