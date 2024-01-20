@@ -1,19 +1,18 @@
-
-
 use std::ops::Mul;
-use crate::lattice_arithmetic::matrix::Vector;
 
+use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::{IntegerDiv, Modulus, Normed, WithConjugationAutomorphism, WithLog2};
 
-pub trait PolyRing: Ring
+pub trait PolyRing:
+Ring
 + Mul<Self::BaseRing, Output=Self>
 + Normed<u64>
 + From<Vec<Self::BaseRing>>
 + WithConjugationAutomorphism
-+ From<Self::BaseRing>
++ From<Self::BaseRing> 
 {
-    type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus;
+    type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus + Into<i64>;
     fn coeffs(&self) -> Vec<Self::BaseRing>;
     fn flattened(vec: &Vector<Self>) -> Vector<Self::BaseRing> {
         Self::flattened_coeffs(vec).into()

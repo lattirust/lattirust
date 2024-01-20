@@ -8,7 +8,6 @@ use rayon::iter::ParallelIterator;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
-use crate::nimue::serialization::ToBytes;
 
 pub fn commit<R: Ring>(A: &Matrix<R>, s: &Vector<R>) -> Vector<R> {
     //(A * s.into()).into::<Matrix<R>>()
@@ -136,6 +135,34 @@ pub fn inner_products2<R: Ring>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<V
         ).collect::<VecDeque<_>>(),
         s.len(),
     )
+}
+
+pub fn l_inf_norm_vec<R: PolyRing>(v: &Vector<R>) -> u64
+{
+    R::flattened_coeffs(v).into_iter().map(|x| Into::<i64>::into(x).abs() as u64).max().unwrap()
+}
+
+pub fn l_inf_norm<R: PolyRing>(v: &R) -> u64
+{
+    v.coeffs().into_iter().map(|x| Into::<i64>::into(x).abs() as u64).max().unwrap()
+}
+
+// Compute sum_{i,j in [r]} A_ij * c_i * c_j
+pub fn linear_combination_symmetric_matrix<R: Ring>(A: &Vec<Vec<R>>, c: &Vec<R>) -> R {
+    let n = A.len();
+    debug_assert_eq!(c.len(), n);
+    let mut lc = R::zero();
+    for i in 0..n {
+        debug_assert_eq!(A[i].len(), i + 1);
+        for j in 0..i + 1 {
+            lc += A[i][j] * c[i] * c[j];
+        }
+        for j in i + 1..n {
+            // for j >= i+1, get A_ij from A_ji, since A is stored in lower triangular representation
+            lc += A[j][i] * c[i] * c[j];
+        }
+    }
+    lc
 }
 
 #[cfg(test)]

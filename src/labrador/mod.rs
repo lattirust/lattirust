@@ -16,4 +16,5 @@ pub mod prover_r1cs;
 pub mod witness;
 pub mod iopattern;
 pub mod util;
+pub mod shared;
 

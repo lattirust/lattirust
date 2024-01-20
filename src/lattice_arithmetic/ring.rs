@@ -181,12 +181,6 @@ impl<const Q: u64> From<Zq<Q>> for i64 {
     }
 }
 
-impl<const Q: u64> From<Zq<Q>> for i128 {
-    fn from(value: Zq<Q>) -> Self {
-        i64::from(value) as i128
-    }
-}
-
 
 #[delegate(self.0)]
 impl<const Q: u64> Zq<Q> {}

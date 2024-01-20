@@ -16,7 +16,9 @@ const Q: u64 = 4294967291;
 const D: usize = 64;
 // R1CS over Z_{2^D+1}
 
-const N: usize = 1;
+// Example parameters from Table 3 in the Labrador paper
+const N: usize = 325;
+const R: usize = 5;
 
 type R = Zq<Q>;
 
@@ -48,47 +50,45 @@ fn test_setup() {
 
 #[test]
 fn test_prove() {
-    let r = 3;
     let b = R::from(7u64);
     let num_r1cs_constraints: usize = 10;
     let num_r1cs_variables: usize = 8;
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let crs = setup::<PolyR>(r, N, D, beta, 10, 10, 10, b);
-    let instance = PrincipalRelation::<PolyR>::new_dummy(r, N, beta, 2, 3);
-    let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); r] };
+    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, b);
+    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, 2, 3);
+    let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); R] };
 
     let io = LatticeIOPattern::<PolyR, Keccak>::new("labrador")
         .labrador_statement()
         .ratchet()
         .labrador_io(&instance, &crs);
     let mut arthur = io.to_arthur();
-    let proof = prove_principal_relation(&mut arthur, instance, witness, crs);
+    let proof = prove_principal_relation(&mut arthur, &instance, &witness, &crs);
     assert!(proof.is_ok());
 }
 
 #[test]
 fn test_verify() {
-    let r = 3;
     let b = R::from(7u64);
     let num_r1cs_constraints: usize = 10;
     let num_r1cs_variables: usize = 8;
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let crs = setup::<PolyR>(r, N, D, beta, 10, 10, 10, b);
-    let instance = PrincipalRelation::<PolyR>::new_dummy(r, N, beta, 2, 3);
-    let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); r] };
+    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, b);
+    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, 2, 3);
+    let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); R] };
 
     let io = LatticeIOPattern::<PolyR, Keccak>::new("labrador")
         .labrador_statement()
         .ratchet()
         .labrador_io(&instance, &crs);
     let mut arthur = io.to_arthur();
-    let proof = prove_principal_relation(&mut arthur, instance.clone(), witness, crs.clone());
+    let proof = prove_principal_relation(&mut arthur, &instance, &witness, &crs);
 
     let mut merlin = io.to_merlin(proof.unwrap());
-    let result = verify_principal_relation(&mut merlin, instance.clone(), crs.clone());
+    let result = verify_principal_relation(&mut merlin, &instance, &crs);
     assert!(result.is_ok(), "{:?}", result);
 }

@@ -46,30 +46,27 @@ pub fn norm_sq_ringelem<R: Ring + Normed<u64>>(x: &R) -> u64 {
 }
 
 pub fn norm_sq_vec_basering<R: PolyRing>(v: &Vector<R::BaseRing>) -> u64
-    where i128: From<R::BaseRing>
 {
     let mut norm_sq: u128 = 0;
     for c in v.as_slice() {
-        norm_sq += (i128::from(*c) * i128::from(*c)) as u128;
+        let c_int: i64 = <<R as PolyRing>::BaseRing as Into<i64>>::into(*c);
+        norm_sq += (c_int * c_int) as u128;
     }
     norm_sq as u64
 }
 
 pub fn norm_vec_basering<R: PolyRing>(v: &Vector<R::BaseRing>) -> f64
-    where i128: From<R::BaseRing>
 {
     (norm_sq_vec_basering::<R>(v) as f64).sqrt()
 }
 
 
 pub fn norm_sq_vec<R: PolyRing>(v: &Vector<R>) -> u64
-    where i128: From<<R as PolyRing>::BaseRing>
 {
     norm_sq_vec_basering::<R>(&R::flattened(v))
 }
 
 pub fn norm_vec<R: PolyRing>(v: &Vector<R>) -> f64
-    where i128: From<<R as PolyRing>::BaseRing>
 {
     // TODO: check that this is indeed the norm as used in the paper
     (norm_sq_vec(v) as f64).sqrt()
