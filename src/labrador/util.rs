@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::collections::VecDeque;
+use nalgebra::Scalar;
 
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -52,7 +53,7 @@ pub fn flatten_symmetric_matrix<R: Ring>(v: &Vec<Vec<R>>) -> Vector<R> {
     Vector::<R>::from_vec(v.into_iter().flatten().cloned().collect())
 }
 
-pub fn concat<R: Ring>(vecs: &[Vector<R>]) -> Vector<R> {
+pub fn concat<R: Clone + Scalar>(vecs: &[&Vector<R>]) -> Vector<R> {
     let vals = vecs.into_iter().map(|v| v.data.as_vec()).cloned().flatten().collect::<Vec<R>>();
     Vector::<R>::from_vec(vals)
 }

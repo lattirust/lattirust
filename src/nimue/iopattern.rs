@@ -120,6 +120,10 @@ impl<R, H, U> LatticeIOPattern<R, H, U> where
     pub fn squeeze_matrices<T, A: FromRandomBytes<T>>(self, num_rows: usize, num_cols: usize, num_matrices: usize, label: &'static str) -> Self {
         self.challenge_bytes(num_matrices * num_rows * num_cols * A::byte_size(), label)
     }
+
+    pub fn squeeze_binary_matrix(self, num_rows: usize, num_cols: usize, label: &'static str) -> Self {
+        self.challenge_bytes((num_rows * num_cols).div_ceil(8), label)
+    }
 }
 
 

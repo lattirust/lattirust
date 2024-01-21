@@ -352,7 +352,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         let z_decomp = decompose_balanced_vec(&z, crs.decomposition_basis, Some(2usize));
         assert_eq!(z_decomp.len(), 2);
 
-        let v = concat(&[flatten_vec_vector(&t), flatten_symmetric_matrix(&G), flatten_symmetric_matrix(&H)]);
+        let v = concat(&[&flatten_vec_vector(&t), &flatten_symmetric_matrix(&G), &flatten_symmetric_matrix(&H)]);
         let z_0_split = crate::labrador::util::split(&z_decomp[0], nu);
         let z_1_split = crate::labrador::util::split(&z_decomp[1], nu);
         let v_split = crate::labrador::util::split(&v, mu);

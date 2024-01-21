@@ -10,7 +10,7 @@ Ring
 + Normed<u64>
 + From<Vec<Self::BaseRing>>
 + WithConjugationAutomorphism
-+ From<Self::BaseRing> 
++ From<Self::BaseRing>
 {
     type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus + Into<i64>;
     fn coeffs(&self) -> Vec<Self::BaseRing>;
@@ -20,4 +20,5 @@ Ring
     fn flattened_coeffs(vec: &Vector<Self>) -> Vec<Self::BaseRing> {
         vec.as_slice().into_iter().flat_map(|x| x.coeffs()).collect::<Vec<Self::BaseRing>>()
     }
+    fn dimension() -> usize;
 }

@@ -8,7 +8,7 @@ use nimue::hash::Unit;
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::Ring;
+use crate::lattice_arithmetic::ring::{Ring, Zq};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::iopattern::LatticeIOPattern;
 
@@ -123,5 +123,17 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
             }
         }
         Ok(vals)
+    }
+
+    pub fn squeeze_binary_matrix(&mut self, n_rows: usize, n_cols: usize) -> Result<Matrix<Zq<2>>, InvalidTag> {
+        let mut vals = Vec::<Zq<2>>::with_capacity(n_cols * n_rows);
+        let mut bytes = vec![0u8; (n_cols * n_rows).div_ceil(8)];
+        self.challenge(&mut bytes)?;
+
+        for i in 0..n_cols * n_rows {
+            vals.push(Zq::<2>::from(bytes[i / 8] >> (i % 8) & 1)); // TODO: check
+        }
+
+        Ok(Matrix::<Zq<2>>::from_vec(n_rows, n_cols, vals))
     }
 }

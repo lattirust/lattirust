@@ -1,5 +1,13 @@
 #[allow(non_snake_case)]
 pub mod common_reference_string;
+pub mod witness;
+pub mod iopattern;
+pub mod util;
+pub mod shared;
+
+#[allow(non_snake_case)]
+pub mod setup;
+
 #[allow(non_snake_case)]
 pub mod prover;
 
@@ -7,14 +15,6 @@ pub mod prover;
 pub mod verifier;
 
 #[allow(non_snake_case)]
-pub mod setup;
-
-#[allow(non_snake_case)]
 #[cfg(test)]
 mod tests;
-pub mod prover_r1cs;
-pub mod witness;
-pub mod iopattern;
-pub mod util;
-pub mod shared;
-
+mod binary_r1cs;

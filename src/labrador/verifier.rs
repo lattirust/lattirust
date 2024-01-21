@@ -218,7 +218,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     for k in 0..crs.num_aggregs {
         let mut rhs_k = omega[k].dot(&p);
         for l in 0..num_ct_constraints {
-            rhs_k += psi[k][l] * instance.ct_quad_dot_prod_funcs[l].b.coeffs()[0];
+            rhs_k += psi[k][l] * instance.ct_quad_dot_prod_funcs[l].b;
         }
         check_eq!(b__[k].coeffs()[0], rhs_k, "constant coeff of b''^(k) = {:?} is not equal to rhs = {:?}", b__[k].coeffs()[0], rhs_k);
     }

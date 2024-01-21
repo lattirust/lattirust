@@ -61,7 +61,6 @@ impl<BaseRing: Ring, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPol
     }
 }
 
-
 impl<BaseRing: Ring, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
         self.0.serialize(serializer)
@@ -73,7 +72,6 @@ impl<'a, BaseRing: Ring, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyR
         Ok(Self { 0: Deserialize::deserialize(deserializer)? })
     }
 }
-
 
 impl<BaseRing: Ring, const N: usize> CanonicalSerialize for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn serialize_with_mode<W: Write>(&self, writer: W, compress: Compress) -> Result<(), SerializationError> {
@@ -91,7 +89,6 @@ impl<BaseRing: Ring, const N: usize> CanonicalDeserialize for Pow2CyclotomicPoly
     }
 }
 
-
 impl<BaseRing: Ring, const N: usize> Default for Pow2CyclotomicPolyRing<BaseRing, N> {
     #[inline(always)]
     fn default() -> Self {
@@ -100,11 +97,8 @@ impl<BaseRing: Ring, const N: usize> Default for Pow2CyclotomicPolyRing<BaseRing
 }
 
 impl<BaseRing: Ring, const N: usize> Display for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        todo!()
-    }
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { std::fmt::Display::fmt(&self.0, f) }
 }
-
 
 impl<BaseRing: Ring, const N: usize> Zero for Pow2CyclotomicPolyRing<BaseRing, N> {
     #[inline(always)]
@@ -157,9 +151,7 @@ impl<BaseRing: Ring, const N: usize> PartialOrd<Self> for Pow2CyclotomicPolyRing
 impl<BaseRing: Ring, const N: usize> Neg<> for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
-    fn neg(self) -> Self::Output {
-        todo!()
-    }
+    fn neg(self) -> Self::Output { self.0.neg().into() }
 }
 
 impl<BaseRing: Ring, const N: usize> UniformRand for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -183,26 +175,6 @@ impl<BaseRing: Ring, const N: usize> CanonicalDeserializeWithFlags for Pow2Cyclo
         todo!()
     }
 }
-
-// impl<BaseRing: Ring, const N: usize> Sub<Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
-//     type Output = Self;
-//
-//     fn sub(self, rhs: Self) -> Self::Output {
-//         todo!()
-//     }
-// }
-
-// impl<BaseRing: Ring, const N: usize> AddAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-//     fn add_assign(&mut self, rhs: Self) {
-//         todo!()
-//     }
-// }
-
-// impl<BaseRing: Ring, const N: usize> SubAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-//     fn sub_assign(&mut self, rhs: Self) {
-//         todo!()
-//     }
-// }
 
 impl<BaseRing: Ring, const N: usize> MulAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn mul_assign(&mut self, rhs: Self) {
@@ -231,15 +203,11 @@ impl<'a, BaseRing: Ring, const N: usize> Mul<&'a Self, > for Pow2CyclotomicPolyR
 }
 
 impl<'a, BaseRing: Ring, const N: usize> AddAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn add_assign(&mut self, rhs: &'a Self) {
-        todo!()
-    }
+    fn add_assign(&mut self, rhs: &'a Self) { self.0.add_assign(&rhs.0) }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> SubAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn sub_assign(&mut self, rhs: &'a Self) {
-        todo!()
-    }
+    fn sub_assign(&mut self, rhs: &'a Self) { self.0.sub_assign(&rhs.0) }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> MulAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -251,17 +219,13 @@ impl<'a, BaseRing: Ring, const N: usize> MulAssign<&'a Self> for Pow2CyclotomicP
 impl<'a, BaseRing: Ring, const N: usize> Add<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
-    fn add(self, rhs: &'a mut Self) -> Self::Output {
-        todo!()
-    }
+    fn add(self, rhs: &'a mut Self) -> Self::Output { self.0.add(&rhs.0).into() }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> Sub<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
-    fn sub(self, rhs: &'a mut Self) -> Self::Output {
-        todo!()
-    }
+    fn sub(self, rhs: &'a mut Self) -> Self::Output { self.0.sub(&rhs.0).into() }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> Mul<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -274,13 +238,13 @@ impl<'a, BaseRing: Ring, const N: usize> Mul<&'a mut Self, > for Pow2CyclotomicP
 
 impl<'a, BaseRing: Ring, const N: usize> AddAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn add_assign(&mut self, rhs: &'a mut Self) {
-        todo!()
+        self.0.add_assign(&rhs.0).into()
     }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> SubAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn sub_assign(&mut self, rhs: &'a mut Self) {
-        todo!()
+        self.0.sub_assign(&rhs.0).into()
     }
 }
 
@@ -340,6 +304,7 @@ impl<BaseRing: Ring + IntegerDiv + WithLog2 + Modulus, const N: usize> PolyRing 
     fn coeffs(&self) -> Vec<Self::BaseRing> {
         self.0.iter().map(|v_i| BaseRing::from(*v_i)).collect()
     }
+    fn dimension() -> usize { N }
 }
 
 impl<BaseRing: Ring, const N: usize> Normed<u64> for Pow2CyclotomicPolyRing<BaseRing, N> where u64: From<BaseRing>, i64: From<BaseRing> {
@@ -359,11 +324,9 @@ impl<BaseRing: Ring, const N: usize> From<Vec<BaseRing>> for Pow2CyclotomicPolyR
     }
 }
 
-
 impl<BaseRing: Ring, const N: usize> From<BaseRing> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn from(value: BaseRing) -> Self { Self::from_value(value) }
 }
-
 
 impl<BaseRing: Ring, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn sigma(&self) -> Self {

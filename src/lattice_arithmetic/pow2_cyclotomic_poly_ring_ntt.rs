@@ -341,6 +341,7 @@ impl<BaseRing: Ring + IntegerDiv + WithLog2 + Modulus, const N: usize> PolyRing 
     fn coeffs(&self) -> Vec<Self::BaseRing> {
         self.0.iter().map(|v_i| BaseRing::from(*v_i)).collect()
     }
+    fn dimension() -> usize { N }
 }
 
 impl<BaseRing: Ring, const N: usize> Normed<u64> for Pow2CyclotomicPolyRingNTT<BaseRing, N> where i64: From<BaseRing> {
