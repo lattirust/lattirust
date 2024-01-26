@@ -111,10 +111,8 @@ pub fn recurse<R: PolyRing>(transcript: &BaseTranscript<R>) -> bool {
     let mu = 2;
     let nu = (2. * crs.n as f64 / m as f64).round() as usize;
 
-    // Recurse if n >> nu and m >> mu // TODO: select a recursion threshold with a bit more theoretical justification
-    // let n_next = max(crs.n.div_ceil(nu), m.div_ceil(mu));
-    // let m_next = (m as f64 / 2.).round() as usize;
-    return crs.n > 2 * nu && m > 2 * mu;
+    // Recurse if 2*n >> m // TODO: select a recursion threshold with a bit more theoretical justification
+    return 2 * 2 * crs.n > m;
 }
 
 pub fn next_norm_bound_sq<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
@@ -135,7 +133,7 @@ pub fn next_norm_bound<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
 
 pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_witness: bool) -> (PrincipalRelation<R>, CommonReferenceString<R>, Option<Witness<R>>) {
     assert!(recurse(transcript));
-    let crs = &transcript.crs;
+    let crs = transcript.crs;
 
     // Generate instance for next iteration of the protocol
     // Set nu, mu such that 2 * n_next ≈ m_next,

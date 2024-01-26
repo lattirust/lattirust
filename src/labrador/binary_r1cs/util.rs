@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use ark_ff::Field;
 use num_traits::{One, Zero};
 use crate::labrador::binary_r1cs::prover_binary_r1cs::{F2, Z2};
