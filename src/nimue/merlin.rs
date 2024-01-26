@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::Ring;
+use crate::lattice_arithmetic::ring::{Ring, Zq};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::iopattern::LatticeIOPattern;
 
@@ -161,5 +161,16 @@ impl<'a, H> LatticeMerlin<'a, H, u8>
             }
         }
         Ok(vals)
+    }
+
+    pub fn challenge_binary_matrix(&mut self, n_rows: usize, n_cols: usize) -> Result<Matrix<Zq<2>>, InvalidTag> {
+        let mut vals = Vec::<Zq<2>>::with_capacity(n_cols * n_rows);
+        let mut bytes = vec![0u8; (n_cols * n_rows).div_ceil(8)];
+        self.merlin.fill_challenges(&mut bytes)?;
+        for i in 0..n_cols * n_rows {
+            vals.push(Zq::<2>::from(bytes[i / 8] >> (i % 8) & 1)); // TODO: check
+        }
+
+        Ok(Matrix::<Zq<2>>::from_vec(n_rows, n_cols, vals))
     }
 }

@@ -257,7 +257,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
             phi[i] += &instance.quad_dot_prod_funcs[k].phi[i] * alpha[k];
         }
         for k in 0..crs.num_aggregs {
-            phi[i] += &phi__[i][k] * beta[k];
+            phi[i] += &phi__[k][i] * beta[k];
         }
     }
 
@@ -270,7 +270,7 @@ pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, mut in
 {
     // Init Fiat-Shamir transcript
     // TODO: add public statement
-    merlin.ratchet()?;
+    // merlin.ratchet()?;
 
     let mut transcript: BaseTranscript<R>;
     let mut instance = instance.to_owned();

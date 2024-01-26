@@ -1,7 +1,7 @@
 use nimue::DuplexHash;
 use nimue::hash::Unit;
 
-use crate::labrador::binary_r1cs::prover_binary_r1cs::{BinaryR1CSCRS, BinaryR1CSInstance};
+use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance};
 use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
