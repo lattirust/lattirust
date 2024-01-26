@@ -107,8 +107,14 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
 
 pub fn recurse<R: PolyRing>(transcript: &BaseTranscript<R>) -> bool {
     let crs = transcript.crs;
-    // TODO: what is the right criterion to end recursion?
-    return crs.r >= 4;
+    let m = crs.r * crs.t1 * crs.k + (crs.t1 + crs.t2) * (crs.r * (crs.r + 1)).div_ceil(2);
+    let mu = 2;
+    let nu = (2. * crs.n as f64 / m as f64).round() as usize;
+
+    // Recurse if n >> nu and m >> mu // TODO: select a recursion threshold with a bit more theoretical justification
+    // let n_next = max(crs.n.div_ceil(nu), m.div_ceil(mu));
+    // let m_next = (m as f64 / 2.).round() as usize;
+    return crs.n > 2 * nu && m > 2 * mu;
 }
 
 pub fn next_norm_bound_sq<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
@@ -116,7 +122,7 @@ pub fn next_norm_bound_sq<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
     let b_f = Into::<i64>::into(crs.decomposition_basis) as f64;
     let b_sq = b_f * b_f;
     let challenge_variance = LabradorChallengeSet::<R>::challenge_poly_sum_coeffs_variance();
-    let gamma_sq = crs.beta * challenge_variance.sqrt();
+    let gamma_sq = crs.norm_bound_squared * challenge_variance;
     let gamma_1_sq = (b_sq * crs.t1 as f64) / 12. * (crs.r * crs.k * crs.d) as f64 + (b_sq * crs.t2 as f64) / 12. * ((crs.r * (crs.r + 1)).div_ceil(2) * crs.d) as f64;
     let gamma_2_sq = (b_sq * crs.t1 as f64) / 12. * ((crs.r * (crs.r + 1)).div_ceil(2) * crs.d) as f64;
     let beta_next_sq: f64 = (2. / b_sq) * gamma_sq + gamma_1_sq * gamma_2_sq;
@@ -190,11 +196,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         assert_eq!(c_vec_split.len(), tau);
         phis_next[2 * nu..2 * nu + tau].clone_from_slice(c_vec_split.as_slice());
 
-        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R> {
-            A: Matrix::<R>::zeros(r_next, r_next),
-            phi: phis_next,
-            b: R::zero(),
-        });
+        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis_next, R::zero()));
     }
 
     // Constraints for <z, z> = sum_{i, j in [r]} g_ij c_i c_j
@@ -226,11 +228,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
     assert_eq!(c_prods_flat_split.len(), gamma);
     phis_next[2 * nu + tau - 1..2 * nu + tau - 1 + gamma].clone_from_slice(c_prods_flat_split.as_slice());
 
-    quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R> {
-        A,
-        phi: phis_next,
-        b: R::zero(),
-    });
+    quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(A, phis_next, R::zero()));
 
     // Constraints for sum_{i in [r]} <phi_i, z> c_i = sum_{i, j in [r]} h_ij c_i c_j
     let phi = transcript.phi.as_ref().expect("phi not available");
@@ -267,11 +265,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
     assert_eq!(c_prods_flat_split.len(), delta);
     phis_next[2 * nu + tau + gamma - 1..2 * nu + tau + gamma - 1 + delta].clone_from_slice(c_prods_flat_split.as_slice());
 
-    quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R> {
-        A: Matrix::<R>::zeros(r_next, r_next),
-        phi: phis_next,
-        b: R::zero(),
-    });
+    quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis_next, R::zero()));
 
     // Constraints for u_1
     let u_1 = transcript.u_1.as_ref().expect("u_1 not available");
@@ -300,11 +294,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         phis[2 * nu + tau - 1..2 * nu + tau - 1 + gamma].clone_from_slice(C_flat_split.as_slice());
 
 
-        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R> {
-            A: Matrix::<R>::zeros(r_next, r_next),
-            phi: phis,
-            b: u_1[l],
-        });
+        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis, u_1[l]));
     }
 
     // Constraints for u_2
@@ -325,25 +315,19 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         assert_eq!(D_flat_split.len(), delta);
         phis[2 * nu + tau + gamma - 1..2 * nu + tau + gamma - 1 + delta].clone_from_slice(D_flat_split.as_slice());
 
-        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R> {
-            A: Matrix::<R>::zeros(r_next, r_next),
-            phi: phis,
-            b: u_2[l],
-        });
+        quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis, u_2[l]));
     }
 
-    let beta_next = next_norm_bound(&transcript);
+    let next_norm_bound_squared = next_norm_bound_sq(&transcript);
 
+    let num_quad_constraints = quad_dot_prod_funcs_next.len();
     let instance_next = PrincipalRelation::<R> {
-        r: r_next,
-        n: n_next,
-        norm_bound: beta_next,
         quad_dot_prod_funcs: quad_dot_prod_funcs_next,
         ct_quad_dot_prod_funcs: vec![],
     };
 
     // TODO: check
-    let crs_next = CommonReferenceString::<R>::new(r_next, n_next, crs.d, beta_next, crs.k, crs.k1, crs.k2, crs.decomposition_basis);
+    let crs_next = CommonReferenceString::<R>::new(r_next, n_next, crs.d, next_norm_bound_squared, crs.k, crs.k1, crs.k2, num_quad_constraints, 0, crs.decomposition_basis);
 
     let compute_witness = false;
 

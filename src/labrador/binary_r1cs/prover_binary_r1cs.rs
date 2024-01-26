@@ -6,7 +6,6 @@ use ark_ff::fields::MontConfig;
 use ark_relations::r1cs::ConstraintSystem;
 use num_traits::{One, Zero};
 
-use crate::labrador::binary_r1cs::util::*;
 use crate::labrador::prover::prove_principal_relation;
 use crate::labrador::setup::CommonReferenceString;
 use crate::labrador::util::concat;
@@ -32,7 +31,11 @@ pub type Z2 = Zq<2>;
 
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
+    pub num_constraints: usize,
+    pub num_variables: usize,
+    pub m: usize,
 }
+
 
 impl<R: PolyRing> BinaryR1CSCRS<R> {
     pub fn new(num_constraints: usize, num_variables: usize) -> Self {
@@ -51,7 +54,27 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
 
         Self {
             A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d)),
+            num_constraints,
+            num_variables,
+            m,
         }
+    }
+
+    pub fn pr_crs(&self) -> CommonReferenceString<R> {
+        let d = R::dimension();
+        let r_pr: usize = 8;
+        let n_pr = self.num_variables.div_ceil(d);
+        let norm_bound = (R::BaseRing::modulus() as f64).sqrt();
+        let k = 10usize; //TODO ensure MSIS is hard for this k
+        let k1 = k; // TODO
+        let k2 = k; // TODO
+
+        let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
+        let num_constant_quad_constraints = 4 + 1 + SECPARAM;
+
+        let basis = R::BaseRing::from(3u128); // TODO
+
+        CommonReferenceString::<R>::new(r_pr, n_pr, R::dimension(), norm_bound, k, k1, k2, num_quad_constraints, num_constant_quad_constraints, basis)
     }
 }
 
@@ -115,7 +138,6 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 
     // TODO: add statement
-    arthur.ratchet()?;
 
     let a = A * w;
     let b = B * w;
@@ -156,14 +178,11 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
     let n_pr = n.div_ceil(d);
 
     // F_1 = {A_i * (a || b || c || w) = t_i}_{i in [m/d]}
-    let mut quad_dot_prod_funcs = Vec::<QuadDotProdFunction::<R>>::with_capacity(t.len());
+    let mut quad_dot_prod_funcs = Vec::<QuadDotProdFunction::<R>>::with_capacity(t.len() + 3 * n_pr);
     for i in 0..t.len() {
-        let phi = crs.A.row(i).transpose().as_slice().chunks(n_pr).map(|v| Vector::<R>::from_row_slice(v)).collect::<Vec<Vector<R>>>();
-        quad_dot_prod_funcs.push(QuadDotProdFunction::<R> {
-            A: Matrix::<R>::zeros(r_pr, r_pr),
-            phi,
-            b: t[i],
-        });
+        let mut phi = crs.A.row(i).transpose().as_slice().chunks(n_pr).map(|v| Vector::<R>::from_row_slice(v)).collect::<Vec<Vector<R>>>();
+        phi.append(&mut vec![Vector::<R>::zeros(n_pr); r_pr / 2]); // pad with zeros for "tilde witnesses"
+        quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_pr, r_pr), phi, t[i]));
     }
 
     // TODO: the paper claims that the following constraints should be expressd as a "constant" constraint, but I don't see how this is possible. Added as standard constraints instead
@@ -179,16 +198,12 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
             } else {
                 basis_vector(n_pr - i, n_pr)
             };
-            quad_dot_prod_funcs.push(QuadDotProdFunction::<R> {
-                A: Matrix::<R>::zeros(r_pr, r_pr),
-                phi: phis,
-                b: R::zero(),
-            });
+            quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_pr, r_pr), phis, R::zero()));
         }
     }
 
     // F_2
-    let mut ct_quad_dot_prod_funcs = Vec::<ConstantQuadDotProdFunction::<R>>::with_capacity(3 * k); // TODO
+    let mut ct_quad_dot_prod_funcs = Vec::<ConstantQuadDotProdFunction::<R>>::with_capacity(5 + SECPARAM);
     // <a, ã - 1> = 0 <=>
     // <a, ã> + <ã, a> - <2, a> = 0
     for (idx, tilde_idx) in [(a_idx, a_tilde_idx), (b_idx, b_tilde_idx), (c_idx, c_tilde_idx), (w_idx, w_tilde_idx)] {
@@ -196,12 +211,8 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
         A[(idx, tilde_idx)] = R::one();
         A[(tilde_idx, idx)] = R::one();
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
-        phi[idx] = Vector::<R>::from_element(n_pr, R::from(2u128));
-        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R> {
-            A,
-            phi,
-            b: R::BaseRing::zero(),
-        })
+        phi[idx] = Vector::<R>::from_element(n_pr, -R::from(2u128));
+        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(A, phi, R::BaseRing::zero()));
     }
 
     // <a + b - 2c, ã + ~b - 2~c - 1> = 0 <=>
@@ -232,11 +243,7 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
     phi[a_idx] = Vector::<R>::from_element(n_pr, min_two);
     phi[b_idx] = Vector::<R>::from_element(n_pr, min_two);
     phi[c_idx] = Vector::<R>::from_element(n_pr, R::from(4u128));
-    ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R> {
-        A,
-        phi,
-        b: R::BaseRing::zero(),
-    });
+    ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(A, phi, R::BaseRing::zero()));
 
     for i in 0..SECPARAM {
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
@@ -255,19 +262,11 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
         }
         phi[a_idx] = Vector::<R>::from_vec(phi_a_idx);
 
-        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R> {
-            A: Matrix::<R>::zeros(r_pr, r_pr),
-            phi,
-            b: g[i],
-        })
+        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_pr, r_pr), phi, g[i]));
     }
 
 
-    let norm_bound = (R::BaseRing::modulus() as f64).sqrt();
     let instance_pr = PrincipalRelation::<R> {
-        r: r_pr,
-        n: n_pr,
-        norm_bound,
         quad_dot_prod_funcs,
         ct_quad_dot_prod_funcs,
     };
@@ -276,20 +275,19 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: BinaryR1CSCRS<R>, arthur: &'a mut
         s: vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde] // see definition of indices above
     };
 
-    let basis = R::BaseRing::from(2u128);
-    let crs_pr = CommonReferenceString::<R>::new(r_pr, n_pr, R::dimension(), norm_bound, 0, 0, 0, basis);
-
-    prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs_pr)
+    arthur.ratchet()?;
+    prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.pr_crs())
 }
 
 #[cfg(test)]
 mod test {
     use nimue::hash::Keccak;
+
     use crate::labrador::iopattern::LabradorIOPattern;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::nimue::iopattern::LatticeIOPattern;
-    use super::*;
 
+    use super::*;
 
     const Q: u64 = 4294967291;
     // 2^32-5, prime
@@ -308,9 +306,16 @@ mod test {
         let instance = BinaryR1CSInstance { A, B, C };
         let witness = BinaryR1CSWitness { w: Vector::<Z2>::from_element(D, Z2::one()) };
 
+        let s = bincode::serialize(&crs.pr_crs()).unwrap().as_slice();
+
         let io = LatticeIOPattern::<R, Keccak>::new("labrador_binaryr1cs")
+            .labrador_binaryr1cs_io(&instance, &crs)
             .ratchet()
-            .labrador_binaryr1cs_io(&instance, &crs);
+            // .labrador_crs(&crs.pr_crs())
+            // .ratchet()
+            // .labrador_instance(&PrincipalRelation::<R>::new_empty(&crs.pr_crs()))
+            // .ratchet()
+            .labrador_io(&crs.pr_crs());
         let mut arthur = io.to_arthur();
         prove_binary_r1cs(crs, &mut arthur, &instance, &witness).unwrap();
     }

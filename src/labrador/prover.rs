@@ -35,7 +35,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
     fn witness(&self) -> &Witness<R> { &self.witness }
 
     fn prove_1(&mut self) {
-        let (witness, crs) = (&self.witness, &self.crs());
+        let (witness, crs) = (self.witness, self.crs());
         let t: Vec<Vector<R>> = witness.s.par_iter().map(
             |s_i| commit(&crs.A, s_i)
         ).collect();
@@ -83,7 +83,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
     }
 
     fn prove_3(&mut self) {
-        let (instance, witness, crs) = (&self.instance(), &self.witness(), &self.crs());
+        let (instance, witness, crs) = (self.instance(), self.witness(), &self.crs());
         let Pi = self.transcript.Pi.as_ref().expect("Pi not available");
         let psi = self.transcript.psi.as_ref().expect("psi not available");
         let omega = self.transcript.omega.as_ref().expect("omega not available");
@@ -184,16 +184,18 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     // Check dimensions and norms
-    debug_assert_eq!(witness.s.len(), crs.r);
-    for s_i in &witness.s {
-        debug_assert_eq!(s_i.len(), crs.n);
-    }
-    let sum_norm_sq: u64 = witness.s.iter().map(|s_i| norm_sq_vec(s_i)).sum();
-    debug_assert!(sum_norm_sq as f64 <= instance.norm_bound * instance.norm_bound);
+    debug_assert!(crs.is_wellformed_instance(&instance));
+    debug_assert!(crs.is_wellformed_witness(&witness));
+
+    // Check that the witness is valid for this instance
+    debug_assert!(instance.is_valid_witness(&witness));
 
     // Initialize Fiat-Shamir transcript
-    // TODO: add public statement
-    arthur.ratchet()?;
+    // TODO: add the following, but at the moment this causes a stack overflow somewhere in nimue/keccak
+    // arthur.absorb_crs(&crs)?;
+    // arthur.ratchet()?;
+    // arthur.absorb_instance(&instance)?;
+    // arthur.ratchet()?;
 
     // Prove
     let num_constraints = instance.quad_dot_prod_funcs.len();

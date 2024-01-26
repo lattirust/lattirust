@@ -2,11 +2,15 @@
 
 use ark_std::UniformRand;
 use rand::thread_rng;
+use serde::Serialize;
+use crate::labrador::prover::Witness;
+use crate::labrador::setup::CommonReferenceString;
+use crate::labrador::util::inner_products;
 
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat_symmetric, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
     // TODO: in the recursion, A is often 0. Make A an Option<_> instead?
@@ -14,93 +18,118 @@ pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: phi can be quite sparse
     pub phi: Vec<Vector<R>>,
     pub b: R,
+    _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
 }
 
 impl<R: PolyRing> QuadDotProdFunction<R> {
     pub fn new(A: Matrix<R>, phi: Vec<Vector<R>>, b: R) -> Self {
-        let r = A.nrows();
-        assert_eq!(r, A.ncols());
-        for i in 0..r {
-            for j in i..r {
-                assert_eq!(A.index((i, j)), A.index((j, i)));
-            }
-        }
+        let (r, n) = (A.nrows(), phi[0].len());
+        debug_assert_eq!(A.ncols(), r, "A should be square");
+        debug_assert_eq!(A.transpose(), A, "A should be symmetric");
 
-        assert_eq!(r, phi.len());
-        let n = phi[0].len();
-        for i in 1..r {
-            assert_eq!(n, phi[i].len());
-        }
-
-        Self { A, phi, b }
+        debug_assert_eq!(phi.len(), r, "phi should have the same length as the dimensions of A");
+        debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
+        Self { A, phi, b, _private: () }
     }
 
     pub fn new_dummy(r: usize, n: usize) -> Self {
         Self::new(sample_uniform_mat_symmetric(r, r), vec![sample_uniform_vec(n); r], R::rand(&mut thread_rng()))
     }
+
+    pub fn new_empty(r: usize, n: usize) -> Self {
+        Self::new(Matrix::<R>::zeros(r, r), vec![Vector::<R>::zeros(n); r], R::zero())
+    }
+
+    pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
+        let inner_prods = inner_products(&witness.s);
+
+        let mut res = R::zero();
+        let r = self.A.nrows();
+        for i in 0..r {
+            for j in 0..i + 1 {
+                res += self.A[(i, j)] * inner_prods[i][j];
+            }
+            for j in i + 1..r {
+                res += self.A[(i, j)] * inner_prods[j][i];
+            }
+        }
+
+        for i in 0..r {
+            res += self.phi[i].dot(&witness.s[i]);
+        }
+
+        res == self.b
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
     pub A: Matrix<R>,
     pub phi: Vec<Vector<R>>,
     pub b: R::BaseRing,
+    _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
 }
 
 impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
     pub fn new(A: Matrix<R>, phi: Vec<Vector<R>>, b: R::BaseRing) -> Self {
-        let r = A.nrows();
-        assert_eq!(r, A.ncols());
-        for i in 0..r {
-            for j in i..r {
-                assert_eq!(A.index((i, j)), A.index((j, i)));
-            }
-        }
+        let (r, n) = (A.nrows(), phi[0].len());
+        debug_assert_eq!(A.ncols(), r, "A should be square");
+        debug_assert_eq!(A.transpose(), A, "A should be symmetric");
 
-        assert_eq!(r, phi.len());
-        let n = phi[0].len();
-        for i in 1..r {
-            assert_eq!(n, phi[i].len());
-        }
-
-        Self { A, phi, b }
+        debug_assert_eq!(phi.len(), r, "phi should have the same length as the dimensions of A");
+        debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
+        Self { A, phi, b, _private: () }
     }
 
     pub fn new_dummy(r: usize, n: usize) -> Self {
         Self::new(sample_uniform_mat_symmetric(r, r), vec![sample_uniform_vec(n); r], R::BaseRing::rand(&mut thread_rng()))
     }
 
-    // /// Express the constraint s_i = sigma_{-1}(s_j) as
-    // pub fn from_automorphism_constraint(r: usize, n: usize, i: usize, j: usize) -> Vec<ConstantQuadDotProdFunction<R>> {
-    //
-    //     Self{
-    //         A: Matrix::<R>::zeros(r, r),
-    //         phi: vec![Vector::<R>::zeros(n); r],
-    //         b: R::BaseRing::zero(),
-    //     }
-    // }
+    pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
+        let inner_prods = inner_products(&witness.s);
+
+        let mut res = R::zero();
+        let r = self.A.nrows();
+        for i in 0..r {
+            for j in 0..i + 1 {
+                res += self.A[(i, j)] * inner_prods[i][j];
+            }
+            for j in i + 1..r {
+                res += self.A[(i, j)] * inner_prods[j][i];
+            }
+        }
+
+        for i in 0..r {
+            res += self.phi[i].dot(&witness.s[i]);
+        }
+
+        res.coeffs()[0] == self.b
+    }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct PrincipalRelation<R: PolyRing> {
-    pub r: usize,
-    // multiplicity
-    pub n: usize,
-    // rank
-    pub norm_bound: f64,
-    // beta
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,
 }
 
 impl<R: PolyRing> PrincipalRelation<R> {
+    pub fn new_empty(crs: &CommonReferenceString<R>) -> Self {
+        Self {
+            quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(crs.r, crs.n); crs.num_constraints],
+            ct_quad_dot_prod_funcs: vec![ConstantQuadDotProdFunction::new_dummy(crs.r, crs.n); crs.num_constraints],
+        }
+    }
+
     pub fn new_dummy(r: usize, n: usize, norm_bound: f64, num_constraints: usize, num_ct_constraints: usize) -> PrincipalRelation<R> {
         Self {
-            r,
-            n,
-            norm_bound,
             quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_constraints],
             ct_quad_dot_prod_funcs: vec![ConstantQuadDotProdFunction::new_dummy(r, n); num_ct_constraints],
         }
+    }
+
+    pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
+        self.quad_dot_prod_funcs.iter().all(|c| c.is_valid_witness(&witness)) &&
+            self.ct_quad_dot_prod_funcs.iter().all(|c| c.is_valid_witness(&witness))
     }
 }

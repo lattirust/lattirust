@@ -9,7 +9,7 @@ use crate::labrador::util::*;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_ringelem, norm_sq_vec, norm_vec_basering, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_ringelem, norm_sq_vec, norm_sq_vec_basering, norm_vec_basering, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
@@ -206,9 +206,9 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     let Pi = merlin.challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, n, r).expect("error extracting verifier message 1 from transcript");
 
     let p = merlin.next_vector::<R::BaseRing>(256).expect("error extracting prover message 2 from transcript");
-    let norm_p = norm_vec_basering::<R>(&p);
-    let p_norm_bound = 128f64.sqrt() * instance.norm_bound;
-    check!(norm_p <=p_norm_bound, "||p||_2 = {} is not <= sqrt(128)*beta = {}", norm_p, p_norm_bound);
+    let norm_p_sq = norm_sq_vec_basering::<R>(&p);
+    let p_norm_bound_sq = 128f64 * crs.norm_bound_squared;
+    check!(norm_p_sq <= p_norm_bound_sq.floor() as u64 , "||p||_2^2 = {} is not <= 128*beta^2 = {}", norm_p_sq, p_norm_bound_sq);
 
     let psi = merlin.challenge_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error extracting verifier message 2 (psi) from transcript");
     let omega = merlin.challenge_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error extracting verifier message 2 (omega) from transcript");

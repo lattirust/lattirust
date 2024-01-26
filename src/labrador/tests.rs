@@ -45,7 +45,7 @@ fn test_setup() {
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let _crs = setup::<PolyR>(10, N, D, beta, 10, 10, 10, b);
+    let _crs = setup::<PolyR>(10, N, D, beta, 10, 10, 10, 2, 3, b);
 }
 
 #[test]
@@ -53,17 +53,19 @@ fn test_prove() {
     let b = R::from(7u64);
     let num_r1cs_constraints: usize = 10;
     let num_r1cs_variables: usize = 8;
+    let num_quad_constraints: usize = 5; //TODO
+    let num_ct_quad_constraints: usize = 7; //TODO
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, b);
-    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, 2, 3);
+    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, num_quad_constraints, num_ct_quad_constraints, b);
+    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, num_quad_constraints, num_ct_quad_constraints);
     let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); R] };
 
     let io = LatticeIOPattern::<PolyR, Keccak>::new("labrador")
-        .labrador_statement()
+        .labrador_instance(&instance)
         .ratchet()
-        .labrador_io(&instance, &crs);
+        .labrador_io(&crs);
     let mut arthur = io.to_arthur();
     let proof = prove_principal_relation(&mut arthur, &instance, &witness, &crs);
     assert!(proof.is_ok());
@@ -74,17 +76,21 @@ fn test_verify() {
     let b = R::from(7u64);
     let num_r1cs_constraints: usize = 10;
     let num_r1cs_variables: usize = 8;
+    let num_quad_constraints: usize = 5; //TODO
+    let num_ct_quad_constraints: usize = 7; //TODO
 
     let beta = get_beta::<R>(num_r1cs_constraints, num_r1cs_variables, D);
 
-    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, b);
-    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, 2, 3);
+    let crs = setup::<PolyR>(R, N, D, beta, 10, 10, 10, num_quad_constraints, num_ct_quad_constraints, b);
+    let instance = PrincipalRelation::<PolyR>::new_dummy(R, N, beta, num_quad_constraints, num_ct_quad_constraints);
     let witness = Witness::<PolyR> { s: vec![Vector::<PolyR>::zeros(N); R] };
 
     let io = LatticeIOPattern::<PolyR, Keccak>::new("labrador")
-        .labrador_statement()
+        .labrador_crs(&crs)
         .ratchet()
-        .labrador_io(&instance, &crs);
+        .labrador_instance(&instance)
+        .ratchet()
+        .labrador_io(&crs);
     let mut arthur = io.to_arthur();
     let proof = prove_principal_relation(&mut arthur, &instance, &witness, &crs);
 

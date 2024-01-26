@@ -1,20 +1,27 @@
 #![allow(non_snake_case)]
-use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, sample_uniform_vec, Vector};
+
+use serde::Serialize;
+
+use crate::labrador::prover::Witness;
+use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_vec, sample_uniform_mat, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::WithLog2;
+use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct CommonReferenceString<R: PolyRing> {
     pub r: usize,
     pub n: usize,
     pub d: usize,
-    pub beta: f64,
+    pub norm_bound_squared: f64,
     pub k: usize,
     pub k1: usize,
     pub k2: usize,
     pub t1: usize,
     pub t2: usize,
     pub num_aggregs: usize,
+    pub num_constraints: usize,
+    pub num_constant_constraints: usize,
     pub A: Matrix<R>,
     // k x n
     pub B: Vec<Vec<Matrix<R>>>,
@@ -27,7 +34,7 @@ pub struct CommonReferenceString<R: PolyRing> {
 }
 
 impl<R: PolyRing> CommonReferenceString<R> {
-    pub fn new(r: usize, n: usize, d: usize, beta: f64, k: usize, k1: usize, k2: usize, decomposition_basis: R::BaseRing) -> CommonReferenceString<R> {
+    pub fn new(r: usize, n: usize, d: usize, beta: f64, k: usize, k1: usize, k2: usize, num_constraints: usize, num_constant_constraints: usize, decomposition_basis: R::BaseRing) -> CommonReferenceString<R> {
         let log2_q: f64 = R::BaseRing::log2_q();
         let log2_b: f64 = R::BaseRing::log2(&decomposition_basis);
         let t1 = (log2_q / log2_b).round() as usize;
@@ -39,13 +46,15 @@ impl<R: PolyRing> CommonReferenceString<R> {
             r,
             n,
             d,
-            beta,
+            norm_bound_squared: beta,
             k,
             k1,
             k2,
             t1,
             t2,
             num_aggregs,
+            num_constraints,
+            num_constant_constraints,
             A: sample_uniform_mat(k, n),
             B: (0..r).map(
                 |_| (0..t1).map(
@@ -53,7 +62,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
                 ).collect()
             ).collect(),
             C: (0..r).map(
-                |i| (0..i+1).map(
+                |i| (0..i + 1).map(
                     |_|
                         (0..t2).map(
                             |_| sample_uniform_vec(k1)
@@ -61,7 +70,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
                 ).collect()
             ).collect(),
             D: (0..r).map(
-                |i| (0..i+1).map(
+                |i| (0..i + 1).map(
                     |_|
                         (0..t1).map(
                             |_| sample_uniform_vec(k2)
@@ -70,5 +79,26 @@ impl<R: PolyRing> CommonReferenceString<R> {
             ).collect(),
             decomposition_basis,
         }
+    }
+
+    pub fn is_wellformed_constraint(&self, c: &QuadDotProdFunction<R>) -> bool {
+        c.A.nrows() == self.r && c.A.ncols() == self.r && c.A.transpose() == c.A && c.phi.len() == self.r
+    }
+
+    pub fn is_wellformed_const_constraint(&self, c: &ConstantQuadDotProdFunction<R>) -> bool {
+        c.A.nrows() == self.r && c.A.ncols() == self.r && c.A.transpose() == c.A && c.phi.len() == self.r
+    }
+
+    pub fn is_wellformed_instance(&self, instance: &PrincipalRelation<R>) -> bool {
+        instance.quad_dot_prod_funcs.len() == self.num_constraints &&
+            instance.quad_dot_prod_funcs.iter().all(|c| self.is_wellformed_constraint(c)) &&
+            instance.ct_quad_dot_prod_funcs.len() == self.num_constant_constraints &&
+            instance.ct_quad_dot_prod_funcs.iter().all(|c| self.is_wellformed_const_constraint(c))
+    }
+
+    pub fn is_wellformed_witness(&self, witness: &Witness<R>) -> bool {
+        witness.s.len() == self.r &&
+            witness.s.iter().all(|s_i| s_i.len() == self.n) &&
+            witness.s.iter().map(|s_i| norm_sq_vec(s_i)).sum::<u64>() as f64 <= self.norm_bound_squared
     }
 }

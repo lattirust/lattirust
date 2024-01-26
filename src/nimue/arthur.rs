@@ -5,12 +5,14 @@ use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use delegate::delegate;
 use nimue::{Arthur, DefaultHash, DefaultRng, DuplexHash, InvalidTag};
 use nimue::hash::Unit;
+use crate::labrador::common_reference_string::CommonReferenceString;
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::{Ring, Zq};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::iopattern::LatticeIOPattern;
+use crate::relations::labrador::principal_relation::PrincipalRelation;
 
 pub struct LatticeArthur<PR, H = DefaultHash, R = DefaultRng, U = u8>
     where
@@ -58,6 +60,14 @@ impl<PR, H, R> LatticeArthur<PR, H, R, u8>
             Ok(bytes) => self.add(bytes.as_slice()),
             Err(e) => Err(InvalidTag::from(e.to_string()))
         }
+    }
+
+    pub fn absorb_crs(&mut self, crs: &CommonReferenceString<PR>) -> Result<(), InvalidTag> {
+        self.absorb(&crs)
+    }
+
+    pub fn absorb_instance(&mut self, instance: &PrincipalRelation<PR>) -> Result<(), InvalidTag> {
+        self.absorb(&instance)
     }
 
     pub fn absorb_vec<A: Ring>(&mut self, r: &Vec<A>) -> Result<(), InvalidTag> {

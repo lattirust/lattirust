@@ -45,7 +45,7 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
-    const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 32;
+    const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
     const OPERATOR_NORM_THRESHOLD: f64 = 15.;
 
