@@ -265,6 +265,8 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis_next, R::zero()));
 
+    // TODO: add constraints for sum_{i,j in [r]} a_ij * g_ij + sum_{i in [r]} h_ii = b
+
     // Constraints for u_1
     let u_1 = transcript.u_1.as_ref().expect("u_1 not available");
     for l in 0..crs.k1 {

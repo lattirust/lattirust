@@ -146,10 +146,14 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), I
     let mut a_g_h_lc = R::zero();
     let mut A = Matrix::<R>::zeros(r, r);
     for k in 0..K {
-        A += &instance.quad_dot_prod_funcs[k].A * alpha[k];
+        if let Some(ref A_k) = instance.quad_dot_prod_funcs[k].A {
+            A += A_k * alpha[k];
+        }
     }
     for k in 0..num_aggregs {
-        A += &instance.ct_quad_dot_prod_funcs[k].A * beta[k];
+        if let Some(ref A_k) = instance.quad_dot_prod_funcs[k].A {
+            A += A_k * beta[k];
+        }
     }
 
     for i in 0..r {
@@ -235,13 +239,6 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     let K = instance.quad_dot_prod_funcs.len();
     for k in 0..crs.num_aggregs {
         for i in 0..crs.r {
-            for j in 0..crs.r {
-                // Compute a''_{ij}^{(k)}
-                let mut a_ijk = R::zero();
-                for l in 0..K {
-                    a_ijk += instance.ct_quad_dot_prod_funcs[l].A[(i, j)] * psi[k][l];
-                }
-            }
             // Compute vec{phi}''_i^{(k)}
             for l in 0..K {
                 phi__[k][i] += mul_basescalar_vector(psi[k][l], &instance.ct_quad_dot_prod_funcs[l].phi[i]);

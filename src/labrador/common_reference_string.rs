@@ -82,11 +82,17 @@ impl<R: PolyRing> CommonReferenceString<R> {
     }
 
     pub fn is_wellformed_constraint(&self, c: &QuadDotProdFunction<R>) -> bool {
-        c.A.nrows() == self.r && c.A.ncols() == self.r && c.A.transpose() == c.A && c.phi.len() == self.r
+        match c.A {
+            Some(ref A) => A.nrows() == self.r && A.ncols() == self.r && A.transpose() == *A,
+            None => true,
+        }
     }
 
     pub fn is_wellformed_const_constraint(&self, c: &ConstantQuadDotProdFunction<R>) -> bool {
-        c.A.nrows() == self.r && c.A.ncols() == self.r && c.A.transpose() == c.A && c.phi.len() == self.r
+        match c.A {
+            Some(ref A) => A.nrows() == self.r && A.ncols() == self.r && A.transpose() == *A,
+            None => true,
+        }
     }
 
     pub fn is_wellformed_instance(&self, instance: &PrincipalRelation<R>) -> bool {

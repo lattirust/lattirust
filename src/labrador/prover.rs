@@ -106,7 +106,9 @@ impl<'a, R: PolyRing> Prover<'a, R> {
                     // Compute a''_{ij}^{(k)}
                     let mut a_ijk = R::zero();
                     for l in 0..instance.ct_quad_dot_prod_funcs.len() {
-                        a_ijk += instance.ct_quad_dot_prod_funcs[l].A[(i, j)] * psi[k][l];
+                        if let Some(A_l) = &instance.ct_quad_dot_prod_funcs[l].A {
+                            a_ijk += A_l[(i, j)] * psi[k][l];
+                        }
                     }
 
                     b__[k] += a_ijk * inner_prod(&witness.s[i], &witness.s[j]);

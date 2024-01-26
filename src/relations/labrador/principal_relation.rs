@@ -13,8 +13,7 @@ use crate::lattice_arithmetic::poly_ring::PolyRing;
 #[derive(Clone, Serialize)]
 pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
-    // TODO: in the recursion, A is often 0. Make A an Option<_> instead?
-    pub A: Matrix<R>,
+    pub A: Option<Matrix<R>>,
     // TODO: phi can be quite sparse
     pub phi: Vec<Vector<R>>,
     pub b: R,
@@ -29,7 +28,13 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
 
         debug_assert_eq!(phi.len(), r, "phi should have the same length as the dimensions of A");
         debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
-        Self { A, phi, b, _private: () }
+        Self { A: Some(A), phi, b, _private: () }
+    }
+
+    pub fn new_linear(phi: Vec<Vector<R>>, b: R) -> Self {
+        let n = phi[0].len();
+        debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
+        Self { A: None, phi, b, _private: () }
     }
 
     pub fn new_dummy(r: usize, n: usize) -> Self {
@@ -44,17 +49,19 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
         let inner_prods = inner_products(&witness.s);
 
         let mut res = R::zero();
-        let r = self.A.nrows();
-        for i in 0..r {
-            for j in 0..i + 1 {
-                res += self.A[(i, j)] * inner_prods[i][j];
-            }
-            for j in i + 1..r {
-                res += self.A[(i, j)] * inner_prods[j][i];
+        if let Some(A) = &self.A {
+            let r = A.nrows();
+            for i in 0..r {
+                for j in 0..i + 1 {
+                    res += A[(i, j)] * inner_prods[i][j];
+                }
+                for j in i + 1..r {
+                    res += A[(i, j)] * inner_prods[j][i];
+                }
             }
         }
 
-        for i in 0..r {
+        for i in 0..self.phi.len() {
             res += self.phi[i].dot(&witness.s[i]);
         }
 
@@ -64,7 +71,7 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
 
 #[derive(Clone, Serialize)]
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
-    pub A: Matrix<R>,
+    pub A: Option<Matrix<R>>,
     pub phi: Vec<Vector<R>>,
     pub b: R::BaseRing,
     _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
@@ -78,7 +85,13 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
 
         debug_assert_eq!(phi.len(), r, "phi should have the same length as the dimensions of A");
         debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
-        Self { A, phi, b, _private: () }
+        Self { A: Some(A), phi, b, _private: () }
+    }
+
+    pub fn new_linear(phi: Vec<Vector<R>>, b: R::BaseRing) -> Self {
+        let n = phi[0].len();
+        debug_assert!(phi.iter().all(|phi_i| phi_i.len() == n), "each phi_i should have the same length");
+        Self { A: None, phi, b, _private: () }
     }
 
     pub fn new_dummy(r: usize, n: usize) -> Self {
@@ -89,17 +102,19 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
         let inner_prods = inner_products(&witness.s);
 
         let mut res = R::zero();
-        let r = self.A.nrows();
-        for i in 0..r {
-            for j in 0..i + 1 {
-                res += self.A[(i, j)] * inner_prods[i][j];
-            }
-            for j in i + 1..r {
-                res += self.A[(i, j)] * inner_prods[j][i];
+        if let Some(A) = &self.A {
+            let r = A.nrows();
+            for i in 0..r {
+                for j in 0..i + 1 {
+                    res += A[(i, j)] * inner_prods[i][j];
+                }
+                for j in i + 1..r {
+                    res += A[(i, j)] * inner_prods[j][i];
+                }
             }
         }
 
-        for i in 0..r {
+        for i in 0..self.phi.len() {
             res += self.phi[i].dot(&witness.s[i]);
         }
 
