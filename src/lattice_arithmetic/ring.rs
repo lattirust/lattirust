@@ -97,6 +97,7 @@ pub trait Ring:
         self
     }
 
+    fn inverse(&self) -> Option<Self>;
 
     /// Returns `self^exp`, where `exp` is an integer represented with `u64` limbs,
     /// least significant limb first.
@@ -443,6 +444,10 @@ impl<const Q: u64> From<bool> for Zq<Q> {
 impl<const Q: u64> Ring for Zq<Q> {
     const ZERO: Self = Zq(Fq::new(BigInt::<1> { 0: [0u64] }));
     const ONE: Self = Zq(Fq::new(BigInt::<1> { 0: [1u64] }));
+
+    fn inverse(&self) -> Option<Self> {
+        self.0.inverse().map(|fq| fq.into())
+    }
 }
 
 impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {

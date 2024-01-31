@@ -44,6 +44,8 @@ const fn vec_from_element<BaseRing: Ring, const N: usize>(elem: BaseRing) -> SVe
 impl<BaseRing: Ring, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
     const ZERO: Self = Self { 0: vec_from_element(BaseRing::ZERO) };
     const ONE: Self = Self { 0: vec_from_element(BaseRing::ONE) };
+
+    fn inverse(&self) -> Option<Self> { None }
 }
 
 impl<BaseRing: Ring, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
