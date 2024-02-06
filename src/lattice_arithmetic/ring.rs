@@ -17,6 +17,7 @@ use num_traits::{One, Zero};
 use rand::Rng;
 use serde::{self, Deserialize, Serialize};
 use zeroize::Zeroize;
+use log::warn;
 
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, WithLog2};
 use crate::nimue::serialization::FromBytes;
@@ -453,13 +454,38 @@ impl<const Q: u64> Ring for Zq<Q> {
     }
 }
 
+const REJECTION_SAMPLING_LOG_FAILURE_PROBABILITY: i32 = -40;
+
+/// Return the number of repetitions of a standard rejection sampling modulo Q needed to achieve a failure probability of at most 2^REJECTION_SAMPLING_LOG_FAILURE_PROBABILITY
+pub const fn rejection_sampling_upper_bound<const Q: u64>() -> usize {
+    // Pr[failure] = (1-Q/P)^k, where P is the next power of 2 above Q, and k is the number of repetitions
+    // Pr[failure] <= t <=> k >= log(t) / log(1-Q/P) = log(t) / (log(P-Q) - log(P))
+    let q_pow2 = Q.next_power_of_two();
+    let min_log_diff = q_pow2.ilog2() - (q_pow2 - Q).ilog2();
+    // This roundabout way of computing k is needed to avoid floating point arithmetic in this const function, as well as int roundings
+    ((-REJECTION_SAMPLING_LOG_FAILURE_PROBABILITY) as u32).div_ceil(min_log_diff) as usize
+}
+
 impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
     fn byte_size() -> usize {
-        Fq::<Q>::MODULUS_BIT_SIZE.div_ceil(8) as usize
+        Fq::<Q>::MODULUS_BIT_SIZE.div_ceil(8) as usize * rejection_sampling_upper_bound::<Q>()
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        Fq::<Q>::from_random_bytes(bytes).map(|fq| fq.into())
+        if bytes.len() < Self::byte_size() {
+            warn!("Not enough bytes to create a Zq (q={}) element with failure probability <= 2^{}: {} bytes provided, at least {} needed", Q, REJECTION_SAMPLING_LOG_FAILURE_PROBABILITY, bytes.len(), Self::byte_size());
+        }
+        let mut idx = 0;
+        let fq_byte_size = Fq::<Q>::MODULUS_BIT_SIZE.div_ceil(8) as usize;
+        loop {
+            if idx + fq_byte_size > bytes.len() {
+                return None;
+            }
+            if let Some(val) = Fq::<Q>::from_random_bytes(&bytes[idx..idx + fq_byte_size]) {
+                return Some(Self(val));
+            }
+            idx += fq_byte_size;
+        }
     }
 }
 
