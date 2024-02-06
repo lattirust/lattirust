@@ -169,16 +169,16 @@ pub fn linear_combination_symmetric_matrix<R: Ring>(A: &Vec<Vec<R>>, c: &Vec<R>)
 #[cfg(test)]
 mod tests {
     use crate::lattice_arithmetic::matrix::sample_uniform_vec;
+    use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
     use crate::lattice_arithmetic::ring::Zq;
 
     use super::*;
 
-    const Q: u64 = 4294967291;
-    const D: usize = 64;
+    const Q: u64 = ntt_modulus::<64>(32);
 
-    type R = Zq<Q>;
-    type PR = Pow2CyclotomicPolyRing<R, D>;
+    type PR = Pow2CyclotomicPolyRingNTT<Q, 64>;
 
     #[test]
     fn test_lowertriang_vec() {

@@ -12,7 +12,7 @@ Ring
 + WithConjugationAutomorphism
 + From<Self::BaseRing>
 {
-    type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus + Into<i64>;
+    type BaseRing: Ring + IntegerDiv + WithLog2 + Modulus + Into<i64> + Into<u64>;
     fn coeffs(&self) -> Vec<Self::BaseRing>;
     fn flattened(vec: &Vector<Self>) -> Vector<Self::BaseRing> {
         Self::flattened_coeffs(vec).into()

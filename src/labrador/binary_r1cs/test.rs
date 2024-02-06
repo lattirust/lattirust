@@ -5,16 +5,15 @@ use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance, Bi
 use crate::labrador::binary_r1cs::verifier::verify_binary_r1cs;
 use crate::labrador::iopattern::LabradorIOPattern;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
-use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+use crate::lattice_arithmetic::ntt::ntt_modulus;
+use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 use crate::lattice_arithmetic::ring::Zq;
 use crate::nimue::iopattern::LatticeIOPattern;
 
-const Q: u64 = 4294967291;
-// 2^32-5, prime
+const Q: u64 = ntt_modulus::<64>(32);
 const D: usize = 64;
 
-type BR = Zq<Q>;
-type R = Pow2CyclotomicPolyRing<BR, D>;
+type R = Pow2CyclotomicPolyRingNTT<Q, 64>;
 
 #[test]
 #[allow(non_snake_case)]

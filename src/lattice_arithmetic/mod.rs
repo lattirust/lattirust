@@ -9,3 +9,4 @@ pub mod pow2_cyclotomic_poly_ring_ntt;
 pub mod traits;
 pub mod balanced_decomposition;
 pub mod challenge_set;
+pub mod ntt;

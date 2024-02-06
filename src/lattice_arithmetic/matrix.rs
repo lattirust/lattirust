@@ -36,7 +36,7 @@ pub fn sample_uniform_vec_bounded<R: PolyRing>(n: usize, beta: f64) -> Vector<R>
     let beta_sq = R::BaseRing::from((beta * beta).floor() as u128);
     sample_uniform_vec(n).map(|x_i: R| R::from(
         x_i.coeffs().iter().map(
-            |x_ij| x_ij.integer_div(beta_sq)
+            |x_ij| x_ij.integer_div(&beta_sq)
         ).collect::<Vec<R::BaseRing>>()
     ))
 }

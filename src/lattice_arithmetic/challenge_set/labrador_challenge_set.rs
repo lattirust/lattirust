@@ -22,9 +22,11 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     pub type Ring = R;
     pub type BaseRing = R::BaseRing;
 
+    #[allow(dead_code)]
     const NUM_ZEROS: usize = 23;
     const NUM_PM_ONES: usize = 31;
     const NUM_PM_TWOS: usize = 10;
+    #[allow(dead_code)]
     const NUM_COEFFS: usize = Self::NUM_ZEROS + Self::NUM_PM_ONES + Self::NUM_PM_TWOS; // 64
 
     // Return the variance of a the sum of the coefficients of a challenge polynomial
@@ -32,17 +34,6 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
         Self::NUM_PM_ONES as f64 + 2. * Self::NUM_PM_TWOS as f64
     }
 }
-
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
-    fn byte_size() -> usize { todo!() }
-
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
-        assert!(bytes.len() >= Self::byte_size());
-        todo!()
-    }
-}
-
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
@@ -119,7 +110,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
             }
             i += 1;
             if i == Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES {
-                panic!("Could not sample a challenge with operator norm < 15 after {} attempts", Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES);
+                panic!("Could not sample a challenge with operator norm < {} after {} attempts", Self::OPERATOR_NORM_THRESHOLD, Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES);
             }
         }
     }
@@ -189,12 +180,25 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {}
 
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
+    fn byte_size() -> usize {
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq::<Q>, N>>::byte_size()
+    }
+
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq::<Q>, N>>::from_random_bytes(bytes).map(|x| x.into())
+    }
+}
+
+impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}
+
 #[cfg(test)]
 mod tests {
     use ark_std::UniformRand;
     use rand::{Rng, thread_rng};
 
     use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+    use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::lattice_arithmetic::ring::Zq;
@@ -202,12 +206,12 @@ mod tests {
 
     use super::LabradorChallengeSet;
 
-    const Q: u64 = 4294967291;
+    const Q: u64 = ntt_modulus::<64>(32);
     const D: usize = 64;
 
     type R = Zq<Q>;
 
-    type PolyR = Pow2CyclotomicPolyRing<R, D>;
+    type PolyR = Pow2CyclotomicPolyRing<R, 64>;
     type LabCS = LabradorChallengeSet<PolyR>;
 
     const NUM_REPETITIONS: usize = 1000;

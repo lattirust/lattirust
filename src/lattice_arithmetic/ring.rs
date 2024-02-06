@@ -33,16 +33,16 @@ pub trait Ring:
 + Eq
 + Zero
 + One
-+ Ord
+// + Ord
 + Neg<Output=Self>
 + UniformRand
 //+ Zeroize
 + Sized
 + Hash
-+ CanonicalSerialize
-+ CanonicalSerializeWithFlags
-+ CanonicalDeserialize
-+ CanonicalDeserializeWithFlags
+// + CanonicalSerialize
+// + CanonicalSerializeWithFlags
+// + CanonicalDeserialize
+// + CanonicalDeserializeWithFlags
 + Add<Self, Output=Self>
 + Sub<Self, Output=Self>
 + Mul<Self, Output=Self>
@@ -76,6 +76,7 @@ pub trait Ring:
 + for<'a> Deserialize<'a>
 + FromRandomBytes<Self>
 + FromBytes
++ Modulus
 {
     /// The additive identity of the ring.
     const ZERO: Self;
@@ -153,9 +154,11 @@ pub struct Zq<const Q: u64>(
     Fq<Q>
 );
 
-impl<const Q: u64> Zq<Q> {
-    pub fn Q() -> Self { Self::from(Q) }
+pub const fn const_from<const Q: u64>(val: u64) -> Zq<Q> {
+    Zq(Fq::new(BigInt::<1> { 0: [val] }))
 }
+
+impl<const Q: u64> Zq<Q> {}
 
 impl<const Q: u64> From<Fq<Q>> for Zq<Q> {
     fn from(value: Fq<Q>) -> Self {
@@ -442,8 +445,8 @@ impl<const Q: u64> From<bool> for Zq<Q> {
 }
 
 impl<const Q: u64> Ring for Zq<Q> {
-    const ZERO: Self = Zq(Fq::new(BigInt::<1> { 0: [0u64] }));
-    const ONE: Self = Zq(Fq::new(BigInt::<1> { 0: [1u64] }));
+    const ZERO: Self = const_from(0);
+    const ONE: Self = const_from(1);
 
     fn inverse(&self) -> Option<Self> {
         self.0.inverse().map(|fq| fq.into())
@@ -452,7 +455,7 @@ impl<const Q: u64> Ring for Zq<Q> {
 
 impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
     fn byte_size() -> usize {
-        Fq::<Q>::MODULUS_BIT_SIZE as usize / 8
+        Fq::<Q>::MODULUS_BIT_SIZE.div_ceil(8) as usize
     }
 
     fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
@@ -461,12 +464,12 @@ impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
 }
 
 impl<const Q: u64> IntegerDiv for Zq<Q> {
-    fn integer_div(&self, rhs: Self) -> Self {
-        Zq::from(u64::from(*self).div_euclid(u64::from(rhs)))
+    fn integer_div(&self, rhs: &Self) -> Self {
+        Zq::from(u64::from(*self).div_euclid(u64::from(*rhs)))
     }
 
-    fn div_round(&self, rhs: Self) -> Self {
-        Zq::from(((u64::from(*self) as f64) / (u64::from(rhs) as f64)).round() as u64)
+    fn div_round(&self, rhs: &Self) -> Self {
+        Zq::from(((u64::from(*self) as f64) / (u64::from(*rhs) as f64)).round() as u64)
     }
 }
 
@@ -480,7 +483,7 @@ impl<const Q: u64> WithLog2 for Zq<Q> {
     }
 }
 
-impl<const Q: u64> Modulus for Zq<Q> {
+impl<const Q: u64> const Modulus for Zq<Q> {
     fn modulus() -> u64 {
         Q
     }

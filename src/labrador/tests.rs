@@ -1,20 +1,20 @@
 use nimue::hash::Keccak;
 
-use crate::lattice_arithmetic::matrix::Vector;
-use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::lattice_arithmetic::ring::{Ring, Zq};
-use crate::lattice_arithmetic::traits::Modulus;
-use crate::nimue::iopattern::LatticeIOPattern;
-use crate::relations::labrador::principal_relation::PrincipalRelation;
 use crate::labrador::iopattern::LabradorIOPattern;
 use crate::labrador::prover::{prove_principal_relation, Witness};
 use crate::labrador::setup::setup;
 use crate::labrador::verifier::verify_principal_relation;
+use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::ntt::ntt_modulus;
+use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::traits::Modulus;
+use crate::nimue::iopattern::LatticeIOPattern;
+use crate::relations::labrador::principal_relation::PrincipalRelation;
 
-const Q: u64 = 4294967291;
-// 2^32-5, prime
 const D: usize = 64;
 // R1CS over Z_{2^D+1}
+const Q: u64 = ntt_modulus::<{ 64 }>(32);
 
 // Example parameters from Table 3 in the Labrador paper
 const N: usize = 325;
@@ -22,7 +22,7 @@ const R: usize = 5;
 
 type R = Zq<Q>;
 
-type PolyR = Pow2CyclotomicPolyRing<R, D>;
+type PolyR = Pow2CyclotomicPolyRingNTT<Q, { 64 }>;
 
 fn get_beta<R: Ring + Modulus>(num_r1cs_constraints: usize, num_r1cs_variables: usize, d: usize) -> f64 {
     assert_eq!(d, 64); // Otherwise we need to recompute l correctly

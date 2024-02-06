@@ -40,26 +40,6 @@ impl<R: PolyRing> WeightedTernaryChallengeSet<R> {
     pub type BaseChallengeSet = WeightedTernaryChallengeSet<R::BaseRing>;
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {
-    fn byte_size() -> usize {
-        N * WeightedTernaryChallengeSet::<Zq<Q>>::byte_size()
-    }
-
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
-        // TODO FIXME: make sure this is in NTT form, it isn't right now
-        assert_eq!(bytes.len(), Self::byte_size());
-        let b = WeightedTernaryChallengeSet::<Zq<Q>>::byte_size();
-        Some(
-            Pow2CyclotomicPolyRingNTT::<Zq<Q>, N>::from_fn(|i|
-                WeightedTernaryChallengeSet::<Zq<Q>>::from_random_bytes(&bytes[i * b..(i + 1) * b]).unwrap()
-            )
-        )
-    }
-}
-
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Zq<Q>, N>> {}
-
-
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     fn byte_size() -> usize {
         N * WeightedTernaryChallengeSet::<Zq<Q>>::byte_size()
@@ -77,3 +57,16 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
 }
 
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {}
+
+
+impl<const Q: u64, const N: usize> WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
+    type NonNtt = WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>;
+}
+
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
+    fn byte_size() -> usize { Self::NonNtt::byte_size() }
+
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> { Self::NonNtt::from_random_bytes(bytes).map(|x| x.into()) }
+}
+
+impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}

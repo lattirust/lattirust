@@ -10,9 +10,9 @@ pub trait Normed<T> {
 
 pub trait IntegerDiv<Rhs = Self> {
     /// Divides `self` by `rhs`, returning the quotient.
-    fn integer_div(&self, rhs: Rhs) -> Self;
+    fn integer_div(&self, rhs: &Rhs) -> Self;
 
-    fn div_round(&self, rhs: Rhs) -> Self;
+    fn div_round(&self, rhs: &Rhs) -> Self;
 }
 
 pub trait WithLog2 {

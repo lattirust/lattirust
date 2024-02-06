@@ -42,6 +42,12 @@ const fn vec_from_element<BaseRing: Ring, const N: usize>(elem: BaseRing) -> SVe
     SVector::<BaseRing, N>::from_array_storage(ArrayStorage::<BaseRing, { N }, 1> { 0: [coeffs; 1] })
 }
 
+impl<BaseRing: Ring, const N: usize> Modulus for Pow2CyclotomicPolyRing<BaseRing, N> {
+    fn modulus() -> u64 {
+        BaseRing::modulus()
+    }
+}
+
 impl<BaseRing: Ring, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
     const ZERO: Self = Self { 0: vec_from_element(BaseRing::ZERO) };
     const ONE: Self = Self { 0: vec_from_element(BaseRing::ONE) };
@@ -72,22 +78,6 @@ impl<BaseRing: Ring, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRi
 impl<'a, BaseRing: Ring, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
         Ok(Self { 0: Deserialize::deserialize(deserializer)? })
-    }
-}
-
-impl<BaseRing: Ring, const N: usize> CanonicalSerialize for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn serialize_with_mode<W: Write>(&self, writer: W, compress: Compress) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size(&self, compress: Compress) -> usize {
-        self.0.map(|v_i| v_i.serialized_size(compress)).sum()
-    }
-}
-
-impl<BaseRing: Ring, const N: usize> CanonicalDeserialize for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn deserialize_with_mode<R: Read>(reader: R, compress: Compress, validate: Validate) -> Result<Self, SerializationError> {
-        todo!()
     }
 }
 
@@ -138,18 +128,6 @@ impl<BaseRing: Ring, const N: usize> Mul<Self, > for Pow2CyclotomicPolyRing<Base
     }
 }
 
-impl<BaseRing: Ring, const N: usize> Ord for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn cmp(&self, other: &Self) -> Ordering {
-        unimplemented!()
-    }
-}
-
-impl<BaseRing: Ring, const N: usize> PartialOrd<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.0.partial_cmp(&other.0)
-    }
-}
-
 impl<BaseRing: Ring, const N: usize> Neg<> for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
@@ -162,25 +140,9 @@ impl<BaseRing: Ring, const N: usize> UniformRand for Pow2CyclotomicPolyRing<Base
     }
 }
 
-impl<BaseRing: Ring, const N: usize> CanonicalSerializeWithFlags for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn serialize_with_flags<W: Write, F: Flags>(&self, writer: W, flags: F) -> Result<(), SerializationError> {
-        todo!()
-    }
-
-    fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
-    }
-}
-
-impl<BaseRing: Ring, const N: usize> CanonicalDeserializeWithFlags for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn deserialize_with_flags<R: Read, F: Flags>(reader: R) -> Result<(Self, F), SerializationError> {
-        todo!()
-    }
-}
-
 impl<BaseRing: Ring, const N: usize> MulAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn mul_assign(&mut self, rhs: Self) {
-        self.0.component_mul_assign(&rhs.0)
+        todo!()
     }
 }
 
@@ -200,7 +162,7 @@ impl<'a, BaseRing: Ring, const N: usize> Mul<&'a Self, > for Pow2CyclotomicPolyR
     type Output = Self;
 
     fn mul(self, rhs: &'a Self) -> Self::Output {
-        self.0.component_mul(&rhs.0).into()
+        self.mul(*rhs)
     }
 }
 

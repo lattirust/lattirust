@@ -25,7 +25,6 @@ use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction
 #[generator = "1"]
 pub struct F2Config;
 
-pub type F2 = Fp<MontBackend<F2Config, 1>, 1>;
 pub type Z2 = Zq<2>;
 
 pub struct BinaryR1CSCRS<R: PolyRing> {
@@ -91,17 +90,6 @@ pub struct R1CSWitness<R: Ring> {
 }
 
 pub type BinaryR1CSWitness = R1CSWitness<Z2>;
-
-pub fn ark_prove_binary_r1cs<R: PolyRing>(cs: ConstraintSystem<F2>, crs: CommonReferenceString<R>, arthur: &mut LatticeArthur<R>) {
-    let r1cs_mat = cs.to_matrices().unwrap();
-    let w = Vector::<F2>::from_vec([cs.instance_assignment, cs.witness_assignment].concat());
-    let k = cs.num_constraints;
-    let n = cs.num_instance_variables + cs.num_witness_variables;
-
-    // let A = to_sparse_matrix(&r1cs_mat.a);
-    // let B = to_sparse_matrix(&r1cs_mat.b);
-    // let C = to_sparse_matrix(&r1cs_mat.c);
-}
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, instance: &BinaryR1CSInstance, witness: &BinaryR1CSWitness) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
