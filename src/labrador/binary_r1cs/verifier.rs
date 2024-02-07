@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use nimue::InvalidTag;
+use nimue::ProofError;
 
 use crate::{check, check_eq};
 use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance};
@@ -12,7 +12,7 @@ use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
 
-pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Result<(), InvalidTag>
+pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     //TODO: add crs and statement to transcript

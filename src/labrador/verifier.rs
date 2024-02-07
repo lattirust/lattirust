@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use nimue::InvalidTag;
+use nimue::ProofError;
 use rayon::prelude::*;
 
 use crate::labrador::common_reference_string::CommonReferenceString;
@@ -20,14 +20,14 @@ macro_rules! check {
     ($ cond: expr) => {
         {
             if !($cond) {
-                return Err(InvalidTag::from("invalid proof"));
+                return Err(ProofError::InvalidProof);
             }
         }
     };
     ( $ cond : expr , $ ( $ arg : tt ) + ) => {
         {
             if !($cond) {
-                return Err(InvalidTag::from(format!("invalid proof: {}", format!($($arg)+))));
+                return Err(ProofError::InvalidProof);
             }
         }
     };
@@ -40,7 +40,7 @@ macro_rules! check_eq {
 }
 
 /// Verify the final dot product constraints and consolidated norm check, used in the last step of the recursion
-pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), InvalidTag> {
+pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), ProofError> {
     let (instance, crs) = (&transcript.instance, &transcript.crs);
     let (n, r, num_aggregs, K) = (crs.n, crs.r, crs.num_aggregs, instance.quad_dot_prod_funcs.len());
     let (z, t, c) = (transcript.z.as_ref().expect("z not available"), transcript.t.as_ref().expect("t not available"), transcript.c.as_ref().expect("c not available"));
@@ -198,7 +198,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), I
 }
 
 /// Verify consistency for one instance of the core Labrador protocol, used in each step of the recursion
-pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance: &'a PrincipalRelation<R>, merlin: &mut LatticeMerlin) -> Result<BaseTranscript<'a, R>, InvalidTag>
+pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance: &'a PrincipalRelation<R>, merlin: &mut LatticeMerlin) -> Result<BaseTranscript<'a, R>, ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     let (n, r) = (crs.n, crs.r);
@@ -262,7 +262,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
 }
 
 
-pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, mut instance: &PrincipalRelation<R>, mut crs: &CommonReferenceString<R>) -> Result<(), InvalidTag>
+pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, mut instance: &PrincipalRelation<R>, mut crs: &CommonReferenceString<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     // Init Fiat-Shamir transcript
