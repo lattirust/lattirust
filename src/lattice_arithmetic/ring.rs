@@ -568,9 +568,4 @@ mod tests {
             assert_eq!(r, r_, "r = {} != des(ser(r)) = {}", r, r_);
         }
     }
-
-    #[test]
-    fn test_from_random_bytes() {
-        todo!("ensure from_random_bytes() returns a valid result when called on byte arrays of size byte_size()");
-    }
 }

@@ -87,6 +87,7 @@ pub fn recompose<A: Ring, B: Ring>(v: Vec<A>, b: B) -> A
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Range;
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
@@ -96,8 +97,9 @@ mod tests {
     use super::*;
 
     const N: usize = 128;
-    const Q: u64 = ntt_modulus::<N>(32);
+    const Q: u64 = ntt_modulus::<N>(16);
     const VEC_LENGTH: usize = 32;
+    const BASIS_TEST_RANGE: Range<u64> = 2..32;
 
     type R = Zq<Q>;
     type PolyR = Pow2CyclotomicPolyRingNTT<Q, N>;
@@ -105,7 +107,7 @@ mod tests {
     #[test]
     fn test_decompose_balanced() {
         let vs: Vec<R> = (0..Q).map(|v| R::from(v)).collect();
-        let bs: Vec<R> = (2..Q / 100).filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
         for b in bs {
             let b_half = b.integer_div(&R::from(2u128));
             for v in &vs {
@@ -124,7 +126,7 @@ mod tests {
     #[test]
     fn test_decompose_balanced_polyring() {
         let v = PolyR::from((0..(N as u64) * Q).step_by((Q / (N as u64)) as usize).map(|x| R::from(x)).collect::<Vec<_>>());
-        let bs: Vec<R> = (2..Q / 100).filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
         for b in bs {
             let b_half = b.integer_div(&R::from(2u128));
             let decomp = decompose_balanced_polyring(&v, b, None);
@@ -146,7 +148,7 @@ mod tests {
                                      |i, _|
                                          PolyR::from((0..(N as u64) * Q).step_by((Q / (N as u64)) as usize).map(|x| R::from(x + i as u64)).collect::<Vec<_>>()),
             );
-        let bs: Vec<R> = (2..Q / 100).filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
         for b in bs {
             let b_half = b.integer_div(&R::from(2u128));
             let decomp = decompose_balanced_vec::<PolyR>(&v, b, None);

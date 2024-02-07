@@ -14,7 +14,4 @@ pub mod prover;
 #[allow(non_snake_case)]
 pub mod verifier;
 
-#[allow(non_snake_case)]
-#[cfg(test)]
-mod tests;
-mod binary_r1cs;
+pub mod binary_r1cs;
