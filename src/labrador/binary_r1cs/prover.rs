@@ -1,10 +1,7 @@
 #![allow(non_snake_case)]
 
 use anyhow::Error;
-use ark_ff::{Fp, MontBackend};
 use ark_ff::fields::MontConfig;
-use ark_relations::r1cs::ConstraintSystem;
-use num_traits::{One, Zero};
 
 use crate::labrador::binary_r1cs::util::*;
 use crate::labrador::prover::prove_principal_relation;
@@ -18,7 +15,6 @@ use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::{Ring, Zq};
 use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus};
 use crate::nimue::arthur::LatticeArthur;
-use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
 #[derive(MontConfig)]
 #[modulus = "2"]
@@ -83,6 +79,24 @@ pub struct R1CSInstance<R: Ring> {
     pub C: Matrix<R>,
 }
 
+impl<R: Ring> R1CSInstance<R> {
+    pub fn new(A: Matrix<R>, B: Matrix<R>, C: Matrix<R>) -> Self {
+        assert_eq!(A.nrows(), B.nrows(), "A and B must have the same number of rows");
+        assert_eq!(A.nrows(), C.nrows(), "A and C must have the same number of rows");
+        assert_eq!(A.ncols(), B.ncols(), "A and B must have the same number of columns");
+        assert_eq!(A.ncols(), C.ncols(), "A and C must have the same number of columns");
+        Self { A, B, C }
+    }
+
+    pub fn num_constraints(&self) -> usize {
+        self.A.nrows()
+    }
+
+    pub fn num_variables(&self) -> usize {
+        self.A.ncols()
+    }
+}
+
 pub type BinaryR1CSInstance = R1CSInstance<Z2>;
 
 pub struct R1CSWitness<R: Ring> {
@@ -97,7 +111,6 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     let (A, B, C) = (&instance.A, &instance.B, &instance.C);
     let w = &witness.w;
     let (k, n) = (A.nrows(), A.ncols());
-    let d = R::dimension();
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 
     // TODO: add statement

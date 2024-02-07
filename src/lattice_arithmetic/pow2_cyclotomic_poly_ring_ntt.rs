@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
-use std::iter::Product;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_serialize::{SerializationError, Valid};
@@ -34,7 +33,7 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
     }
 
     pub fn from_value(v: Zq<Q>) -> Self {
-        Self { 0: SVector::<Zq<Q>, N>::from_fn(|i, _| v) }
+        Self { 0: SVector::<Zq<Q>, N>::from_fn(|_i, _| v) }
     }
 }
 
@@ -53,7 +52,7 @@ impl<const Q: u64, const N: usize> Valid for Pow2CyclotomicPolyRingNTT<Q, N> {
 }
 
 const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
-    let mut coeffs = [elem; N];
+    let coeffs = [elem; N];
     SVector::<Zq<Q>, N>::from_array_storage(ArrayStorage::<Zq<Q>, { N }, 1> { 0: [coeffs; 1] })
 }
 
@@ -175,9 +174,7 @@ impl<'a, const Q: u64, const N: usize> SubAssign<&'a Self> for Pow2CyclotomicPol
 }
 
 impl<'a, const Q: u64, const N: usize> MulAssign<&'a Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn mul_assign(&mut self, rhs: &'a Self) {
-        todo!()
-    }
+    fn mul_assign(&mut self, rhs: &'a Self) { self.0.component_mul_assign(&rhs.0) }
 }
 
 impl<'a, const Q: u64, const N: usize> Add<&'a mut Self, > for Pow2CyclotomicPolyRingNTT<Q, N> {
@@ -195,9 +192,7 @@ impl<'a, const Q: u64, const N: usize> Sub<&'a mut Self, > for Pow2CyclotomicPol
 impl<'a, const Q: u64, const N: usize> Mul<&'a mut Self, > for Pow2CyclotomicPolyRingNTT<Q, N> {
     type Output = Self;
 
-    fn mul(self, rhs: &'a mut Self) -> Self::Output {
-        todo!()
-    }
+    fn mul(self, rhs: &'a mut Self) -> Self::Output { self.0.component_mul(&rhs.0).into() }
 }
 
 impl<'a, const Q: u64, const N: usize> AddAssign<&'a mut Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
@@ -213,21 +208,7 @@ impl<'a, const Q: u64, const N: usize> SubAssign<&'a mut Self> for Pow2Cyclotomi
 }
 
 impl<'a, const Q: u64, const N: usize> MulAssign<&'a mut Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn mul_assign(&mut self, rhs: &'a mut Self) {
-        todo!()
-    }
-}
-
-impl<const Q: u64, const N: usize> Product<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn product<I: Iterator<Item=Self>>(iter: I) -> Self {
-        todo!()
-    }
-}
-
-impl<'a, const Q: u64, const N: usize> Product<&'a Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn product<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
-        todo!()
-    }
+    fn mul_assign(&mut self, rhs: &'a mut Self) { self.0.component_mul_assign(&rhs.0) }
 }
 
 impl<const Q: u64, const N: usize> From<u128> for Pow2CyclotomicPolyRingNTT<Q, N> {

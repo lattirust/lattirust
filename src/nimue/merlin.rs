@@ -1,9 +1,8 @@
-
 use std::ops::Deref;
 
 use bincode;
 use delegate::delegate;
-use nimue::{ByteReader, DefaultHash, DuplexHash, IOPatternError, Merlin, UnitTranscript};
+use nimue::{DefaultHash, DuplexHash, IOPatternError, Merlin, UnitTranscript};
 use nimue::hash::Unit;
 use serde::{Deserialize, Serialize};
 

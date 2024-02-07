@@ -108,8 +108,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
 pub fn recurse<R: PolyRing>(transcript: &BaseTranscript<R>) -> bool {
     let crs = transcript.crs;
     let m = crs.r * crs.t1 * crs.k + (crs.t1 + crs.t2) * (crs.r * (crs.r + 1)).div_ceil(2);
-    let mu = 2;
-    let nu = (2. * crs.n as f64 / m as f64).round() as usize;
+    let _mu = 2;
+    let _nu = (2. * crs.n as f64 / m as f64).round() as usize;
 
     // Recurse if 2*n >> m // TODO: select a recursion threshold with a bit more theoretical justification
     return 2 * 2 * crs.n > m;
@@ -142,7 +142,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
     let mu = 2;
     let nu = (2. * crs.n as f64 / m as f64).round() as usize;
     let n_next = max(crs.n.div_ceil(nu), m.div_ceil(mu));
-    let m_next = (m as f64 / 2.).round() as usize;
+    let _m_next = (m as f64 / 2.).round() as usize;
     let r_next = 2 * nu + m;
 
 
@@ -328,8 +328,6 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     // TODO: check
     let crs_next = CommonReferenceString::<R>::new(r_next, n_next, crs.d, next_norm_bound_squared, crs.k, crs.k1, crs.k2, num_quad_constraints, 0, crs.decomposition_basis);
-
-    let compute_witness = false;
 
     let witness = if compute_witness {
         let (z, t, G, H) = (transcript.z.as_ref().unwrap(), transcript.t.as_ref().unwrap(), transcript.G.as_ref().unwrap(), transcript.H.as_ref().unwrap());

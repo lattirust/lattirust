@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 use std::collections::VecDeque;
-use nalgebra::Scalar;
 
+use nalgebra::Scalar;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
@@ -170,9 +170,7 @@ pub fn linear_combination_symmetric_matrix<R: Ring>(A: &Vec<Vec<R>>, c: &Vec<R>)
 mod tests {
     use crate::lattice_arithmetic::matrix::sample_uniform_vec;
     use crate::lattice_arithmetic::ntt::ntt_modulus;
-    use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-    use crate::lattice_arithmetic::ring::Zq;
 
     use super::*;
 

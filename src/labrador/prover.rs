@@ -9,7 +9,7 @@ pub use crate::labrador::witness::Witness;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::{norm_sq_vec, Vector};
+use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::arthur::LatticeArthur;

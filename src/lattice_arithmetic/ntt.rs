@@ -1,8 +1,5 @@
-use num_traits::Zero;
-
 use crate::lattice_arithmetic::ring::{const_from, Ring, Zq};
 use crate::lattice_arithmetic::traits::Modulus;
-
 
 /// Return q such that 2^(bit_size-1) <= q < 2^bit_size and q mod 2*N = 1
 pub const fn ntt_modulus<const N: usize>(bit_size: usize) -> u64 {

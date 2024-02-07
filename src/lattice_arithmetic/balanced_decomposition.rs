@@ -1,8 +1,8 @@
-use num_traits::{One, Zero};
+use num_traits::Zero;
 
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::IntegerDiv;
 
 /// Returns the decomposition of `v' in basis `b', where centered representatives are used, i.e.,
@@ -88,6 +88,7 @@ pub fn recompose<A: Ring, B: Ring>(v: Vec<A>, b: B) -> A
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
+
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;

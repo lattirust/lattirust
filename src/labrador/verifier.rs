@@ -9,7 +9,7 @@ use crate::labrador::util::*;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_ringelem, norm_sq_vec, norm_sq_vec_basering, norm_vec_basering, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_ringelem, norm_sq_vec, norm_sq_vec_basering, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
@@ -42,7 +42,7 @@ macro_rules! check_eq {
 /// Verify the final dot product constraints and consolidated norm check, used in the last step of the recursion
 pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), ProofError> {
     let (instance, crs) = (&transcript.instance, &transcript.crs);
-    let (n, r, num_aggregs, K) = (crs.n, crs.r, crs.num_aggregs, instance.quad_dot_prod_funcs.len());
+    let (r, num_aggregs, K) = (crs.r, crs.num_aggregs, instance.quad_dot_prod_funcs.len());
     let (z, t, c) = (transcript.z.as_ref().expect("z not available"), transcript.t.as_ref().expect("t not available"), transcript.c.as_ref().expect("c not available"));
     let G = transcript.G.as_ref().expect("G not available");
     let H = transcript.H.as_ref().expect("H not available");
@@ -262,7 +262,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
 }
 
 
-pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, mut instance: &PrincipalRelation<R>, mut crs: &CommonReferenceString<R>) -> Result<(), ProofError>
+pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &PrincipalRelation<R>, crs: &CommonReferenceString<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     // Init Fiat-Shamir transcript

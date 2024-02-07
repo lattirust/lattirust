@@ -1,11 +1,9 @@
-use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
-use std::io::{Read, Write};
 use std::iter::Product;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_serialize::{CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate};
+use ark_serialize::{SerializationError, Valid};
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
 use nalgebra::{ArrayStorage, SVector};
@@ -142,7 +140,8 @@ impl<BaseRing: Ring, const N: usize> UniformRand for Pow2CyclotomicPolyRing<Base
 
 impl<BaseRing: Ring, const N: usize> MulAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn mul_assign(&mut self, rhs: Self) {
-        todo!()
+        let out = self.mul(rhs);
+        self.0 = out.0;
     }
 }
 
@@ -176,7 +175,8 @@ impl<'a, BaseRing: Ring, const N: usize> SubAssign<&'a Self> for Pow2CyclotomicP
 
 impl<'a, BaseRing: Ring, const N: usize> MulAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn mul_assign(&mut self, rhs: &'a Self) {
-        todo!()
+        let out = self.mul(rhs);
+        self.0 = out.0;
     }
 }
 
@@ -196,7 +196,7 @@ impl<'a, BaseRing: Ring, const N: usize> Mul<&'a mut Self, > for Pow2CyclotomicP
     type Output = Self;
 
     fn mul(self, rhs: &'a mut Self) -> Self::Output {
-        todo!()
+        self.mul(*rhs)
     }
 }
 
@@ -214,19 +214,18 @@ impl<'a, BaseRing: Ring, const N: usize> SubAssign<&'a mut Self> for Pow2Cycloto
 
 impl<'a, BaseRing: Ring, const N: usize> MulAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn mul_assign(&mut self, rhs: &'a mut Self) {
-        todo!()
+        let out = self.mul(rhs);
+        self.0 = out.0;
     }
 }
 
 impl<BaseRing: Ring, const N: usize> Product<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn product<I: Iterator<Item=Self>>(iter: I) -> Self {
-        todo!()
-    }
+    fn product<I: Iterator<Item=Self>>(iter: I) -> Self { iter.fold(Self::one(), |a, b| a * b) }
 }
 
 impl<'a, BaseRing: Ring, const N: usize> Product<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn product<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
-        todo!()
+        iter.fold(Self::one(), |a, b| a * b)
     }
 }
 

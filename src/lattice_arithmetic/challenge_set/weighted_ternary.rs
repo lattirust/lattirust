@@ -59,14 +59,12 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {}
 
 
-impl<const Q: u64, const N: usize> WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
-    type NonNtt = WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>;
-}
+impl<const Q: u64, const N: usize> WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
-    fn byte_size() -> usize { Self::NonNtt::byte_size() }
+    fn byte_size() -> usize { Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size() }
 
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> { Self::NonNtt::from_random_bytes(bytes).map(|x| x.into()) }
+    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> { Pow2CyclotomicPolyRing::<Zq<Q>, N>::from_random_bytes(bytes).map(|x| x.into()) }
 }
 
 impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}

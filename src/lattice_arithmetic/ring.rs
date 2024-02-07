@@ -64,7 +64,7 @@ pub trait Ring:
 + for<'a> MulAssign<&'a mut Self>
 + Sum<Self>
 // + for<'a> Sum<&'a Self>
-+ Product<Self>
+// + Product<Self>
 // + for<'a> Product<&'a Self>
 + From<u128>
 + From<u64>
@@ -405,20 +405,16 @@ impl<'a, const Q: u64> Sum<Self> for Zq<Q> {
 
 impl<'a, const Q: u64> Sum<&'a Self> for Zq<Q> {
     fn sum<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
-        todo!()
+        Self(Sum::sum(iter.map(|x| x.0)))
     }
 }
 
 impl<const Q: u64> Product<Self> for Zq<Q> {
-    fn product<I: Iterator<Item=Self>>(iter: I) -> Self {
-        todo!()
-    }
+    fn product<I: Iterator<Item=Self>>(iter: I) -> Self { Self(Product::product(iter.map(|x| x.0))) }
 }
 
 impl<'a, const Q: u64> Product<&'a Self> for Zq<Q> {
-    fn product<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
-        todo!()
-    }
+    fn product<I: Iterator<Item=&'a Self>>(iter: I) -> Self { Self(Product::product(iter.map(|x| x.0))) }
 }
 
 impl<const Q: u64> From<u128> for Zq<Q> {

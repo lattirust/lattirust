@@ -136,7 +136,7 @@ impl<R: PolyRing> PrincipalRelation<R> {
         }
     }
 
-    pub fn new_dummy(r: usize, n: usize, norm_bound: f64, num_constraints: usize, num_ct_constraints: usize) -> PrincipalRelation<R> {
+    pub fn new_dummy(r: usize, n: usize, _norm_bound: f64, num_constraints: usize, num_ct_constraints: usize) -> PrincipalRelation<R> {
         Self {
             quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_constraints],
             ct_quad_dot_prod_funcs: vec![ConstantQuadDotProdFunction::new_dummy(r, n); num_ct_constraints],

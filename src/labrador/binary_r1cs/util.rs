@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
-use ark_ff::Field;
-use num_traits::{One, Zero};
+use num_traits::Zero;
 
 use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance, Z2};
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
@@ -10,20 +9,6 @@ use crate::lattice_arithmetic::ring::Ring;
 use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
 pub const SECPARAM: usize = 128;
-
-// fn inner_prod<F: Field>(row: &[(F, usize)], witness: &[F]) -> F {
-//     let mut acc = F::zero();
-//     for &(ref coeff, i) in row {
-//         acc += &(if coeff.is_one() { witness[i] } else { witness[i] * coeff });
-//     }
-//     acc
-// }
-
-// pub fn mul_sparse_mat_vec<R: Field>(matrix: &Vec<Vec<(R, usize)>>, vec: &Vec<R>) -> Vec<R> {
-//     ark_std::cfg_iter!(matrix)
-//         .map(|row| inner_prod(row, vec))
-//         .collect::<Vec<_>>()
-// }
 
 pub fn Z2_to_R_vec<R: Ring>(vec: &Vec<Z2>) -> Vec<R> {
     vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()
@@ -48,18 +33,6 @@ pub fn basis_vector<R: PolyRing>(i: usize, n: usize) -> Vector<R> {
     coeffs[i] = R::one();
     Vector::<R>::from_vec(coeffs)
 }
-
-// pub fn to_sparse_matrix(mat: &ark_relations::r1cs::Matrix<F2>) -> nalgebra_sparse::CsrMatrix<F2> {
-//     let mut coo_mat = nalgebra_sparse::CooMatrix::<F2>::new(mat.len(), mat[0].len());
-//     for (i, row) in mat.iter().enumerate() {
-//         for (coeff, j) in row.into_iter() {
-//             if !coeff.is_zero() {
-//                 coo_mat.push(i, *j, *coeff);
-//             }
-//         }
-//     }
-//     nalgebra_sparse::CsrMatrix::<F2>::from(&coo_mat)
-// }
 
 pub struct BinaryR1CSTranscript<R: PolyRing> {
     pub t: Vector<R>,
@@ -90,8 +63,7 @@ fn embed_Zqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
 }
 
 pub fn reduce<R: PolyRing>(crs: &BinaryR1CSCRS<R>, instance: &BinaryR1CSInstance, transcript: &BinaryR1CSTranscript<R>) -> PrincipalRelation<R> {
-    let (A, B, C) = (&instance.A, &instance.B, &instance.C);
-    let (k, n) = (A.nrows(), A.ncols());
+    let (k, n) = (instance.num_constraints(), instance.num_variables());
     let d = R::dimension();
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 
