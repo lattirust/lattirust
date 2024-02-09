@@ -1,8 +1,11 @@
 use std::fmt;
 use std::fmt::{Debug, Display};
-use crate::norms::Norm;
+use std::num::ParseFloatError;
+use std::str::FromStr;
+
 use crate::errors::LatticeEstimatorError;
-use crate::sage_util::sage_run;
+use crate::norms::Norm;
+use crate::sage_util::sagemath_eval;
 
 pub struct SIS {
     n: usize,
@@ -33,17 +36,19 @@ impl SIS {
         SIS { n, q: self.q, length_bound: self.length_bound, m: self.m, norm: self.norm }
     }
 
+    pub fn parse_f64(s: String) -> Result<f64, ParseFloatError> {
+        // The lattice-estimator prints estimates even with the lowest logging level, we only care about the last line of stdout
+        f64::from_str(&s.lines().last().unwrap())
+    }
+
     /// Return lambda such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
     /// Internally, this calls out to the lattice-estimator via a wrapper Python script.
     pub fn security_level(&self) -> f64 {
-        sage_run(|py| {
-            let sis = py.import("sis")?;
-            let security_level = match self.norm {
-                Norm::L2 => sis.getattr("security_level_l2")?,
-                Norm::Linf => sis.getattr("security_level_linf")?
-            };
-            security_level.call1((self.n, self.q, self.length_bound, self.m))?.extract()
-        }).unwrap()
+        let func = match self.norm {
+            Norm::L2 => "security_level_l2",
+            Norm::Linf => "security_level_linf"
+        };
+        sagemath_eval(format!("{}({}, {}, {}, {})", func, self.n, self.q, self.length_bound, self.m), SIS::parse_f64).unwrap()
     }
 
     /// Return the smallest m such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
@@ -87,6 +92,7 @@ mod test {
     fn test_sis_security_level_l2()
     {
         let lambda = FALCON512_UNF.security_level();
+        assert!(lambda >= 128.);
         println!("{FALCON512_UNF} -> lambda: {lambda}");
     }
 
@@ -94,6 +100,7 @@ mod test {
     fn test_sis_security_level_linf()
     {
         let lambda = DILITHIUM2_MSIS_WK_UNF.security_level();
+        assert!(lambda >= 128.);
         println!("{DILITHIUM2_MSIS_WK_UNF} -> lambda: {lambda}");
     }
 
@@ -104,7 +111,7 @@ mod test {
         let sis = FALCON512_UNF.with_n(n_opt);
         let lambda = sis.security_level();
         assert!(lambda >= 128.0);
-        println!("{FALCON512_UNF} -> lambda: {lambda}");
+        println!("{FALCON512_UNF} -> lambda: {}", FALCON512_UNF.security_level());
         println!("{sis} -> lambda: {lambda}");
     }
 
@@ -115,7 +122,7 @@ mod test {
         let sis = DILITHIUM2_MSIS_WK_UNF.with_n(n_opt);
         let lambda = sis.security_level();
         assert!(lambda >= 128.0);
-        println!("{DILITHIUM2_MSIS_WK_UNF} -> lambda: {lambda}");
+        println!("{DILITHIUM2_MSIS_WK_UNF} -> lambda: {}", DILITHIUM2_MSIS_WK_UNF.security_level());
         println!("{sis} -> lambda: {lambda}");
     }
 }

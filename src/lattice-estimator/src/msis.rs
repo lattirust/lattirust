@@ -7,12 +7,12 @@ use crate::sis::SIS;
 
 /// An MSIS instance is a matrix A in R_q^{m x n}, R_q = Z_q[X]/(X^d+1) such that A * s = 0 for some s in R_q^n with ||s||_norm <= length_bound.
 pub struct MSIS {
-    n: usize,
-    d: usize,
-    q: u64,
-    length_bound: f64,
-    m: usize,
-    norm: Norm,
+    pub n: usize,
+    pub d: usize,
+    pub q: u64,
+    pub length_bound: f64,
+    pub m: usize,
+    pub norm: Norm,
 }
 
 impl Display for MSIS {
