@@ -40,7 +40,6 @@ pub fn split<T: Ring>(v: &Vector<T>, m: usize) -> Vec<Vector<T>> {
     res
 }
 
-// TODO: implement all of these variants as a macro
 pub fn flatten_vec_vector<R: Ring>(v: &Vec<Vector<R>>) -> Vector<R> {
     let mut res = Vec::<R>::with_capacity(v.len() * v[0].len());
     for i in 0..v.len() {
@@ -79,7 +78,6 @@ pub fn inner_products_serial<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     G
 }
 
-// TODO: implement as Mul trait for Vector<R> once Vector is a struct a not a newtype anymore
 pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
     A.map(|a_ij| a_ij * s)
 }

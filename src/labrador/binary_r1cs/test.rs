@@ -1,7 +1,8 @@
 use nimue::hash::Keccak;
 use num_traits::One;
+use crate::labrador::binary_r1cs::prover::prove_binary_r1cs;
 
-use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance, BinaryR1CSWitness, prove_binary_r1cs, Z2};
+use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSInstance, BinaryR1CSWitness, Z2};
 use crate::labrador::binary_r1cs::verifier::verify_binary_r1cs;
 use crate::labrador::iopattern::LabradorIOPattern;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};

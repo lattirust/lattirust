@@ -3,10 +3,9 @@
 use std::cmp::max;
 
 use crate::labrador::prover::Witness;
-use crate::labrador::setup::CommonReferenceString;
+use crate::labrador::setup::{CommonReferenceString};
 use crate::labrador::util::{chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, shift_right};
 use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec;
-use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::relations::labrador::principal_relation::{PrincipalRelation, QuadDotProdFunction};
@@ -115,22 +114,6 @@ pub fn recurse<R: PolyRing>(transcript: &BaseTranscript<R>) -> bool {
     return 2 * 2 * crs.n > m;
 }
 
-pub fn next_norm_bound_sq<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
-    let crs = transcript.crs;
-    let b_f = Into::<i64>::into(crs.decomposition_basis) as f64;
-    let b_sq = b_f * b_f;
-    let challenge_variance = LabradorChallengeSet::<R>::challenge_poly_sum_coeffs_variance();
-    let gamma_sq = crs.norm_bound_squared * challenge_variance;
-    let gamma_1_sq = (b_sq * crs.t1 as f64) / 12. * (crs.r * crs.k * crs.d) as f64 + (b_sq * crs.t2 as f64) / 12. * ((crs.r * (crs.r + 1)).div_ceil(2) * crs.d) as f64;
-    let gamma_2_sq = (b_sq * crs.t1 as f64) / 12. * ((crs.r * (crs.r + 1)).div_ceil(2) * crs.d) as f64;
-    let beta_next_sq: f64 = (2. / b_sq) * gamma_sq + gamma_1_sq * gamma_2_sq;
-    beta_next_sq
-}
-
-pub fn next_norm_bound<R: PolyRing>(transcript: &BaseTranscript<R>) -> f64 {
-    next_norm_bound_sq(&transcript).sqrt()
-}
-
 pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_witness: bool) -> (PrincipalRelation<R>, CommonReferenceString<R>, Option<Witness<R>>) {
     assert!(recurse(transcript));
     let crs = transcript.crs;
@@ -167,7 +150,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     let c = transcript.c.as_ref().expect("c not available");
 
-    let b_ring = R::from(crs.decomposition_basis);
+    let b_ring = R::from(crs.decomposition_basis as u128);
     let mut b_pows = Vec::<R>::with_capacity(max(crs.t1, crs.t2));
     b_pows[0] = R::one();
     for i in 1..max(crs.t1, crs.t2) {
@@ -199,7 +182,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     // Constraints for <z, z> = sum_{i, j in [r]} g_ij c_i c_j
     let mut A = Matrix::<R>::zeros(r_next, r_next);
-    let b_sq = R::from(crs.decomposition_basis * crs.decomposition_basis);
+    let b_sq = R::from((crs.decomposition_basis * crs.decomposition_basis) as u128);
     for i in 0..r_next {
         A[(i, i)] = R::one();
         A[(i, i + nu)] = b_ring;
@@ -318,7 +301,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis, u_2[l]));
     }
 
-    let next_norm_bound_squared = next_norm_bound_sq(&transcript);
+    let next_norm_bound_squared = CommonReferenceString::<R>::next_norm_bound_sq(crs.r,crs.n, crs.norm_bound_squared, crs.k, crs.decomposition_basis);
 
     let num_quad_constraints = quad_dot_prod_funcs_next.len();
     let instance_next = PrincipalRelation::<R> {
@@ -326,8 +309,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         ct_quad_dot_prod_funcs: vec![],
     };
 
-    // TODO: check
-    let crs_next = CommonReferenceString::<R>::new(r_next, n_next, crs.d, next_norm_bound_squared, crs.k, crs.k1, crs.k2, num_quad_constraints, 0, crs.decomposition_basis);
+    let crs_next = CommonReferenceString::<R>::new(r_next, n_next, next_norm_bound_squared, num_quad_constraints, 0);
 
     let witness = if compute_witness {
         let (z, t, G, H) = (transcript.z.as_ref().unwrap(), transcript.t.as_ref().unwrap(), transcript.G.as_ref().unwrap(), transcript.H.as_ref().unwrap());

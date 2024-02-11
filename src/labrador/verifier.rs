@@ -4,7 +4,7 @@ use nimue::ProofError;
 use rayon::prelude::*;
 
 use crate::labrador::common_reference_string::CommonReferenceString;
-use crate::labrador::shared::{BaseTranscript, fold_instance, next_norm_bound_sq, recurse};
+use crate::labrador::shared::{BaseTranscript, fold_instance, recurse};
 use crate::labrador::util::*;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
@@ -49,7 +49,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 
     // Decompose z, t, G, H
     let mut sum_norm_sq = 0u64;
-    let decomposition_basis_u64 = Into::<i64>::into(crs.decomposition_basis) as u64;
+    let decomposition_basis_u64 = crs.decomposition_basis as u64;
 
     let z_decomp = decompose_balanced_vec(&z, crs.decomposition_basis, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
@@ -103,7 +103,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
     }
 
     // Consolidated norm check
-    let beta_prime_sq = next_norm_bound_sq(&transcript);
+    let beta_prime_sq = CommonReferenceString::<R>::next_norm_bound_sq(r, crs.n, crs.norm_bound_squared, crs.k, crs.decomposition_basis);
     check!(sum_norm_sq as f64 <= beta_prime_sq);
 
     // Check Az = c1 * t1 + ... + c_r * t_r
@@ -174,7 +174,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
         for k in 0..crs.t1 {
             t_g_lc += &crs.B[i][k] * &t_decomp[i][k];
         }
-        for j in 0..i + 1 { // TODO: or should we flip indices of G, since we're working with symmetric matrices?
+        for j in 0..i + 1 {
             for k in 0..crs.t2 {
                 t_g_lc += &crs.C[i][j][k] * G_decomp[i][j][k];
             }

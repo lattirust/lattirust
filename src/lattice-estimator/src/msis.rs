@@ -32,6 +32,10 @@ impl MSIS {
         MSIS { n, d: self.d, q: self.q, length_bound: self.length_bound, m: self.m, norm: self.norm }
     }
 
+    pub const fn with_length_bound(&self, length_bound: f64) -> Self {
+        MSIS { n: self.n, d: self.d, q: self.q, length_bound, m: self.m, norm: self.norm }
+    }
+
     pub fn to_sis(&self) -> SIS {
         SIS::new(self.n * self.d, self.q, self.length_bound, self.m * self.d, self.norm)
     }
@@ -63,5 +67,19 @@ impl MSIS {
         }
         assert_eq!(hi, lo);
         Ok(hi)
+    }
+
+    /// Return the smallest n such that MSIS_{n, d, q, length_bound(n), m} is 2^lambda-hard (for a given norm), where length_bound is a function of n.
+    pub fn find_optimal_n_dynamic<F>(&self, length_bound: F, lambda: usize) -> Result<usize, LatticeEstimatorError>
+        where F: Fn(usize) -> f64
+    {
+        // We can't assume that length_bound is monotonic, so we can't use binary search.
+        // Instead, exhaustively search powers of 2 until we find a suitable n.
+        // TODO: use a better search algorithm / return a more fine-grained result
+        let log2_m = self.m.ilog2();
+        let candidates = (1..log2_m).map(|i| 2usize.pow(i));
+        candidates.map(|n| self.with_n(n).with_length_bound(length_bound(n)))
+            .find(|sis| sis.security_level() >= lambda as f64)
+            .map(|sis| sis.n).ok_or(LatticeEstimatorError::from("no suitable n found".to_string()))
     }
 }

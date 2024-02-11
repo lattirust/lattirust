@@ -7,8 +7,9 @@ use crate::lattice_arithmetic::traits::IntegerDiv;
 
 /// Returns the decomposition of `v' in basis `b', where centered representatives are used, i.e.,
 /// v = \sum_i b^i v_i, with ||v_i||_\infty <= b/2.
-pub fn decompose_balanced<R: Ring + IntegerDiv + Into<u64>>(v: &R, b: &R, padding_size: Option<usize>) -> Vec<R>
+pub fn decompose_balanced<R: Ring + IntegerDiv + Into<u64>>(v: &R, b: usize, padding_size: Option<usize>) -> Vec<R>
 {
+    let b = &R::from(b as u128);
     assert!(!b.is_zero() && !b.is_one(), "cannot decompose in basis 0 or 1");
     let two = R::from(2u128);
 
@@ -43,9 +44,9 @@ pub fn decompose_balanced<R: Ring + IntegerDiv + Into<u64>>(v: &R, b: &R, paddin
     decomp_bal
 }
 
-pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: R::BaseRing, padding_size: Option<usize>) -> Vec<R>
+pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: usize, padding_size: Option<usize>) -> Vec<R>
 {
-    let mut decomp: Vec<Vec<R::BaseRing>> = v.coeffs().iter().map(|ring_elem| decompose_balanced(ring_elem, &b, padding_size)).collect(); // len(v) x decomp_size
+    let mut decomp: Vec<Vec<R::BaseRing>> = v.coeffs().iter().map(|ring_elem| decompose_balanced(ring_elem, b, padding_size)).collect(); // len(v) x decomp_size
     let rows = v.coeffs().len();
     let cols = decomp.iter().map(|d_i| d_i.len()).max().unwrap();
     // Pad each row to the same length `cols'
@@ -63,7 +64,7 @@ pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: R::BaseRing, padding_s
 }
 
 
-pub fn decompose_balanced_vec<R: PolyRing>(v: &Vector<R>, b: R::BaseRing, padding_size: Option<usize>) -> Vec<Vector<R>>
+pub fn decompose_balanced_vec<R: PolyRing>(v: &Vector<R>, b: usize, padding_size: Option<usize>) -> Vec<Vector<R>>
 {
     let mut decomp: Vec<Vec<R>> = v.as_slice().iter().map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size)).collect(); // len(v) x decomp_size
     let rows = v.len();
@@ -100,7 +101,7 @@ mod tests {
     const N: usize = 128;
     const Q: u64 = ntt_modulus::<N>(16);
     const VEC_LENGTH: usize = 32;
-    const BASIS_TEST_RANGE: Range<u64> = 2..32;
+    const BASIS_TEST_RANGE: Range<usize> = 2..32;
 
     type R = Zq<Q>;
     type PolyR = Pow2CyclotomicPolyRingNTT<Q, N>;
@@ -108,18 +109,18 @@ mod tests {
     #[test]
     fn test_decompose_balanced() {
         let vs: Vec<R> = (0..Q).map(|v| R::from(v)).collect();
-        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1);
         for b in bs {
-            let b_half = b.integer_div(&R::from(2u128));
+            let b_half = R::from(b as u128).integer_div(&R::from(2u128));
             for v in &vs {
-                let decomp = decompose_balanced(v, &b, None);
+                let decomp = decompose_balanced(v, b, None);
                 // assert ||v_i||_\infty <= b/2
                 for v_i in &decomp {
                     assert!(*v_i <= b_half || *v_i >= -b_half);
                 }
 
                 // assert v = \sum_i b^i v_i
-                assert_eq!(*v, recompose(decomp, b));
+                assert_eq!(*v, recompose(decomp, R::from(b as u128)));
             }
         }
     }
@@ -127,9 +128,9 @@ mod tests {
     #[test]
     fn test_decompose_balanced_polyring() {
         let v = PolyR::from((0..(N as u64) * Q).step_by((Q / (N as u64)) as usize).map(|x| R::from(x)).collect::<Vec<_>>());
-        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1);
         for b in bs {
-            let b_half = b.integer_div(&R::from(2u128));
+            let b_half = R::from(b as u128).integer_div(&R::from(2u128));
             let decomp = decompose_balanced_polyring(&v, b, None);
 
             for v_i in &decomp {
@@ -138,7 +139,7 @@ mod tests {
                 }
             }
 
-            assert_eq!(v, recompose(decomp, b));
+            assert_eq!(v, recompose(decomp, R::from(b as u128)));
         }
     }
 
@@ -149,9 +150,9 @@ mod tests {
                                      |i, _|
                                          PolyR::from((0..(N as u64) * Q).step_by((Q / (N as u64)) as usize).map(|x| R::from(x + i as u64)).collect::<Vec<_>>()),
             );
-        let bs: Vec<R> = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1).map(|b| R::from(b)).collect();
+        let bs = BASIS_TEST_RANGE.filter(|x| *x % 2 == 1);
         for b in bs {
-            let b_half = b.integer_div(&R::from(2u128));
+            let b_half = R::from(b as u128).integer_div(&R::from(2u128));
             let decomp = decompose_balanced_vec::<PolyR>(&v, b, None);
 
             for v_i in &decomp {
@@ -164,7 +165,7 @@ mod tests {
 
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
-                recomposed += v_i * PolyR::from_value(b.pow(&[i as u64]));
+                recomposed += v_i * PolyR::from_value(R::from(b as u128).pow(&[i as u64]));
             }
             assert_eq!(v, recomposed);
         }

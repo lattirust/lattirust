@@ -29,16 +29,16 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     #[allow(dead_code)]
     const NUM_COEFFS: usize = Self::NUM_ZEROS + Self::NUM_PM_ONES + Self::NUM_PM_TWOS; // 64
 
+    pub const OPERATOR_NORM_THRESHOLD: f64 = 15.;
+    pub const L2_NORM_SQUARED: f64 = (1 * Self::NUM_PM_ONES + 2 * 2 * Self::NUM_PM_TWOS) as f64; // 71
+
     // Return the variance of a the sum of the coefficients of a challenge polynomial
-    pub fn challenge_poly_sum_coeffs_variance() -> f64 {
-        Self::NUM_PM_ONES as f64 + 2. * Self::NUM_PM_TWOS as f64
-    }
+    pub const VARIANCE_SUM_COEFFS: f64 = (Self::NUM_PM_ONES + 2 * Self::NUM_PM_TWOS) as f64; // 51
 }
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
-    const OPERATOR_NORM_THRESHOLD: f64 = 15.;
 
     /// Returns an integer uniformly sampled from [0, p[ using rejection sampling, as well as the unused random bytes
     fn u8_from_random_bytes(p: u8, bytes: &[u8]) -> Option<(u8, &[u8])> {
@@ -224,7 +224,7 @@ mod tests {
 
         let c = LabCS::checked_coeffs_from_random_bytes(&bytes.as_slice());
         let op_norm = LabCS::operator_norm(&c);
-        assert!(op_norm < LabCS::OPERATOR_NORM_THRESHOLD, "||c||_op = {} is not < {}", op_norm, LabCS::OPERATOR_NORM_THRESHOLD);
+        assert!(op_norm <= LabCS::OPERATOR_NORM_THRESHOLD, "||c||_op = {} is not < {}", op_norm, LabCS::OPERATOR_NORM_THRESHOLD);
 
         let c_poly = PolyR::from_fn(|i| if c[i] >= 0 { R::from(c[i] as u32) } else { -R::from(-c[i] as u32) });
 
@@ -256,7 +256,7 @@ mod tests {
 
         // Check that the operator norm is less than the threshold
         let op_norm = LabCS::operator_norm(&c);
-        assert!(op_norm < LabCS::OPERATOR_NORM_THRESHOLD, "||c||_op = {} is not < {}", op_norm, LabCS::OPERATOR_NORM_THRESHOLD);
+        assert!(op_norm <= LabCS::OPERATOR_NORM_THRESHOLD, "||c||_op = {} is not < {}", op_norm, LabCS::OPERATOR_NORM_THRESHOLD);
 
         // Check that from_random_bytes() is consistent with check_coeffs_from_random_bytes()
         let c_poly = LabradorChallengeSet::<PolyR>::from_random_bytes(&bytes.as_slice()).unwrap();

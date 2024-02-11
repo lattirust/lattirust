@@ -1,14 +1,110 @@
 #![allow(non_snake_case)]
 
+use ark_ff::MontConfig;
 use num_traits::Zero;
 
-use crate::labrador::binary_r1cs::prover::{BinaryR1CSCRS, BinaryR1CSInstance, Z2};
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use lattice_estimator::msis::MSIS;
+use lattice_estimator::norms::Norm;
+
+use crate::labrador::common_reference_string::CommonReferenceString;
+use crate::labrador::r1cs::util::R1CSInstance;
+use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::Ring;
+use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::traits::Modulus;
 use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
 pub const SECPARAM: usize = 128;
+
+#[derive(MontConfig)]
+#[modulus = "2"]
+#[generator = "1"]
+pub struct F2Config;
+
+pub type Z2 = Zq<2>;
+
+pub struct BinaryR1CSCRS<R: PolyRing> {
+    pub A: Matrix<R>,
+    pub num_constraints: usize,
+    pub num_variables: usize,
+    pub m: usize,
+}
+
+
+impl<R: PolyRing> BinaryR1CSCRS<R> {
+    pub fn new(num_constraints: usize, num_variables: usize) -> Self {
+        let k = num_constraints;
+        let n = num_variables;
+        let d = R::dimension();
+        // TODO: pad instead
+        assert_eq!(k % d, 0, "number of constraints {} must be multiple of d = {}", k, d);
+        assert_eq!(n % d, 0, "number of variables {} must be multiple of d = {}", n, d);
+        // Ensure MSIS_{n=m, d=64, q, 1, m=2n+6k} is hard for the l_inf norm
+        let msis = MSIS {
+            n: 0, // dummy value, will be set later
+            d,
+            q: R::BaseRing::modulus(),
+            length_bound: 1.,
+            m: 2 * n + 6 * k,
+            norm: Norm::Linf,
+        };
+
+        let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal m for MSIS");
+        debug_assert!(msis.security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+
+        let q = R::BaseRing::modulus() as usize;
+        assert!(n + 3 * k < q, "n + 3k = {} must be less than q = {} for soundness", n + 3 * k, q);
+        assert!(6 * k < q, "6k = {} must be less than q = {} for soundness", 6 * k, q);
+        assert!(128 * (n + 3 * k) < 15 * q, "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core", n + 3 * k, 15 * q / 128,
+        );
+
+        Self {
+            A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d)),
+            num_constraints,
+            num_variables,
+            m,
+        }
+    }
+
+    pub fn pr_crs(&self) -> CommonReferenceString<R> {
+        let d = R::dimension();
+        let r_pr: usize = 8;
+        let n_pr = self.num_variables.div_ceil(d);
+        let norm_bound = (R::BaseRing::modulus() as f64).sqrt();
+
+        let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
+        let num_constant_quad_constraints = 4 + 1 + SECPARAM;
+
+        CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints)
+    }
+}
+
+impl<R: Ring> R1CSInstance<R> {
+    pub fn new(A: Matrix<R>, B: Matrix<R>, C: Matrix<R>) -> Self {
+        assert_eq!(A.nrows(), B.nrows(), "A and B must have the same number of rows");
+        assert_eq!(A.nrows(), C.nrows(), "A and C must have the same number of rows");
+        assert_eq!(A.ncols(), B.ncols(), "A and B must have the same number of columns");
+        assert_eq!(A.ncols(), C.ncols(), "A and C must have the same number of columns");
+        Self { A, B, C }
+    }
+
+    pub fn num_constraints(&self) -> usize {
+        self.A.nrows()
+    }
+
+    pub fn num_variables(&self) -> usize {
+        self.A.ncols()
+    }
+}
+
+pub type BinaryR1CSInstance = R1CSInstance<Z2>;
+
+pub struct R1CSWitness<R: Ring> {
+    pub w: Vector<R>,
+}
+
+pub type BinaryR1CSWitness = R1CSWitness<Z2>;
+
 
 pub fn Z2_to_R_vec<R: Ring>(vec: &Vec<Z2>) -> Vec<R> {
     vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()

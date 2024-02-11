@@ -36,6 +36,10 @@ impl SIS {
         SIS { n, q: self.q, length_bound: self.length_bound, m: self.m, norm: self.norm }
     }
 
+    pub const fn with_length_bound(&self, length_bound: f64) -> Self {
+        SIS { n: self.n, q: self.q, length_bound, m: self.m, norm: self.norm }
+    }
+
     pub fn parse_f64(s: String) -> Result<f64, ParseFloatError> {
         // The lattice-estimator prints estimates even with the lowest logging level, we only care about the last line of stdout
         f64::from_str(&s.lines().last().unwrap())
@@ -51,7 +55,7 @@ impl SIS {
         sagemath_eval(format!("{}({}, {}, {}, {})", func, self.n, self.q, self.length_bound, self.m), SIS::parse_f64).unwrap()
     }
 
-    /// Return the smallest m such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
+    /// Return the smallest n such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
     pub fn find_optimal_n(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
         let mut hi: usize = self.m; // (m as f64 / (q as f64).log2()).floor() as usize;
         let mut lo: usize = 1;
@@ -72,6 +76,20 @@ impl SIS {
         }
         assert_eq!(hi, lo);
         Ok(hi)
+    }
+
+    /// Return the smallest n such that SIS_{n, q, length_bound(n), m} is 2^lambda-hard (for a given norm), where length_bound is a function of n.
+    pub fn find_optimal_n_dynamic<F>(&self, length_bound: F, lambda: usize) -> Result<usize, LatticeEstimatorError>
+        where F: Fn(usize) -> f64
+    {
+        // We can't assume that length_bound is monotonic, so we can't use binary search.
+        // Instead, exhaustively search powers of 2 until we find a suitable n.
+        // TODO: use a better search algorithm / return a more fine-grained result
+        let log2_m = self.m.ilog2();
+        let candidates = (1..log2_m).map(|i| 2usize.pow(i));
+        candidates.map(|n| self.with_n(n).with_length_bound(length_bound(n)))
+            .find(|sis| sis.security_level() >= lambda as f64)
+            .map(|sis| sis.n).ok_or(LatticeEstimatorError::from("no suitable n found".to_string()))
     }
 }
 

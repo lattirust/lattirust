@@ -15,3 +15,4 @@ pub mod prover;
 pub mod verifier;
 
 pub mod binary_r1cs;
+mod r1cs;
