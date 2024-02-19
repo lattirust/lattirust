@@ -1,4 +1,5 @@
 #![feature(try_trait_v2)]
+#![feature(int_roundings)]
 
 pub mod sis;
 pub mod sage_util;

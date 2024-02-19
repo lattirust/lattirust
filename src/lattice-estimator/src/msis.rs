@@ -46,27 +46,30 @@ impl MSIS {
         self.to_sis().security_level()
     }
 
-    /// Return the smallest m such that MSIS_{n, d, q, length_bound, m} is 2^lambda-hard (for a given norm).
+    /// Return the smallest n such that MSIS_{n, d, q, length_bound, m} is 2^lambda-hard (for a given norm).
     pub fn find_optimal_n(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
-        let mut hi: usize = self.m; // (m as f64 / (q as f64).log2()).floor() as usize;
-        let mut lo: usize = 1;
+        let mut hi_sis: usize = self.to_sis().upper_bound_n();
+        let mut lo_sis: usize = 1;
 
-        let msis = self.with_n(hi);
+        // Make sure we have a valid initial interval
+        let msis = self.with_n(hi_sis.div_floor(self.d));
+
         let lambda_hi = msis.security_level();
         debug_assert!(lambda_hi >= lambda as f64, "{msis} has sec. param. {lambda_hi}  < target lambda = {lambda}");
-        // Loop invariant: SIS_{hi, q, length_bound, m} is 2^lambda_hi-hard with lambda_hi >= lambda
-        while hi > lo {
-            let mid = lo + (hi - lo) / 2;
-            let msis = self.with_n(mid);
+        // Loop invariant: SIS_{hi_sis * d, q, m*d, length_bound} is 2^lambda_hi-hard with lambda_hi >= lambda
+        while hi_sis > lo_sis {
+            let mid_sis = lo_sis + (hi_sis - lo_sis) / 2;
+            // Use closest multiple of d for the MSIS instance
+            let msis = self.with_n((mid_sis as f64 / self.d as f64).round() as usize);
             let mid_lambda = msis.security_level();
             if mid_lambda >= lambda as f64 { // Search for smaller n in [lo, mid]
-                hi = mid;
+                hi_sis = mid_sis;
             } else { // Search for smaller n in [mid+1, hi]
-                lo = mid + 1;
+                lo_sis = mid_sis + 1;
             }
         }
-        assert_eq!(hi, lo);
-        Ok(hi)
+        assert_eq!(hi_sis, lo_sis);
+        Ok(hi_sis)
     }
 
     /// Return the smallest n such that MSIS_{n, d, q, length_bound(n), m} is 2^lambda-hard (for a given norm), where length_bound is a function of n.
@@ -76,8 +79,8 @@ impl MSIS {
         // We can't assume that length_bound is monotonic, so we can't use binary search.
         // Instead, exhaustively search powers of 2 until we find a suitable n.
         // TODO: use a better search algorithm / return a more fine-grained result
-        let log2_m = self.m.ilog2();
-        let candidates = (1..log2_m).map(|i| 2usize.pow(i));
+        let hi = self.d * self.to_sis().upper_bound_n();
+        let candidates = (1..hi).map(|i| 2usize.pow(i as u32));
         candidates.map(|n| self.with_n(n).with_length_bound(length_bound(n)))
             .find(|sis| sis.security_level() >= lambda as f64)
             .map(|sis| sis.n).ok_or(LatticeEstimatorError::from("no suitable n found".to_string()))

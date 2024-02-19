@@ -55,9 +55,17 @@ impl SIS {
         sagemath_eval(format!("{}({}, {}, {}, {})", func, self.n, self.q, self.length_bound, self.m), SIS::parse_f64).unwrap()
     }
 
+    pub fn upper_bound_n(&self) -> usize {
+        let log_q = match self.norm {
+            Norm::L2 => (self.q as f64).log2(),
+            Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.)
+        };
+        (self.m as f64 / (2. * log_q)).ceil() as usize
+    }
+
     /// Return the smallest n such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
     pub fn find_optimal_n(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
-        let mut hi: usize = self.m; // (m as f64 / (q as f64).log2()).floor() as usize;
+        let mut hi: usize = self.upper_bound_n();
         let mut lo: usize = 1;
 
         let sis = self.with_n(hi);
