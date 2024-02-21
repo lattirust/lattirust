@@ -41,7 +41,7 @@ impl SIS {
     }
 
     pub fn parse_f64(s: String) -> Result<f64, ParseFloatError> {
-        // The lattice-estimator prints estimates even with the lowest logging level, we only care about the last line of stdout
+        // Both lattice-estimator and security-estimator logs some additional info, we only care about the last line of stdout
         f64::from_str(&s.lines().last().unwrap())
     }
 
@@ -49,18 +49,19 @@ impl SIS {
     /// Internally, this calls out to the lattice-estimator via a wrapper Python script.
     pub fn security_level(&self) -> f64 {
         let func = match self.norm {
-            Norm::L2 => "security_level_l2",
-            Norm::Linf => "security_level_linf"
+            Norm::L2 => "sis_security_level_l2",
+            Norm::Linf => "sis_security_level_linf"
         };
         sagemath_eval(format!("{}({}, {}, {}, {})", func, self.n, self.q, self.length_bound, self.m), SIS::parse_f64).unwrap()
     }
 
     pub fn upper_bound_n(&self) -> usize {
-        let log_q = match self.norm {
-            Norm::L2 => (self.q as f64).log2(),
-            Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.)
-        };
-        (self.m as f64 / (2. * log_q)).ceil() as usize
+        // let log_q = match self.norm {
+        //     Norm::L2 => (self.q as f64).log2(),
+        //     Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.)
+        // };
+        // (self.m as f64 / (2. * log_q)).ceil() as usize
+        self.m
     }
 
     /// Return the smallest n such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
@@ -110,9 +111,6 @@ mod test {
     // from lattice-estimator/schemes
     const FALCON512_UNF: SIS = SIS::new(512, 12289, 5833.9072, 1024, Norm::L2);
     const DILITHIUM2_MSIS_WK_UNF: SIS = SIS::new(1024, 8380417, 350209., 2304, Norm::Linf);
-
-
-    // TODO: this segfaults on some runs, probably because something at the pyo3 <> sagemath boundary breaks
 
     #[test]
     fn test_sis_security_level_l2()

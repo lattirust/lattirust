@@ -3,7 +3,7 @@
 use ark_ff::MontConfig;
 use num_traits::Zero;
 
-use lattice_estimator::msis::MSIS;
+use lattice_estimator::msis2::MSIS;
 use lattice_estimator::norms::Norm;
 
 use crate::labrador::common_reference_string::CommonReferenceString;
@@ -49,8 +49,10 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal m for MSIS");
+        let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
         debug_assert!(msis.security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+        // TODO: fix lattice-estimator to not chocke on inputs of this size
+        // let m: usize = 1;
 
         let q = R::BaseRing::modulus() as usize;
         assert!(n + 3 * k < q, "n + 3k = {} must be less than q = {} for soundness", n + 3 * k, q);

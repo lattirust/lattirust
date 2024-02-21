@@ -1,3 +1,6 @@
 [submodule "src/lattice-estimator/lattice-estimator"]
 	path = src/lattice-estimator/lattice-estimator
 	url = https://github.com/malb/lattice-estimator
+[submodule "src/lattice-estimator/security-estimates"]
+	path = src/lattice-estimator/security-estimates
+	url = git@github.com:pq-crystals/security-estimates.git

@@ -33,12 +33,6 @@ impl Display for SageMathError {
     }
 }
 
-// impl std::error::Error for SageMathError {
-//     fn description(&self) -> &str {
-//         &self.0
-//     }
-// }
-
 impl<E: std::error::Error> From<E> for SageMathError {
     fn from(err: E) -> Self {
         SageMathError(err.to_string())
@@ -54,10 +48,18 @@ pub(crate) fn sagemath_eval<F, T, E>(eval: String, parse: F) -> Result<T, SageMa
         .arg("--python")
         .arg("-c")
         .arg(
-            format!("import sys;sys.path.insert(0, '{}');sys.path.insert(0, '{}');from sis import *;print({})",
-                    root.join("lattice-estimator").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
-                    root.join("src").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
-                    eval)).output()?;
+            format!(
+                "import sys;\
+                sys.path.insert(0, '{}');\
+                sys.path.insert(0, '{}');\
+                sys.path.insert(0, '{}');\
+                from sis import *;\
+                from msis import *;\
+                print({})",
+                root.join("lattice-estimator").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
+                root.join("security-estimates").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
+                root.join("src").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
+                eval)).output()?;
     if !output.status.success() {
         return Err(SageMathError(format!("Command {} terminated with exit code {}:\n {}", eval, output.status, String::from_utf8(output.stderr)?)));
     }
