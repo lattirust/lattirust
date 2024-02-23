@@ -1,4 +1,4 @@
-use crate::lattice_arithmetic::ring::{const_from, Ring, Zq};
+use crate::lattice_arithmetic::ring::{const_from, Fq, Ring, Zq};
 use crate::lattice_arithmetic::traits::Modulus;
 
 /// Return q such that 2^(bit_size-1) <= q < 2^bit_size and q mod 2*N = 1
@@ -154,6 +154,8 @@ pub trait NTT<const Q: u64, const N: usize> {
             a[i] *= n_inv;
         }
     }
+
+    fn ntt_coeffs(&self) -> Vec<Fq::<Q>>;
 }
 
 #[cfg(test)]
@@ -171,7 +173,9 @@ mod tests {
 
     struct NttStruct {}
 
-    impl NTT<Q, N> for NttStruct {}
+    impl NTT<Q, N> for NttStruct {
+        fn ntt_coeffs(&self) -> Vec<Fq<Q>> { unimplemented!() }
+    }
 
     #[test]
     fn test_const_inv_mod() {

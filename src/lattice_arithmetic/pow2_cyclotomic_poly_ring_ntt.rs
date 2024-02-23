@@ -13,7 +13,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::lattice_arithmetic::ntt::NTT;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::ring::{Fq, Ring, Zq};
 use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, Normed, WithConjugationAutomorphism};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
@@ -37,7 +37,11 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
     }
 }
 
-impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT<Q, N> {}
+impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn ntt_coeffs(&self) -> Vec<Fq<Q>> {
+        self.coeffs().into_iter().map(|x| Into::into(x)).collect()
+    }
+}
 
 impl<const Q: u64, const N: usize> Modulus for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn modulus() -> u64 {

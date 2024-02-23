@@ -146,7 +146,7 @@ impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
     const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::zero()); // TODO
 }
 
-type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
+pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
 
 #[derive(Deref, DerefMut, Clone, Debug, Eq, PartialEq, Into, Mul, MulAssign, Neg, Zeroize)]
 #[derive(Serialize, Deserialize)]
