@@ -56,12 +56,11 @@ impl SIS {
     }
 
     pub fn upper_bound_n(&self) -> usize {
-        // let log_q = match self.norm {
-        //     Norm::L2 => (self.q as f64).log2(),
-        //     Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.)
-        // };
-        // (self.m as f64 / (2. * log_q)).ceil() as usize
-        self.m
+        let log_q = match self.norm {
+            Norm::L2 => (self.q as f64).log2(),
+            Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.)
+        };
+        (self.m as f64 / (2. * log_q)).ceil() as usize
     }
 
     /// Return the smallest n such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
