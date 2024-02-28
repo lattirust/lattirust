@@ -150,7 +150,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     let c = transcript.c.as_ref().expect("c not available");
 
-    let b_ring = R::from(crs.decomposition_basis as u128);
+    let b_ring = R::from(crs.b as u128);
     let mut b_pows = Vec::<R>::with_capacity(max(crs.t1, crs.t2));
     b_pows[0] = R::one();
     for i in 1..max(crs.t1, crs.t2) {
@@ -182,7 +182,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     // Constraints for <z, z> = sum_{i, j in [r]} g_ij c_i c_j
     let mut A = Matrix::<R>::zeros(r_next, r_next);
-    let b_sq = R::from((crs.decomposition_basis * crs.decomposition_basis) as u128);
+    let b_sq = R::from((crs.b * crs.b) as u128);
     for i in 0..r_next {
         A[(i, i)] = R::one();
         A[(i, i + nu)] = b_ring;
@@ -301,7 +301,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         quad_dot_prod_funcs_next.push(QuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_next, r_next), phis, u_2[l]));
     }
 
-    let next_norm_bound_squared = CommonReferenceString::<R>::next_norm_bound_sq(crs.r,crs.n, crs.norm_bound_squared, crs.k, crs.decomposition_basis);
+    let next_norm_bound_squared = CommonReferenceString::<R>::next_norm_bound_sq(crs.r,crs.n, crs.norm_bound_squared, crs.k, crs.b);
 
     let num_quad_constraints = quad_dot_prod_funcs_next.len();
     let instance_next = PrincipalRelation::<R> {
@@ -313,7 +313,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     let witness = if compute_witness {
         let (z, t, G, H) = (transcript.z.as_ref().unwrap(), transcript.t.as_ref().unwrap(), transcript.G.as_ref().unwrap(), transcript.H.as_ref().unwrap());
-        let z_decomp = decompose_balanced_vec(&z, crs.decomposition_basis, Some(2usize));
+        let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
         assert_eq!(z_decomp.len(), 2);
 
         let v = concat(&[&flatten_vec_vector(&t), &flatten_symmetric_matrix(&G), &flatten_symmetric_matrix(&H)]);

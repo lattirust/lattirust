@@ -39,13 +39,13 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         let t: Vec<Vector<R>> = witness.s.par_iter().map(
             |s_i| commit(&crs.A, s_i)
         ).collect();
-        let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.decomposition_basis, Some(crs.t1))).collect();
+        let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.b1, Some(crs.t1))).collect();
 
         let G = inner_products(&witness.s);
 
         let G_decomp: Vec<Vec<Vec<R>>> = G.par_iter().map(
             |G_i| G_i.par_iter().map(
-                |G_ij| decompose_balanced_polyring(G_ij, crs.decomposition_basis, Some(crs.t2))
+                |G_ij| decompose_balanced_polyring(G_ij, crs.b2, Some(crs.t2))
             ).collect()
         ).collect();
 
@@ -157,7 +157,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         let mut u_2 = Vector::<R>::zeros(crs.k2);
         for i in 0..crs.r {
             for j in 0..i + 1 {
-                let h_ij_decomp = decompose_balanced_polyring(&H[i][j], crs.decomposition_basis, Some(crs.t1));
+                let h_ij_decomp = decompose_balanced_polyring(&H[i][j], crs.b, Some(crs.t1));
                 for k in 0..crs.t1 {
                     u_2 += &crs.D[i][j][k] * h_ij_decomp[k];
                 }

@@ -1,7 +1,9 @@
+use log::{debug, error, info, warn};
 use nimue::hash::Keccak;
 use num_traits::One;
-use crate::labrador::binary_r1cs::prover::prove_binary_r1cs;
+use pretty_env_logger::env_logger;
 
+use crate::labrador::binary_r1cs::prover::prove_binary_r1cs;
 use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSInstance, BinaryR1CSWitness, Z2};
 use crate::labrador::binary_r1cs::verifier::verify_binary_r1cs;
 use crate::labrador::iopattern::LabradorIOPattern;
@@ -15,16 +17,23 @@ const D: usize = 64;
 
 type R = Pow2CyclotomicPolyRingNTT<Q, 64>;
 
+fn init() {
+    let _ = env_logger::builder().is_test(true).try_init();
+}
+
 #[test]
 #[allow(non_snake_case)]
 fn test_prove_binary_r1cs() {
-    let A = Matrix::<Z2>::identity(D, D);
-    let B = Matrix::<Z2>::identity(D, D);
-    let C = Matrix::<Z2>::identity(D, D);
+    init();
 
-    let crs = BinaryR1CSCRS::<R>::new(D, D);
+    let k = 1 * D;
+    let A = Matrix::<Z2>::identity(k, k);
+    let B = Matrix::<Z2>::identity(k, k);
+    let C = Matrix::<Z2>::identity(k, k);
+
+    let crs = BinaryR1CSCRS::<R>::new(k, k);
     let instance = BinaryR1CSInstance { A, B, C };
-    let witness = BinaryR1CSWitness { w: Vector::<Z2>::from_element(D, Z2::one()) };
+    let witness = BinaryR1CSWitness { w: Vector::<Z2>::from_element(k, Z2::one()) };
 
     let io = LatticeIOPattern::<R, Keccak>::new("labrador_binaryr1cs")
         .labrador_binaryr1cs_io(&instance, &crs)

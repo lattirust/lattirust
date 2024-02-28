@@ -7,7 +7,7 @@ use lattice_estimator::msis2::MSIS;
 use lattice_estimator::norms::Norm;
 
 use crate::labrador::common_reference_string::CommonReferenceString;
-use crate::labrador::r1cs::util::R1CSInstance;
+use crate::labrador::r1cs::util::{R1CSCRS, R1CSInstance};
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::{Ring, Zq};
@@ -50,7 +50,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         };
 
         let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
-        debug_assert!(msis.security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+        debug_assert!(msis.with_n(m).security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
         // TODO: fix lattice-estimator to not chocke on inputs of this size
         // let m: usize = 1;
 
@@ -107,6 +107,13 @@ pub struct R1CSWitness<R: Ring> {
 
 pub type BinaryR1CSWitness = R1CSWitness<Z2>;
 
+pub fn is_wellformed<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance, w: &BinaryR1CSWitness) -> bool {
+    return x.num_constraints() == crs.num_constraints && x.num_variables() == crs.num_variables && x.num_variables() == w.w.len();
+}
+
+pub fn is_satisfied<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance, w: &BinaryR1CSWitness) -> bool {
+    is_wellformed(crs, x, w) && (&x.A * &w.w).component_mul(&(&x.B * &w.w)) == (&x.C * &w.w)
+}
 
 pub fn Z2_to_R_vec<R: Ring>(vec: &Vec<Z2>) -> Vec<R> {
     vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()

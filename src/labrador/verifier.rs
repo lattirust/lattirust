@@ -49,28 +49,27 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 
     // Decompose z, t, G, H
     let mut sum_norm_sq = 0u64;
-    let decomposition_basis_u64 = crs.decomposition_basis as u64;
 
-    let z_decomp = decompose_balanced_vec(&z, crs.decomposition_basis, Some(2usize));
+    let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
-    check!(l_inf_norm_vec(&z_decomp[0]) * 2 <= decomposition_basis_u64);
+    check!(l_inf_norm_vec(&z_decomp[0]) * 2 <= crs.b as u64);
 
     for z_i in z_decomp.iter() {
         sum_norm_sq += norm_sq_vec(z_i);
     }
 
-    let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.decomposition_basis, Some(crs.t1))).collect();
+    let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.b1, Some(crs.t1))).collect();
     for t_i in t_decomp.iter() {
         assert_eq!(t_i.len(), crs.t1);
         for k in 0..crs.t1 - 1 {
-            check!(l_inf_norm_vec(&t_i[k]) * 2 <= decomposition_basis_u64);
+            check!(l_inf_norm_vec(&t_i[k]) * 2 <= crs.b1 as u64);
             sum_norm_sq += norm_sq_vec(&t_i[k]);
         }
     }
 
     let G_decomp: Vec<Vec<Vec<R>>> = G.par_iter().map(
         |G_i| G_i.par_iter().map(
-            |G_ij| decompose_balanced_polyring(G_ij, crs.decomposition_basis, Some(crs.t2))
+            |G_ij| decompose_balanced_polyring(G_ij, crs.b2, Some(crs.t2))
         ).collect()
     ).collect();
     for G_i in G_decomp.iter() {
@@ -78,7 +77,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
         for j in 0..crs.r {
             assert_eq!(G_i[j].len(), crs.t2);
             for k in 0..crs.t2 - 1 {
-                check!(l_inf_norm(&G_i[j][k]) * 2 <= decomposition_basis_u64);
+                check!(l_inf_norm(&G_i[j][k]) * 2 <= crs.b2 as u64);
                 sum_norm_sq += norm_sq_ringelem(&G_i[j][k]);
             }
             sum_norm_sq += norm_sq_ringelem(&G_i[j][crs.t2 - 1]);
@@ -87,23 +86,23 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 
     let H_decomp: Vec<Vec<Vec<R>>> = H.par_iter().map(
         |H_i| H_i.par_iter().map(
-            |H_ij| decompose_balanced_polyring(H_ij, crs.decomposition_basis, Some(crs.t2))
+            |H_ij| decompose_balanced_polyring(H_ij, crs.b1, Some(crs.t1))
         ).collect()
     ).collect();
     for H_i in H_decomp.iter() {
         assert_eq!(H_i.len(), crs.r);
         for j in 0..crs.r {
-            assert_eq!(H_i[j].len(), crs.t2);
-            for k in 0..crs.t2 - 1 {
-                check!(l_inf_norm(&H_i[j][k]) * 2 <= decomposition_basis_u64);
+            assert_eq!(H_i[j].len(), crs.t1);
+            for k in 0..crs.t1 - 1 {
+                check!(l_inf_norm(&H_i[j][k]) * 2 <= crs.b1 as u64);
                 sum_norm_sq += norm_sq_ringelem(&H_i[j][k]);
             }
-            sum_norm_sq += norm_sq_ringelem(&H_i[j][crs.t2 - 1]);
+            sum_norm_sq += norm_sq_ringelem(&H_i[j][crs.t1 - 1]);
         }
     }
 
     // Consolidated norm check
-    let beta_prime_sq = CommonReferenceString::<R>::next_norm_bound_sq(r, crs.n, crs.norm_bound_squared, crs.k, crs.decomposition_basis);
+    let beta_prime_sq = CommonReferenceString::<R>::next_norm_bound_sq(r, crs.n, crs.norm_bound_squared, crs.k, crs.b);
     check!(sum_norm_sq as f64 <= beta_prime_sq);
 
     // Check Az = c1 * t1 + ... + c_r * t_r

@@ -15,6 +15,7 @@ use crate::nimue::arthur::LatticeArthur;
 pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, instance: &BinaryR1CSInstance, witness: &BinaryR1CSWitness) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
+    debug_assert!(is_satisfied(&crs, &instance, &witness));
     let (A, B, C) = (&instance.A, &instance.B, &instance.C);
     let w = &witness.w;
     let (k, n) = (A.nrows(), A.ncols());

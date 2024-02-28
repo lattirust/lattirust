@@ -32,3 +32,4 @@ anyhow = "1.0.79"
 rayon = "1.8.0"
 log = "0.4.20"
 lattice-estimator = { path = "src/lattice-estimator" }
+pretty_env_logger = "0.5.0"
