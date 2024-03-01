@@ -18,8 +18,9 @@ use rand::Rng;
 use serde::{self, Deserialize, Serialize};
 use zeroize::Zeroize;
 use log::warn;
+use crate::lattice_arithmetic::poly_ring::UnsignedRepresentative;
 
-use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, WithLog2};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus};
 use crate::nimue::serialization::FromBytes;
 
 pub trait Ring:
@@ -66,12 +67,12 @@ pub trait Ring:
 // + for<'a> Sum<&'a Self>
 // + Product<Self>
 // + for<'a> Product<&'a Self>
-+ From<u128>
-+ From<u64>
-+ From<u32>
-+ From<u16>
-+ From<u8>
-+ From<bool>
+// + From<u128>
+// + From<u64>
+// + From<u32>
+// + From<u16>
+// + From<u8>
+// + From<bool>
 // Differs from arkworks
 + Serialize
 + for<'a> Deserialize<'a>
@@ -154,6 +155,26 @@ pub struct Zq<const Q: u64>(
     #[serde(with = "crate::nimue::serialization::ser")]
     Fq<Q>
 );
+
+impl<const Q: u64> IntegerDiv for Fq<Q> {
+    fn integer_div(&self, rhs: &Self) -> Self {
+        todo!()
+    }
+
+    fn div_round(&self, rhs: &Self) -> Self {
+        todo!()
+    }
+}
+
+impl<const Q: u64> Modulus for Fq<Q> {
+    fn modulus() -> u64 {
+        Fq::<Q>::MODULUS.0[0]
+    }
+}
+
+pub const fn const_fq_from<const Q: u64>(val: u64) -> Fq<Q> {
+    Fq::new(BigInt::<1> { 0: [val] })
+}
 
 pub const fn const_from<const Q: u64>(val: u64) -> Zq<Q> {
     Zq(Fq::new(BigInt::<1> { 0: [val] }))
@@ -467,7 +488,7 @@ impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
         Fq::<Q>::MODULUS_BIT_SIZE.div_ceil(8) as usize * rejection_sampling_upper_bound::<Q>()
     }
 
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() < Self::byte_size() {
             warn!("Not enough bytes to create a Zq (q={}) element with failure probability <= 2^{}: {} bytes provided, at least {} needed", Q, REJECTION_SAMPLING_LOG_FAILURE_PROBABILITY, bytes.len(), Self::byte_size());
         }
@@ -477,7 +498,7 @@ impl<const Q: u64> FromRandomBytes<Self> for Zq<Q> {
             if idx + fq_byte_size > bytes.len() {
                 return None;
             }
-            if let Some(val) = Fq::<Q>::from_random_bytes(&bytes[idx..idx + fq_byte_size]) {
+            if let Some(val) = Fq::<Q>::try_from_random_bytes(&bytes[idx..idx + fq_byte_size]) {
                 return Some(Self(val));
             }
             idx += fq_byte_size;
@@ -492,16 +513,6 @@ impl<const Q: u64> IntegerDiv for Zq<Q> {
 
     fn div_round(&self, rhs: &Self) -> Self {
         Zq::from(((u64::from(*self) as f64) / (u64::from(*rhs) as f64)).round() as u64)
-    }
-}
-
-impl<const Q: u64> WithLog2 for Zq<Q> {
-    fn log2(&self) -> f64 {
-        f64::log2(u64::from(*self) as f64)
-    }
-
-    fn log2_q() -> f64 {
-        f64::log2(Q as f64)
     }
 }
 

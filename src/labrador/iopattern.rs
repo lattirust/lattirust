@@ -6,7 +6,7 @@ use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::traits::{FromRandomBytes, WithLog2};
+use crate::lattice_arithmetic::traits::{FromRandomBytes};
 use crate::nimue::iopattern::LatticeIOPattern;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 
@@ -40,7 +40,8 @@ impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
     }
 
     fn labrador_io(self, crs: &CommonReferenceString<R>) -> Self {
-        let num_aggregs = (128. / R::BaseRing::log2_q()).ceil() as usize;
+        let log_q = R::modulus().next_power_of_two().ilog2() as f64;
+        let num_aggregs = (128. / log_q).ceil() as usize;
         self.absorb_vector(crs.k1, "prover message 1")
             .squeeze_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r, "verifier message 1")
             .absorb_vector_baseringelem(256, "prover message 2")
@@ -52,7 +53,7 @@ impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
             .absorb_vector(crs.k2, "prover message 4")
             .squeeze_vec::<R, LabradorChallengeSet<R>>(crs.r, "verifier message 4")
             .absorb_vector(crs.n, "prover message 5 (z)")
-            .absorb_vectors(crs.k1, crs.r, "prover message 5 (t)")
+            .absorb_vectors(crs.k, crs.r, "prover message 5 (t)")
             .absorb_lower_triangular_matrix(crs.r, "prover message 5 (G)")
             .absorb_lower_triangular_matrix(crs.r, "prover message 5 (H)")
     }

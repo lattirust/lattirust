@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use std::collections::VecDeque;
+use ark_ff::Field;
 
 use nalgebra::Scalar;
 use rayon::iter::IntoParallelIterator;
@@ -63,19 +64,19 @@ pub fn shift_right<R: Ring>(v: &Vec<R>, shift: usize) -> Vec<R> {
     res
 }
 
-pub fn inner_prod<R: Ring>(v: &Vector<R>, w: &Vector<R>) -> R {
-    v.dot(w)
-}
-
-pub fn inner_products_serial<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
+pub fn inner_products_serial<R: PolyRing>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     let mut G = vec![vec![]; s.len()];
     for i in 0..s.len() {
         G[i] = Vec::<R>::with_capacity(i + 1);
         for j in 0..i + 1 {
-            G[i].push(inner_prod(&s[i], &s[j]));
+            G[i].push(&s[i].dot(&s[j]));
         }
     }
     G
+}
+
+pub fn mul_matrix_basescalar<R: PolyRing>(A: &Matrix<R>, x: R::BaseRing) -> Matrix<R> {
+    A.map(|a_ij| a_ij * x)
 }
 
 pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vector<R> {
@@ -119,31 +120,21 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
     indices
 }
 
-pub fn inner_products<R: Ring>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
+pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     inner_products2(s, s)
 }
 
 /// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
-pub fn inner_products2<R: Ring>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {
+pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     debug_assert_eq!(s.len(), t.len());
     let ranges = lower_triang_indices(s.len());
 
     lowertriang_from_vec(
         ranges.into_par_iter().map(
-            |(i, j)| inner_prod(&s[i], &t[j])
+            |(i, j)| &s[i].dot(&t[j])
         ).collect::<VecDeque<_>>(),
         s.len(),
     )
-}
-
-pub fn l_inf_norm_vec<R: PolyRing>(v: &Vector<R>) -> u64
-{
-    R::flattened_coeffs(v).into_iter().map(|x| Into::<i64>::into(x).abs() as u64).max().unwrap()
-}
-
-pub fn l_inf_norm<R: PolyRing>(v: &R) -> u64
-{
-    v.coeffs().into_iter().map(|x| Into::<i64>::into(x).abs() as u64).max().unwrap()
 }
 
 // Compute sum_{i,j in [r]} A_ij * c_i * c_j

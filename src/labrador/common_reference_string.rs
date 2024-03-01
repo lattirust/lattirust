@@ -11,9 +11,9 @@ use lattice_estimator::norms::Norm;
 use crate::labrador::binary_r1cs::util::SECPARAM;
 use crate::labrador::prover::Witness;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
-use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_vec, sample_uniform_mat, sample_uniform_vec, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::traits::WithLog2;
+use crate::lattice_arithmetic::traits::WithL2Norm;
 use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
 #[derive(Clone, Debug, Serialize)]
@@ -49,7 +49,7 @@ fn round_to_odd(x: f64) -> usize {
 
 impl<R: PolyRing> CommonReferenceString<R> {
     fn t1_b1(decomposition_basis: usize) -> (usize, usize) {
-        let log2_q: f64 = R::BaseRing::log2_q();
+        let log2_q: f64 = R::modulus().next_power_of_two().ilog2() as f64;
         let log2_b = (decomposition_basis as f64).log2();
         let t1 = (log2_q / log2_b).round() as usize;
         let b1 = round_to_odd((R::modulus() as f64).powf(1. / t1 as f64));
@@ -59,17 +59,17 @@ impl<R: PolyRing> CommonReferenceString<R> {
     fn t2_b2(r: usize, n: usize, beta_sq: f64, decomposition_basis: usize) -> (usize, usize) {
         let d = R::dimension();
         let log2_b = (decomposition_basis as f64).log2();
-        let s_std_dev_sq: f64 = (beta_sq) / ((r * n * d) as f64); // standard deviation of s vectors = beta / sqrt(r * n * d)
-        let t2 = (f64::log2(f64::sqrt((24 * n * d) as f64) * s_std_dev_sq) / log2_b).round() as usize;
-        let s_sq = beta_sq.sqrt() / ((r * n * d) as f64);
-        let b2 = round_to_odd((f64::sqrt((24 * n * d) as f64) * s_sq).powf(1. / t2 as f64));
+        let s_std_dev_sq: f64 = beta_sq / ((r * n * d) as f64); // standard deviation of s vectors = beta / sqrt(r * n * d)
+        let tmp = f64::sqrt((24 * n * d) as f64) * s_std_dev_sq;
+        let t2 = (f64::log2(tmp) / log2_b).round() as usize;
+        let b2 = round_to_odd(tmp.powf(1. / t2 as f64));
         (t2, b2)
     }
 
     pub fn new(r: usize, n: usize, beta_sq: f64, num_constraints: usize, num_constant_constraints: usize) -> CommonReferenceString<R> {
         let d = R::dimension();
         let q = R::modulus();
-        let log2_q: f64 = R::BaseRing::log2_q();
+        let log2_q: f64 = q.next_power_of_two().ilog2() as f64;
         let beta = beta_sq.sqrt();
 
         // Checks
@@ -116,8 +116,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             m: n,
             norm: Norm::L2,
         };
-        let k = 1;
-        //let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect("failed to find secure rank for {msis_1}");
+        let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         msis_1 = msis_1.with_n(k).with_length_bound(norm_bound_1(k));
         info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level());
 
@@ -129,8 +128,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             m: k,
             norm: Norm::L2,
         };
-        let k1 = 2;
-        // let k1 = msis_2.find_optimal_n(SECPARAM).expect("failed to find secure rank for {msis_2}");
+        let k1 = msis_2.find_optimal_n(SECPARAM).expect(format!("failed to find secure rank for {msis_2}. Are there enough constraints in your system?").as_str());
         let k2 = k1;
         msis_2 = msis_2.with_n(k1).with_length_bound(2. * beta_prime(k));
         info!("  k1=k2={k1} for the MSIS instance {msis_2}  gives {} bits of security", msis_2.security_level());
@@ -209,6 +207,6 @@ impl<R: PolyRing> CommonReferenceString<R> {
     pub fn is_wellformed_witness(&self, witness: &Witness<R>) -> bool {
         witness.s.len() == self.r &&
             witness.s.iter().all(|s_i| s_i.len() == self.n) &&
-            witness.s.iter().map(|s_i| norm_sq_vec(s_i)).sum::<u64>() as f64 <= self.norm_bound_squared
+            witness.s.iter().map(|s_i| s_i.l2_norm_squared()).sum::<u64>() as f64 <= self.norm_bound_squared
     }
 }

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use ark_ff::MontConfig;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 
 use lattice_estimator::msis2::MSIS;
 use lattice_estimator::norms::Norm;
@@ -43,7 +43,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let msis = MSIS {
             n: 0, // dummy value, will be set later
             d,
-            q: R::BaseRing::modulus(),
+            q: R::modulus(),
             length_bound: 1.,
             m: 2 * n + 6 * k,
             norm: Norm::Linf,
@@ -54,7 +54,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         // TODO: fix lattice-estimator to not chocke on inputs of this size
         // let m: usize = 1;
 
-        let q = R::BaseRing::modulus() as usize;
+        let q = R::modulus() as usize;
         assert!(n + 3 * k < q, "n + 3k = {} must be less than q = {} for soundness", n + 3 * k, q);
         assert!(6 * k < q, "6k = {} must be less than q = {} for soundness", 6 * k, q);
         assert!(128 * (n + 3 * k) < 15 * q, "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core", n + 3 * k, 15 * q / 128,
@@ -72,7 +72,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = self.num_variables.div_ceil(d);
-        let norm_bound = (R::BaseRing::modulus() as f64).sqrt();
+        let norm_bound = (R::modulus() as f64).sqrt();
 
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECPARAM;
@@ -81,7 +81,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
     }
 }
 
-impl<R: Ring> R1CSInstance<R> {
+impl<R> R1CSInstance<R> {
     pub fn new(A: Matrix<R>, B: Matrix<R>, C: Matrix<R>) -> Self {
         assert_eq!(A.nrows(), B.nrows(), "A and B must have the same number of rows");
         assert_eq!(A.nrows(), C.nrows(), "A and C must have the same number of rows");
@@ -101,7 +101,7 @@ impl<R: Ring> R1CSInstance<R> {
 
 pub type BinaryR1CSInstance = R1CSInstance<Z2>;
 
-pub struct R1CSWitness<R: Ring> {
+pub struct R1CSWitness<R> {
     pub w: Vector<R>,
 }
 
@@ -115,7 +115,7 @@ pub fn is_satisfied<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance,
     is_wellformed(crs, x, w) && (&x.A * &w.w).component_mul(&(&x.B * &w.w)) == (&x.C * &w.w)
 }
 
-pub fn Z2_to_R_vec<R: Ring>(vec: &Vec<Z2>) -> Vec<R> {
+pub fn Z2_to_R_vec<R: Zero+One>(vec: &Vec<Z2>) -> Vec<R> {
     vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()
 }
 
@@ -128,7 +128,7 @@ pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
 }
 
 /// Upcast an element in Z2 to an element in R
-pub fn embed<R: Ring>(x: Z2) -> R {
+pub fn embed<R: Zero+One>(x: Z2) -> R {
     if x.is_zero() { R::zero() } else { R::one() }
 }
 
@@ -212,7 +212,7 @@ pub fn reduce<R: PolyRing>(crs: &BinaryR1CSCRS<R>, instance: &BinaryR1CSInstance
         A[(idx, tilde_idx)] = R::one();
         A[(tilde_idx, idx)] = R::one();
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
-        phi[idx] = Vector::<R>::from_element(n_pr, -R::from(2u128));
+        phi[idx] = Vector::<R>::from_element(n_pr, -R::from_scalar(R::BaseRing::from(2u128)));
         ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(A, phi, R::BaseRing::zero()));
     }
 

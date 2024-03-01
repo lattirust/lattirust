@@ -1,11 +1,15 @@
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 
-pub trait Normed<T> {
-    /// Returns the L2 norm.
-    fn norm(&self) -> f64;
-    /// Returns the squared L2 norm.
-    fn norm_squared(&self) -> T;
+pub trait WithL2Norm {
+    fn l2_norm(&self) -> f64 {
+        (self.l2_norm_squared() as f64).sqrt()
+    }
+    fn l2_norm_squared(&self) -> u64;
+}
+
+pub trait WithLinfNorm {
+    fn linf_norm(&self) -> u128;
 }
 
 pub trait IntegerDiv<Rhs = Self> {
@@ -15,18 +19,13 @@ pub trait IntegerDiv<Rhs = Self> {
     fn div_round(&self, rhs: &Rhs) -> Self;
 }
 
-pub trait WithLog2 {
-    fn log2(&self) -> f64;
-    fn log2_q() -> f64;
-}
-
 pub trait Modulus {
     fn modulus() -> u64;
 }
 
 pub trait FromRandomBytes<T> {
     fn byte_size() -> usize;
-    fn from_random_bytes(bytes: &[u8]) -> Option<T>;
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<T>;
 }
 
 pub trait WithConjugationAutomorphism {

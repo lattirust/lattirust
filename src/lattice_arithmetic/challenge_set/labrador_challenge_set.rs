@@ -5,7 +5,7 @@ use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use crate::lattice_arithmetic::ring::Zq;
+use crate::lattice_arithmetic::ring::Fq;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 
 pub struct LabradorChallengeSet<R: PolyRing> {
@@ -13,13 +13,13 @@ pub struct LabradorChallengeSet<R: PolyRing> {
 }
 
 
-/// Challenge set for Zq[X]/(X^64+1) where entries have 23 zero coefficients, 31 coefficients with value ±1, and 10 coefficients with value ±2
+/// Challenge set for Fq[X]/(X^64+1) where entries have 23 zero coefficients, 31 coefficients with value ±1, and 10 coefficients with value ±2
 /// There are more than 2^128 such elements, and they all have l2-norm 71.
 /// In addition, rejection sampling is used to restrict to challenges with operator norm at most 15.
 /// On average, 6 elements need to be sampled to get some c with ||c||_op < 15.
 /// Differences of distinct challenges are invertible.
 impl<R: PolyRing> LabradorChallengeSet<R> {
-    pub type Ring = R;
+    pub type Field = R;
     pub type BaseRing = R::BaseRing;
 
     #[allow(dead_code)]
@@ -36,7 +36,7 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     pub const VARIANCE_SUM_COEFFS: f64 = (Self::NUM_PM_ONES + 2 * Self::NUM_PM_TWOS) as f64; // 51
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
 
@@ -142,20 +142,20 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Fq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
     fn byte_size() -> usize {
         Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
-        Some(Self::Ring::from(Self::checked_coeffs_from_random_bytes(bytes).iter().cloned().map(|c|
+        Some(Self::Field::from(Self::checked_coeffs_from_random_bytes(bytes).iter().cloned().map(|c|
             if c >= 0 { Self::BaseRing::from(c as u32) } else { -Self::BaseRing::from(-c as u32) }
         ).collect::<Vec<Self::BaseRing>>()))
     }
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
     fn challenge_to_matrix(c: &Vec<i8>) -> Matrix<f64> {
         assert_eq!(c.len(), N);
 
@@ -178,15 +178,15 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     }
 }
 
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {}
+impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
     fn byte_size() -> usize {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq::<Q>, N>>::byte_size()
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Fq::<Q>, N>>::byte_size()
     }
 
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self::Ring> {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq::<Q>, N>>::from_random_bytes(bytes).map(|x| x.into())
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Fq::<Q>, N>>::try_from_random_bytes(bytes).map(|x| x.into())
     }
 }
 
@@ -201,15 +201,15 @@ mod tests {
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::lattice_arithmetic::ring::Zq;
-    use crate::lattice_arithmetic::traits::{FromRandomBytes, Normed};
+    use crate::lattice_arithmetic::ring::Fq;
+    use crate::lattice_arithmetic::traits::{FromRandomBytes, WithL2Norm};
 
     use super::LabradorChallengeSet;
 
     const Q: u64 = ntt_modulus::<64>(32);
     const D: usize = 64;
 
-    type R = Zq<Q>;
+    type R = Fq<Q>;
 
     type PolyR = Pow2CyclotomicPolyRing<R, 64>;
     type LabCS = LabradorChallengeSet<PolyR>;
@@ -259,7 +259,7 @@ mod tests {
         assert!(op_norm <= LabCS::OPERATOR_NORM_THRESHOLD, "||c||_op = {} is not < {}", op_norm, LabCS::OPERATOR_NORM_THRESHOLD);
 
         // Check that from_random_bytes() is consistent with check_coeffs_from_random_bytes()
-        let c_poly = LabradorChallengeSet::<PolyR>::from_random_bytes(&bytes.as_slice()).unwrap();
+        let c_poly = LabradorChallengeSet::<PolyR>::try_from_random_bytes(&bytes.as_slice()).unwrap();
         assert_eq!(c.len(), c_poly.coeffs().len());
         for i in 0..c.len() {
             let val = if c[i] >= 0 { R::from(c[i] as u32) } else { -R::from(-c[i] as u32) };
@@ -270,9 +270,9 @@ mod tests {
         // Check that ||c||op is an upper bound on ||cr||_2 / ||r||_2 for many random r
         for _ in 0..NUM_REPETITIONS {
             let r = PolyR::rand(&mut thread_rng());
-            let l2 = (c_poly * r).norm();
-            assert!((c_poly * r).norm_squared() as f64 <= (op_norm * op_norm * r.norm_squared() as f64) + TOLERANCE, "||cr||_2^2 = {}  is not <= ||c||_op^2 * ||r||_2^2 = {} * {} = {}", (c_poly * r).norm_squared(), op_norm * op_norm, r.norm_squared(), op_norm * op_norm * (r.norm_squared() as f64));
-            assert!(l2 / r.norm() <= op_norm + TOLERANCE, "||cr||_2 / ||r||_2 = {}/{} = {} is not <= ||c||_op = {}", l2, r.norm(), l2 / r.norm(), op_norm);
+            let l2 = (c_poly * r).l2_norm();
+            assert!((c_poly * r).l2_norm_squared() as f64 <= (op_norm * op_norm * r.l2_norm_squared() as f64) + TOLERANCE, "||cr||_2^2 = {}  is not <= ||c||_op^2 * ||r||_2^2 = {} * {} = {}", (c_poly * r).l2_norm_squared(), op_norm * op_norm, r.l2_norm_squared(), op_norm * op_norm * (r.l2_norm_squared() as f64));
+            assert!(l2 / r.l2_norm() <= op_norm + TOLERANCE, "||cr||_2 / ||r||_2 = {}/{} = {} is not <= ||c||_op = {}", l2, r.l2_norm(), l2 / r.l2_norm(), op_norm);
         }
     }
 }

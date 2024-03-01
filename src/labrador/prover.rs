@@ -111,7 +111,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
                         }
                     }
 
-                    b__[k] += a_ijk * inner_prod(&witness.s[i], &witness.s[j]);
+                    b__[k] += a_ijk * &witness.s[i].dot(&witness.s[j]);
                 }
                 // Compute vec{phi}''_i^{(k)}
                 for l in 0..instance.ct_quad_dot_prod_funcs.len() {
@@ -120,7 +120,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
                 for j in 0..256 {
                     phi__[k][i] += mul_basescalar_vector(omega[k][j], &R::sigma_vec(&Pi[i].row(j).transpose()));
                 }
-                b__[k] += inner_prod(&phi__[k][i], &witness.s[i]);
+                b__[k] += &phi__[k][i].dot(&witness.s[i]);
             }
         }
         self.phi__.replace(phi__);

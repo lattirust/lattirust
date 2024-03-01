@@ -10,6 +10,7 @@ use crate::labrador::iopattern::LabradorIOPattern;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::ntt::ntt_modulus;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::lattice_arithmetic::traits::Modulus;
 use crate::nimue::iopattern::LatticeIOPattern;
 
 const Q: u64 = ntt_modulus::<64>(32);
@@ -26,7 +27,8 @@ fn init() {
 fn test_prove_binary_r1cs() {
     init();
 
-    let k = 1 * D;
+    let m: usize = (R::modulus().next_power_of_two().ilog2() * 2) as usize;
+    let k = m * D;
     let A = Matrix::<Z2>::identity(k, k);
     let B = Matrix::<Z2>::identity(k, k);
     let C = Matrix::<Z2>::identity(k, k);

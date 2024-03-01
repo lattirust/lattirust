@@ -9,9 +9,9 @@ use crate::labrador::util::*;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::{Matrix, norm_sq_ringelem, norm_sq_vec, norm_sq_vec_basering, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::traits::FromRandomBytes;
+use crate::lattice_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use crate::nimue::merlin::LatticeMerlin;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 
@@ -41,8 +41,8 @@ macro_rules! check_eq {
 
 /// Verify the final dot product constraints and consolidated norm check, used in the last step of the recursion
 pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), ProofError> {
-    let (instance, crs) = (&transcript.instance, &transcript.crs);
-    let (r, num_aggregs, K) = (crs.r, crs.num_aggregs, instance.quad_dot_prod_funcs.len());
+    let (instance, crs) = (transcript.instance, transcript.crs);
+    let (r, num_aggregs, num_constraints, num_ct_constraints) = (crs.r, crs.num_aggregs, instance.quad_dot_prod_funcs.len(), instance.ct_quad_dot_prod_funcs.len());
     let (z, t, c) = (transcript.z.as_ref().expect("z not available"), transcript.t.as_ref().expect("t not available"), transcript.c.as_ref().expect("c not available"));
     let G = transcript.G.as_ref().expect("G not available");
     let H = transcript.H.as_ref().expect("H not available");
@@ -52,18 +52,18 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 
     let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
-    check!(l_inf_norm_vec(&z_decomp[0]) * 2 <= crs.b as u64);
+    check!(&z_decomp[0].linf_norm() * 2 <= crs.b as u128);
 
     for z_i in z_decomp.iter() {
-        sum_norm_sq += norm_sq_vec(z_i);
+        sum_norm_sq += z_i.l2_norm_squared();
     }
 
     let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.b1, Some(crs.t1))).collect();
     for t_i in t_decomp.iter() {
         assert_eq!(t_i.len(), crs.t1);
         for k in 0..crs.t1 - 1 {
-            check!(l_inf_norm_vec(&t_i[k]) * 2 <= crs.b1 as u64);
-            sum_norm_sq += norm_sq_vec(&t_i[k]);
+            check!(&t_i[k].linf_norm() * 2 <= crs.b1 as u128);
+            sum_norm_sq += &t_i[k].l2_norm_squared();
         }
     }
 
@@ -72,15 +72,18 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
             |G_ij| decompose_balanced_polyring(G_ij, crs.b2, Some(crs.t2))
         ).collect()
     ).collect();
-    for G_i in G_decomp.iter() {
-        assert_eq!(G_i.len(), crs.r);
-        for j in 0..crs.r {
-            assert_eq!(G_i[j].len(), crs.t2);
-            for k in 0..crs.t2 - 1 {
-                check!(l_inf_norm(&G_i[j][k]) * 2 <= crs.b2 as u64);
-                sum_norm_sq += norm_sq_ringelem(&G_i[j][k]);
+    for i in 0..crs.r {
+        for j in 0..i + 1 {
+            assert_eq!(G_decomp[i][j].len(), crs.t2);
+            for k in 0..crs.t2 {
+                check!(&G_decomp[i][j][k].linf_norm() * 2 <= crs.b2 as u128);
+                if i == j {
+                    sum_norm_sq += G_decomp[i][j][k].l2_norm_squared();
+                } else {
+                    // account for (i,j) and (j, i)
+                    sum_norm_sq += 2 * G_decomp[i][j][k].l2_norm_squared();
+                }
             }
-            sum_norm_sq += norm_sq_ringelem(&G_i[j][crs.t2 - 1]);
         }
     }
 
@@ -89,15 +92,18 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
             |H_ij| decompose_balanced_polyring(H_ij, crs.b1, Some(crs.t1))
         ).collect()
     ).collect();
-    for H_i in H_decomp.iter() {
-        assert_eq!(H_i.len(), crs.r);
-        for j in 0..crs.r {
-            assert_eq!(H_i[j].len(), crs.t1);
-            for k in 0..crs.t1 - 1 {
-                check!(l_inf_norm(&H_i[j][k]) * 2 <= crs.b1 as u64);
-                sum_norm_sq += norm_sq_ringelem(&H_i[j][k]);
+    for i in 0..crs.r {
+        for j in 0..i + 1 {
+            assert_eq!(H_decomp[i][j].len(), crs.t1);
+            for k in 0..crs.t1 {
+                check!(&H_decomp[i][j][k].linf_norm() * 2 <= crs.b2 as u128);
+                if i == j {
+                    sum_norm_sq += H_decomp[i][j][k].l2_norm_squared();
+                } else {
+                    // account for (i,j) and (j, i)
+                    sum_norm_sq += 2 * H_decomp[i][j][k].l2_norm_squared();
+                }
             }
-            sum_norm_sq += norm_sq_ringelem(&H_i[j][crs.t1 - 1]);
         }
     }
 
@@ -113,7 +119,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
     // Check <z, z> = sum_{i,j in [r]} g_ij * c_i * c_j
     let G = transcript.G.as_ref().expect("G not available");
     let g_lc = linear_combination_symmetric_matrix(G, &c);
-    check_eq!(inner_prod(&z, &z), g_lc);
+    check_eq!(z.dot(&z), g_lc);
 
     // Check sum_{i in [r]} <phi_i, z> * c_i = sum_{i,j in [r]} h_ij * c_i * c_j
     // Compute phi_i
@@ -128,7 +134,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 
     let mut phi_z_lc = R::zero();
     for i in 0..r {
-        phi_z_lc += inner_prod(&phi[i], &z) * c[i];
+        phi_z_lc += phi[i].dot(&z) * c[i];
     }
     let h_lc = linear_combination_symmetric_matrix(&H, &c);
     check_eq!(phi_z_lc, h_lc);
@@ -136,7 +142,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
     // Check sum_{i, j in [r]} a_ij * g_ij + sum_{i in [r]} h_ii = b
     let b__ = transcript.b__.as_ref().expect("b'' not available");
     let mut b = R::zero();
-    for k in 0..K {
+    for k in 0..num_constraints {
         b += alpha[k] * instance.quad_dot_prod_funcs[k].b;
     }
     for k in 0..num_aggregs {
@@ -144,15 +150,19 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
     }
     let mut a_g_h_lc = R::zero();
     let mut A = Matrix::<R>::zeros(r, r);
-    for k in 0..K {
+    for k in 0..num_constraints {
         if let Some(ref A_k) = instance.quad_dot_prod_funcs[k].A {
             A += A_k * alpha[k];
         }
     }
     for k in 0..num_aggregs {
-        if let Some(ref A_k) = instance.quad_dot_prod_funcs[k].A {
-            A += A_k * beta[k];
+        let mut a_k__ = Matrix::<R>::zeros(crs.r, crs.r);
+        for l in 0..num_ct_constraints {
+            if let Some(ref A_l_) = instance.ct_quad_dot_prod_funcs[l].A {
+                a_k__ += mul_matrix_basescalar(A_l_, psi[k][l]);
+            }
         }
+        A += a_k__ * beta[k];
     }
 
     for i in 0..r {
@@ -209,7 +219,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     let Pi = merlin.challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, n, r).expect("error extracting verifier message 1 from transcript");
 
     let p = merlin.next_vector::<R::BaseRing>(256).expect("error extracting prover message 2 from transcript");
-    let norm_p_sq = norm_sq_vec_basering::<R>(&p);
+    let norm_p_sq = p.l2_norm_squared();
     let p_norm_bound_sq = 128f64 * crs.norm_bound_squared;
     check!(norm_p_sq <= p_norm_bound_sq.floor() as u64 , "||p||_2^2 = {} is not <= 128*beta^2 = {}", norm_p_sq, p_norm_bound_sq);
 
@@ -235,11 +245,10 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
 
     // Compute phi
     let mut phi__ = vec![vec![Vector::<R>::zeros(crs.n); crs.r]; crs.num_aggregs];
-    let K = instance.quad_dot_prod_funcs.len();
     for k in 0..crs.num_aggregs {
         for i in 0..crs.r {
             // Compute vec{phi}''_i^{(k)}
-            for l in 0..K {
+            for l in 0..num_ct_constraints {
                 phi__[k][i] += mul_basescalar_vector(psi[k][l], &instance.ct_quad_dot_prod_funcs[l].phi[i]);
             }
             for j in 0..256 {
@@ -249,7 +258,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     }
     let mut phi = vec![Vector::<R>::zeros(n); r];
     for i in 0..r {
-        for k in 0..K {
+        for k in 0..num_constraints {
             phi[i] += &instance.quad_dot_prod_funcs[k].phi[i] * alpha[k];
         }
         for k in 0..crs.num_aggregs {
@@ -283,7 +292,7 @@ pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, instan
 
     // Final checks
     let z = merlin.next_vector::<R>(crs.n).expect("error extracting prover message 5 (z) from transcript");
-    let t = merlin.next_vectors::<R>(crs.k, crs.t1).expect("error extracting prover message 5 (t) from transcript");
+    let t = merlin.next_vectors::<R>(crs.k, crs.r).expect("error extracting prover message 5 (t) from transcript");
     let G = merlin.next_symmetric_matrix::<R>(crs.r).expect("error extracting prover message 5 (G) from transcript");
     let H = merlin.next_symmetric_matrix::<R>(crs.r).expect("error extracting prover message 5 (H) from transcript");
     transcript.z.replace(z);

@@ -27,7 +27,7 @@ impl<R: PolyRing> R1CSCRS<R> {
         assert_eq!(n % d, 0, "number of variables {} must be multiple of d = {}", n, d);
         let m = 10usize; // TODO: choose such that MSIS_{m, 2n+6k} is hard with l_inf bound = 1
 
-        let q = R::BaseRing::modulus() as usize;
+        let q = R::modulus() as usize;
         assert!(n + 3 * k < q, "n + 3k = {} must be less than q = {} for soundness", n + 3 * k, q);
         assert!(6 * k < q, "6k = {} must be less than q = {} for soundness", 6 * k, q);
         assert!(128 * (n + 3 * k) < 15 * q, "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core", n + 3 * k, 15 * q / 128);
@@ -50,7 +50,7 @@ impl<R: PolyRing> R1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = self.num_variables.div_ceil(d);
-        let norm_bound = (R::BaseRing::modulus() as f64).sqrt();
+        let norm_bound = (R::modulus() as f64).sqrt();
 
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECPARAM;
@@ -59,7 +59,7 @@ impl<R: PolyRing> R1CSCRS<R> {
     }
 }
 
-pub struct R1CSInstance<R: Ring> {
+pub struct R1CSInstance<R> {
     // TODO: use sparse matrices instead
     pub A: Matrix<R>,
     pub B: Matrix<R>,

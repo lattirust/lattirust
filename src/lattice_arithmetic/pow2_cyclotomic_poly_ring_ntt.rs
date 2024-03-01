@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use ark_ff::{Field, PrimeField};
 
 use ark_serialize::{SerializationError, Valid};
 use ark_std::UniformRand;
@@ -11,29 +12,25 @@ use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::lattice_arithmetic::ntt::NTT;
-use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing};
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::ring::{Fq, Ring, Zq};
-use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, Normed, WithConjugationAutomorphism};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, WithL2Norm, WithConjugationAutomorphism, WithLinfNorm};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
-pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Zq<Q>, N>);
+pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Fq<Q>, N>);
 
 impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
-    pub fn from_slice(coeffs: &[Zq<Q>]) -> Self {
+    pub fn from_slice(coeffs: &[Fq<Q>]) -> Self {
         assert_eq!(coeffs.len(), N);
-        Self { 0: SVector::<Zq<Q>, N>::from_row_slice(coeffs) }
+        Self { 0: SVector::<Fq<Q>, N>::from_row_slice(coeffs) }
     }
 
     pub fn from_fn<F>(mut f: F) -> Self
-        where F: FnMut(usize) -> Zq<Q> {
-        let mut coeffs = (0..N).map(|i| f(i)).collect::<Vec<Zq<Q>>>();
-        Self::ntt(coeffs.as_mut_slice());
+        where F: FnMut(usize) -> Fq<Q> {
+        let mut coeffs = (0..N).map(|i| f(i)).collect::<Vec<Fq<Q>>>();
+        // Self::ntt(coeffs.as_mut_slice()); // TODO
         Self::from_slice(&coeffs)
-    }
-
-    pub fn from_value(v: Zq<Q>) -> Self {
-        Self { 0: SVector::<Zq<Q>, N>::from_fn(|_i, _| v) }
     }
 }
 
@@ -45,7 +42,7 @@ impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT
 
 impl<const Q: u64, const N: usize> Modulus for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn modulus() -> u64 {
-        Zq::<Q>::modulus()
+        Fq::<Q>::MODULUS.0[0]
     }
 }
 
@@ -55,27 +52,27 @@ impl<const Q: u64, const N: usize> Valid for Pow2CyclotomicPolyRingNTT<Q, N> {
     }
 }
 
-const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
+const fn vec_from_element<const Q: u64, const N: usize>(elem: Fq<Q>) -> SVector<Fq<Q>, N> {
     let coeffs = [elem; N];
-    SVector::<Zq<Q>, N>::from_array_storage(ArrayStorage::<Zq<Q>, { N }, 1> { 0: [coeffs; 1] })
+    SVector::<Fq<Q>, N>::from_array_storage(ArrayStorage::<Fq<Q>, { N }, 1> { 0: [coeffs; 1] })
 }
 
 impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
-    const ZERO: Self = Self { 0: vec_from_element(Zq::<Q>::ZERO) };
-    const ONE: Self = Self { 0: vec_from_element(Zq::<Q>::ONE) };
+    const ZERO: Self = Self { 0: vec_from_element(Fq::<Q>::ZERO) };
+    const ONE: Self = Self { 0: vec_from_element(Fq::<Q>::ONE) };
 
     fn inverse(&self) -> Option<Self> { None } // TODO: should we move this into a separate trait?
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn byte_size() -> usize {
-        N * Zq::<Q>::byte_size()
+        N * Fq::<Q>::byte_size()
     }
 
-    fn from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
         assert_eq!(bytes.len(), Self::byte_size());
-        let coeffs = SVector::<Zq::<Q>, N>::from_fn(|i, _|
-            Zq::<Q>::from_random_bytes(&bytes[i * Zq::<Q>::byte_size()..(i + 1) * Zq::<Q>::byte_size()]).unwrap()
+        let coeffs = SVector::<Fq::<Q>, N>::from_fn(|i, _|
+            Fq::<Q>::try_from_random_bytes(&bytes[i * Fq::<Q>::byte_size()..(i + 1) * Fq::<Q>::byte_size()]).unwrap()
         );
         Some(Self::from(coeffs))
     }
@@ -83,13 +80,15 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyR
 
 impl<const Q: u64, const N: usize> Serialize for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        self.0.serialize(serializer)
+        // self.0.serialize(serializer)
+        todo!()
     }
 }
 
 impl<'a, const Q: u64, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
-        Ok(Self { 0: Deserialize::deserialize(deserializer)? })
+        // Ok(Self { 0: Deserialize::deserialize(deserializer)? })
+        todo!()
     }
 }
 
@@ -139,7 +138,7 @@ impl<const Q: u64, const N: usize> Neg<> for Pow2CyclotomicPolyRingNTT<Q, N> {
 
 impl<const Q: u64, const N: usize> UniformRand for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| Zq::<Q>::rand(rng))
+        Self::from_fn(|_| Fq::<Q>::rand(rng))
     }
 }
 
@@ -215,82 +214,74 @@ impl<'a, const Q: u64, const N: usize> MulAssign<&'a mut Self> for Pow2Cyclotomi
     fn mul_assign(&mut self, rhs: &'a mut Self) { self.0.component_mul_assign(&rhs.0) }
 }
 
-impl<const Q: u64, const N: usize> From<u128> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: u128) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<u64> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: u64) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<u32> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: u32) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<u16> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: u16) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<u8> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: u8) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<bool> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: bool) -> Self { Self::from_value(Zq::<Q>::from(value)) }
-}
-
-impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Zq<Q>, N>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: Pow2CyclotomicPolyRing<Zq<Q>, N>) -> Self {
+impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Fq<Q>, N>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(value: Pow2CyclotomicPolyRing<Fq<Q>, N>) -> Self {
         let mut coeffs = value.coeffs();
         Self::ntt(coeffs.as_mut_slice());
         Self::from_slice(coeffs.as_slice())
     }
 }
 
-impl<const Q: u64, const N: usize> Mul<Zq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+impl<const Q: u64, const N: usize> Mul<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
     type Output = Self;
 
-    fn mul(self, rhs: Zq::<Q>) -> Self::Output {
-        self.mul(Self::from_value(rhs))
+    fn mul(self, rhs: Fq::<Q>) -> Self::Output {
+        self.mul(Self::from_scalar(rhs))
     }
 }
 
-impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N>
-    where u64: From<Zq<Q>>, i64: From<Zq<Q>> {
-    type BaseRing = Zq<Q>;
-    fn coeffs(&self) -> Vec<Zq::<Q>> {
-        self.0.iter().map(|v_i| Zq::<Q>::from(*v_i)).collect()
+impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> {
+    type BaseRing = Fq<Q>;
+    fn coeffs(&self) -> Vec<Fq::<Q>> {
+        self.0.iter().map(|v_i| Fq::<Q>::from(*v_i)).collect()
     }
     fn dimension() -> usize { N }
-}
 
-impl<const Q: u64, const N: usize> Normed<u64> for Pow2CyclotomicPolyRingNTT<Q, N> where u64: From<Zq<Q>>, i64: From<Zq<Q>> {
-    fn norm(&self) -> f64 {
-        (self.norm_squared() as f64).sqrt()
+    fn from_scalar(v: Self::BaseRing) -> Self {
+        Self { 0: SVector::<Fq<Q>, N>::from_fn(|_i, _| v) }
     }
 
-    fn norm_squared(&self) -> u64 {
-        let vec_i128 = SVector::<i128, N>::from_fn(|i, _| i64::from(self.0[i]) as i128);
-        vec_i128.dot(&vec_i128) as u64
+    fn signed_repr(x: &Self::BaseRing) -> i128 {
+        todo!()
     }
-}
 
-impl<const Q: u64, const N: usize> From<Vec<Zq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: Vec<Zq<Q>>) -> Self {
-        Self { 0: SVector::<Zq::<Q>, N>::from_vec(value) }
+    fn unsigned_repr(x: &Self::BaseRing) -> u128 {
+        todo!()
     }
 }
 
-impl<const Q: u64, const N: usize> From<Zq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: Zq::<Q>) -> Self { Self::from_value(value) }
+impl<const Q: u64, const N: usize> From<Vec<Fq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(value: Vec<Fq<Q>>) -> Self {
+        Self { 0: SVector::<Fq::<Q>, N>::from_vec(value) }
+    }
+}
+
+impl<const Q: u64, const N: usize> From<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(value: Fq<Q>) -> Self { Self::from_scalar(value) }
+}
+
+impl<const Q: u64, const N: usize> From<u128> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(value: u128) -> Self { Self::from_scalar(value.into()) }
 }
 
 impl<const Q: u64, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn sigma(&self) -> Self {
         let coeffs = self.0.as_slice();
-        let mut new_coeffs = Vec::<Zq<Q>>::with_capacity(N);
+        let mut new_coeffs = Vec::<Fq<Q>>::with_capacity(N);
         new_coeffs.push(coeffs[0]);
-        new_coeffs.extend(coeffs[1..].iter().rev().map(|v_i| -*v_i).collect::<Vec<Zq<Q>>>());
+        new_coeffs.extend(coeffs[1..].iter().rev().map(|v_i| -*v_i).collect::<Vec<Fq<Q>>>());
         Self::from(new_coeffs)
+    }
+}
+
+impl<const Q: u64, const N: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn l2_norm_squared(&self) -> u64 {
+        self.coeffs().l2_norm_squared()
+    }
+}
+
+impl<const Q: u64, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn linf_norm(&self) -> u128 {
+        self.coeffs().linf_norm()
     }
 }

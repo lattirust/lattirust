@@ -122,7 +122,7 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub struct PrincipalRelation<R: PolyRing> {
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,

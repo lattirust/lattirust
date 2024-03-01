@@ -7,7 +7,7 @@ use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSInstance, Bina
 use crate::labrador::verifier::verify_principal_relation;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::poly_ring::{PolyRing, UnsignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
 
@@ -33,7 +33,8 @@ pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &Bi
     let g = merlin.next_vector::<R::BaseRing>(SECPARAM)?;
 
     for i in 0..g.len() {
-        check_eq!(Into::<i64>::into(g[i]) % 2, 0) // Check that all g_i's are even
+        // Check that all g_i's are even
+        check_eq!(Into::<UnsignedRepresentative>::into(g[i]).0 % 2, 0)
     }
 
     let transcript = BinaryR1CSTranscript { t, alpha, beta, gamma, g, delta };

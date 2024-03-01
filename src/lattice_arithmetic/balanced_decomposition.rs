@@ -1,13 +1,15 @@
-use num_traits::Zero;
+use std::iter::Sum;
+use ark_ff::Field;
+use num_traits::{Pow, Zero};
 
 use crate::lattice_arithmetic::matrix::Vector;
-use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing, UnsignedRepresentative};
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::IntegerDiv;
 
 /// Returns the decomposition of `v' in basis `b', where centered representatives are used, i.e.,
 /// v = \sum_i b^i v_i, with ||v_i||_\infty <= b/2.
-pub fn decompose_balanced<R: Ring + IntegerDiv + Into<u64>>(v: &R, b: usize, padding_size: Option<usize>) -> Vec<R>
+pub fn decompose_balanced<R: ConvertibleField>(v: &R, b: usize, padding_size: Option<usize>) -> Vec<R>
 {
     let b = &R::from(b as u128);
     assert!(!b.is_zero() && !b.is_one(), "cannot decompose in basis 0 or 1");
@@ -16,14 +18,14 @@ pub fn decompose_balanced<R: Ring + IntegerDiv + Into<u64>>(v: &R, b: usize, pad
     let rem_2 = *b - (two * b.integer_div(&two));
     assert!(rem_2.is_one(), "decomposition basis must be odd");
 
-    let b_half_floor = Into::<u64>::into(*b) / 2;
+    let b_half_floor = Into::<UnsignedRepresentative>::into(*b).0 / 2;
     let mut decomp_bal = Vec::<R>::new();
     let mut curr = *v;
     loop {
         let rem = curr - (*b * curr.integer_div(b)); // rem = curr % b
 
         // Ensure digit is in [-b/2, b/2)
-        if Into::<u64>::into(rem) <= b_half_floor {
+        if Into::<UnsignedRepresentative>::into(rem).0 <= b_half_floor {
             decomp_bal.push(rem);
             curr = curr.integer_div(b);
         } else {
@@ -81,8 +83,8 @@ pub fn decompose_balanced_vec<R: PolyRing>(v: &Vector<R>, b: usize, padding_size
     }).collect()
 }
 
-pub fn recompose<A: Ring, B: Ring>(v: Vec<A>, b: B) -> A
-    where A: std::ops::Mul<B, Output=A> {
+pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
+    where A: std::ops::Mul<B, Output=A> + Sum, B:  Field  {
     v.iter().enumerate().map(|(i, v_i)| *v_i * b.pow([i as u64])).sum()
 }
 
@@ -93,7 +95,7 @@ mod tests {
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::poly_ring::PolyRing;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-    use crate::lattice_arithmetic::ring::{Ring, Zq};
+    use crate::lattice_arithmetic::ring::{Ring, Fq};
     use crate::lattice_arithmetic::traits::IntegerDiv;
 
     use super::*;
@@ -103,7 +105,7 @@ mod tests {
     const VEC_LENGTH: usize = 32;
     const BASIS_TEST_RANGE: Range<usize> = 2..32;
 
-    type R = Zq<Q>;
+    type R = Fq<Q>;
     type PolyR = Pow2CyclotomicPolyRingNTT<Q, N>;
 
     #[test]
@@ -120,7 +122,7 @@ mod tests {
                 }
 
                 // assert v = \sum_i b^i v_i
-                assert_eq!(*v, recompose(decomp, R::from(b as u128)));
+                assert_eq!(*v, recompose(&decomp, R::from(b as u128)));
             }
         }
     }
@@ -139,7 +141,7 @@ mod tests {
                 }
             }
 
-            assert_eq!(v, recompose(decomp, R::from(b as u128)));
+            assert_eq!(v, recompose(&decomp, R::from(b as u128)));
         }
     }
 
@@ -165,7 +167,7 @@ mod tests {
 
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
-                recomposed += v_i * PolyR::from_value(R::from(b as u128).pow(&[i as u64]));
+                recomposed += v_i * PolyR::from_scalar(R::from(b as u128).pow(&[i as u64]));
             }
             assert_eq!(v, recomposed);
         }
