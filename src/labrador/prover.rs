@@ -213,7 +213,7 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
 
     prover.prove_2();
     let p = prover.transcript.p.as_ref().unwrap();
-    arthur.absorb_vector::<R::BaseRing>(&p).expect("error absorbing prover message 2");
+    arthur.absorb_vector_baseringlem(&p).expect("error absorbing prover message 2");
 
     let psi = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error squeezing verifier message 2 (psi)");
     let omega = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error squeezing verifier message 2 (omega)");

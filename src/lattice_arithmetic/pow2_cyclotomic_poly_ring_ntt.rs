@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use ark_ff::{Field, PrimeField};
 
+use ark_ff::{Field, PrimeField};
 use ark_serialize::{SerializationError, Valid};
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
@@ -12,10 +12,11 @@ use rand::Rng;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::lattice_arithmetic::ntt::NTT;
-use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing};
+use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::lattice_arithmetic::ring::{Fq, Ring, Zq};
-use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, WithL2Norm, WithConjugationAutomorphism, WithLinfNorm};
+use crate::lattice_arithmetic::ring::{Fq, Ring};
+use crate::lattice_arithmetic::serde::{ark_de, ark_se};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
 pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Fq<Q>, N>);
@@ -29,7 +30,7 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
     pub fn from_fn<F>(mut f: F) -> Self
         where F: FnMut(usize) -> Fq<Q> {
         let mut coeffs = (0..N).map(|i| f(i)).collect::<Vec<Fq<Q>>>();
-        // Self::ntt(coeffs.as_mut_slice()); // TODO
+        Self::ntt(coeffs.as_mut_slice());
         Self::from_slice(&coeffs)
     }
 }
@@ -46,12 +47,6 @@ impl<const Q: u64, const N: usize> Modulus for Pow2CyclotomicPolyRingNTT<Q, N> {
     }
 }
 
-impl<const Q: u64, const N: usize> Valid for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn check(&self) -> Result<(), SerializationError> {
-        todo!()
-    }
-}
-
 const fn vec_from_element<const Q: u64, const N: usize>(elem: Fq<Q>) -> SVector<Fq<Q>, N> {
     let coeffs = [elem; N];
     SVector::<Fq<Q>, N>::from_array_storage(ArrayStorage::<Fq<Q>, { N }, 1> { 0: [coeffs; 1] })
@@ -60,8 +55,6 @@ const fn vec_from_element<const Q: u64, const N: usize>(elem: Fq<Q>) -> SVector<
 impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
     const ZERO: Self = Self { 0: vec_from_element(Fq::<Q>::ZERO) };
     const ONE: Self = Self { 0: vec_from_element(Fq::<Q>::ONE) };
-
-    fn inverse(&self) -> Option<Self> { None } // TODO: should we move this into a separate trait?
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
@@ -80,15 +73,13 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyR
 
 impl<const Q: u64, const N: usize> Serialize for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        // self.0.serialize(serializer)
-        todo!()
+        ark_se(&self.coeffs(), serializer)
     }
 }
 
 impl<'a, const Q: u64, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
-        // Ok(Self { 0: Deserialize::deserialize(deserializer)? })
-        todo!()
+        ark_de(deserializer).map(|v: Vec<Fq<Q>>| Self::from(v))
     }
 }
 
@@ -232,21 +223,14 @@ impl<const Q: u64, const N: usize> Mul<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N
 
 impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> {
     type BaseRing = Fq<Q>;
-    fn coeffs(&self) -> Vec<Fq::<Q>> {
+    fn coeffs(&self) -> Vec<Fq<Q>> {
+        // TODO: or return coeffs in coefficient representation instead of evaluation representation?
         self.0.iter().map(|v_i| Fq::<Q>::from(*v_i)).collect()
     }
     fn dimension() -> usize { N }
 
     fn from_scalar(v: Self::BaseRing) -> Self {
         Self { 0: SVector::<Fq<Q>, N>::from_fn(|_i, _| v) }
-    }
-
-    fn signed_repr(x: &Self::BaseRing) -> i128 {
-        todo!()
-    }
-
-    fn unsigned_repr(x: &Self::BaseRing) -> u128 {
-        todo!()
     }
 }
 

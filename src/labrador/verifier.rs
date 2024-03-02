@@ -207,18 +207,18 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
 }
 
 /// Verify consistency for one instance of the core Labrador protocol, used in each step of the recursion
-pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance: &'a PrincipalRelation<R>, merlin: &mut LatticeMerlin) -> Result<BaseTranscript<'a, R>, ProofError>
+pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance: &'a PrincipalRelation<R>, merlin: &mut LatticeMerlin<R>) -> Result<BaseTranscript<'a, R>, ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     let (n, r) = (crs.n, crs.r);
     let num_constraints = instance.quad_dot_prod_funcs.len();
     let num_ct_constraints = instance.ct_quad_dot_prod_funcs.len();
 
-    let u_1 = merlin.next_vector::<R>(crs.k1).expect("error extracting prover message 1 from transcript");
+    let u_1 = merlin.next_vector(crs.k1).expect("error extracting prover message 1 from transcript");
 
     let Pi = merlin.challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, n, r).expect("error extracting verifier message 1 from transcript");
 
-    let p = merlin.next_vector::<R::BaseRing>(256).expect("error extracting prover message 2 from transcript");
+    let p = merlin.next_vector_baseringelem(256).expect("error extracting prover message 2 from transcript");
     let norm_p_sq = p.l2_norm_squared();
     let p_norm_bound_sq = 128f64 * crs.norm_bound_squared;
     check!(norm_p_sq <= p_norm_bound_sq.floor() as u64 , "||p||_2^2 = {} is not <= 128*beta^2 = {}", norm_p_sq, p_norm_bound_sq);
@@ -226,7 +226,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     let psi = merlin.challenge_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error extracting verifier message 2 (psi) from transcript");
     let omega = merlin.challenge_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error extracting verifier message 2 (omega) from transcript");
 
-    let b__ = merlin.next_vec::<R>(crs.num_aggregs).expect("error extracting prover message 3 from transcript");
+    let b__ = merlin.next_vec(crs.num_aggregs).expect("error extracting prover message 3 from transcript");
 
     for k in 0..crs.num_aggregs {
         let mut rhs_k = omega[k].dot(&p);
@@ -239,7 +239,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
     let alpha = merlin.challenge_vector::<R, R>(num_constraints).expect("error extracting verifier message 3 (alpha) from transcript");
     let beta = merlin.challenge_vector::<R, R>(crs.num_aggregs).expect("error extracting verifier message 3 (beta) from transcript");
 
-    let u_2 = merlin.next_vector::<R>(crs.k2).expect("error extracting prover message 4 from transcript");
+    let u_2 = merlin.next_vector(crs.k2).expect("error extracting prover message 4 from transcript");
 
     let c = merlin.challenge_vec::<R, LabradorChallengeSet<R>>(crs.r).expect("error extracting verifier message 4 from transcript");
 
@@ -270,7 +270,7 @@ pub fn verify_core<'a, R: PolyRing>(crs: &'a CommonReferenceString<R>, instance:
 }
 
 
-pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &PrincipalRelation<R>, crs: &CommonReferenceString<R>) -> Result<(), ProofError>
+pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin<R>, instance: &PrincipalRelation<R>, crs: &CommonReferenceString<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     // Init Fiat-Shamir transcript
@@ -291,10 +291,10 @@ pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin, instan
     }
 
     // Final checks
-    let z = merlin.next_vector::<R>(crs.n).expect("error extracting prover message 5 (z) from transcript");
-    let t = merlin.next_vectors::<R>(crs.k, crs.r).expect("error extracting prover message 5 (t) from transcript");
-    let G = merlin.next_symmetric_matrix::<R>(crs.r).expect("error extracting prover message 5 (G) from transcript");
-    let H = merlin.next_symmetric_matrix::<R>(crs.r).expect("error extracting prover message 5 (H) from transcript");
+    let z = merlin.next_vector(crs.n).expect("error extracting prover message 5 (z) from transcript");
+    let t = merlin.next_vectors(crs.k, crs.r).expect("error extracting prover message 5 (t) from transcript");
+    let G = merlin.next_symmetric_matrix(crs.r).expect("error extracting prover message 5 (G) from transcript");
+    let H = merlin.next_symmetric_matrix(crs.r).expect("error extracting prover message 5 (H) from transcript");
     transcript.z.replace(z);
     transcript.t.replace(t);
     transcript.G.replace(G);

@@ -1,5 +1,5 @@
 use ark_ff::Field;
-use crate::lattice_arithmetic::ring::{const_fq_from, const_from, Fq, Ring};
+use crate::lattice_arithmetic::ring::{const_fq_from, Fq, Ring};
 use crate::lattice_arithmetic::traits::Modulus;
 
 /// Return q such that 2^(bit_size-1) <= q < 2^bit_size and q mod 2*N = 1

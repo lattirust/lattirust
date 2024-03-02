@@ -10,3 +10,4 @@ pub mod traits;
 pub mod balanced_decomposition;
 pub mod challenge_set;
 pub mod ntt;
+pub mod serde;

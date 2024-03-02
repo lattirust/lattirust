@@ -1,12 +1,16 @@
 use std::ops::Mul;
 
-use ark_ff::{BigInt, Field, Fp64, PrimeField};
+use ark_ff::{BigInt, BigInteger, Field, Fp64, PrimeField};
+use ark_serialize::CanonicalSerialize;
+use bincode::Options;
+use num_traits::Zero;
+use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::ring::{Fq, Ring};
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
 
-pub trait ConvertibleField: Field + Into<UnsignedRepresentative> + Into<SignedRepresentative> + FromRandomBytes<Self> + IntegerDiv {}
+pub trait ConvertibleField: Field + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative> + FromRandomBytes<Self> {}
 
 pub trait PolyRing:
 Ring
@@ -18,6 +22,8 @@ Ring
 + FromRandomBytes<Self>
 + From<u128>
 + From<Self::BaseRing>
++ Serialize
++ for<'a> Deserialize<'a>
 {
     type BaseRing: ConvertibleField;
 
@@ -31,19 +37,15 @@ Ring
     fn dimension() -> usize;
 
     fn from_scalar(scalar: Self::BaseRing) -> Self;
-
-    fn signed_repr(x: &Self::BaseRing) -> i128;
-
-    fn unsigned_repr(x: &Self::BaseRing) -> u128;
 }
 
 impl<const Q: u64> FromRandomBytes<Fq<Q>> for Fq<Q> {
     fn byte_size() -> usize {
-        todo!()
+        Fq::<Q>::zero().uncompressed_size() + 9 // TODO: check if this is correct; this is inferred from Fp<C, N>::from_random_bytes()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        todo!()
+        Fq::<Q>::from_random_bytes(&mut bytes.as_ref())
     }
 }
 
@@ -103,8 +105,10 @@ impl<R: WithLinfNorm> WithLinfNorm for Vector<R> {
 
 
 // Work-around to allow us implementing From traits
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnsignedRepresentative(pub u128);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedRepresentative(pub i128);
 
 
@@ -116,21 +120,71 @@ impl From<BigInt<1>> for UnsignedRepresentative {
 
 impl<C: ark_ff::FpConfig<1>> From<Fp64<C>> for UnsignedRepresentative {
     fn from(value: Fp64<C>) -> Self {
-        UnsignedRepresentative::from(value.0)
+        UnsignedRepresentative::from(value.into_bigint())
     }
 }
 
+/// Map [0, q[ to [-m, m] using [0, m] -> [0, m] and ]m, q[ -> [-m, 0[, where m = (q-1)/2, assuming q is odd
 impl<C: ark_ff::FpConfig<1>> From<Fp64<C>> for SignedRepresentative
 {
     fn from(value: Fp64<C>) -> Self {
-        let signed = UnsignedRepresentative::from(value).0 as i128;
+        debug_assert!(Fp64::<C>::MODULUS.is_odd());
+        let unsigned = UnsignedRepresentative::from(value).0 as i128;
         let v: BigInt<1> = value.into();
         let q_half: BigInt<1> = Fp64::<C>::MODULUS_MINUS_ONE_DIV_TWO;
         let q = UnsignedRepresentative::from(Fp64::<C>::MODULUS).0 as i128;
-        if v >= q_half {
-            SignedRepresentative(signed - q)
+        if v > q_half {
+            SignedRepresentative(unsigned - q)
         } else {
-            SignedRepresentative(signed)
+            SignedRepresentative(unsigned)
+        }
+    }
+}
+
+/// Map [-m, m] to [0, q[ using [0, m] -> [0, m] and [-m, 0[ -> [m, q[, where m = (q-1)/2, assuming q is odd
+impl<C: ark_ff::FpConfig<1>> From<SignedRepresentative> for Fp64<C> {
+    fn from(value: SignedRepresentative) -> Self {
+        debug_assert!(Fp64::<C>::MODULUS.is_odd());
+        let q: i128 = UnsignedRepresentative::from(Fp64::<C>::MODULUS).0 as i128;
+        if value.0 < 0 {
+            Fp64::<C>::from((value.0 + q) as u128)
+        } else {
+            Fp64::<C>::from(value.0 as u128)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::lattice_arithmetic::ring::Fq;
+
+    const Q: u128 = 2u128.pow(61) - 1;
+    const Q_HALF: i128 = (Q as i128 - 1) / 2;
+    const TEST_STEP_SIZE: usize = (Q  / 10) as usize;
+
+    type F = Fq<{ Q as u64 }>;
+
+
+    #[test]
+    fn test_unsigned_representative() {
+        for i in (0..Q).step_by(TEST_STEP_SIZE) {
+            let f1 = F::from(i);
+            let v1 = UnsignedRepresentative::from(f1);
+            assert_eq!(i, v1.0);
+        }
+    }
+
+    #[test]
+    fn test_signed_representative() {
+        assert_eq!(Q_HALF, F::MODULUS_MINUS_ONE_DIV_TWO.0[0] as i128);
+        println!("Q_HALF = {Q_HALF}");
+        println!("Q = {Q}");
+        for i in (-Q_HALF..=Q_HALF).step_by(TEST_STEP_SIZE) {
+            let v1 = SignedRepresentative(i);
+            let f2 = F::from(v1.clone());
+            let v2 = SignedRepresentative::from(f2);
+            assert_eq!(v1.0, v2.0);
         }
     }
 }

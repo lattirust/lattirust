@@ -11,7 +11,7 @@ use crate::lattice_arithmetic::poly_ring::{PolyRing, UnsignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::merlin::LatticeMerlin;
 
-pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Result<(), ProofError>
+pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin<R>, instance: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     //TODO: add crs and statement to transcript
@@ -21,7 +21,7 @@ pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &Bi
     let d = R::dimension();
     let (k, n) = (crs.num_constraints, crs.num_variables);
 
-    let t = merlin.next_vector::<R>(crs.m.div_ceil(d))?;
+    let t = merlin.next_vector(crs.m.div_ceil(d))?;
 
     let alpha = merlin.challenge_binary_matrix(SECPARAM, k)?;
     let beta = merlin.challenge_binary_matrix(SECPARAM, n)?;
@@ -30,7 +30,7 @@ pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin, instance: &Bi
     // delta_i is computed mod 2, i.e., over Z2
     let delta = &alpha * A + &beta * B + &gamma * C;
 
-    let g = merlin.next_vector::<R::BaseRing>(SECPARAM)?;
+    let g = merlin.next_vector_baseringelem(SECPARAM)?;
 
     for i in 0..g.len() {
         // Check that all g_i's are even

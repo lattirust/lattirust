@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 
 pub struct LatticeEstimatorError {
-    message: String,
+    pub(crate) message: String,
 }
 
 impl Display for LatticeEstimatorError {

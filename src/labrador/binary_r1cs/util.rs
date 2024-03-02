@@ -10,7 +10,7 @@ use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::labrador::r1cs::util::{R1CSCRS, R1CSInstance};
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::{Ring, Zq};
+use crate::lattice_arithmetic::ring::{Fq, Ring};
 use crate::lattice_arithmetic::traits::Modulus;
 use crate::relations::labrador::principal_relation::{ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction};
 
@@ -21,7 +21,7 @@ pub const SECPARAM: usize = 128;
 #[generator = "1"]
 pub struct F2Config;
 
-pub type Z2 = Zq<2>;
+pub type Z2 = Fq<2>;
 
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
@@ -115,7 +115,7 @@ pub fn is_satisfied<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance,
     is_wellformed(crs, x, w) && (&x.A * &w.w).component_mul(&(&x.B * &w.w)) == (&x.C * &w.w)
 }
 
-pub fn Z2_to_R_vec<R: Zero+One>(vec: &Vec<Z2>) -> Vec<R> {
+pub fn Z2_to_R_vec<R: Zero + One>(vec: &Vec<Z2>) -> Vec<R> {
     vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()
 }
 
@@ -128,7 +128,7 @@ pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
 }
 
 /// Upcast an element in Z2 to an element in R
-pub fn embed<R: Zero+One>(x: Z2) -> R {
+pub fn embed<R: Zero + One>(x: Z2) -> R {
     if x.is_zero() { R::zero() } else { R::one() }
 }
 
@@ -149,7 +149,7 @@ pub struct BinaryR1CSTranscript<R: PolyRing> {
 }
 
 /// Express the constraint <alpha_i, a> = 0 as a constraint on the polynomial <alphaR_i, a_R> = 0, where alphaR_i is the element of R such that the constant term of alphaR_i * a_R (as polynomial multiplication over R) is equal to <alpha_i, a>
-fn embed_Zqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector::<R> {
+fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector::<R> {
     let mut phi_a_idx = Vec::<R>::with_capacity(n_pr);
     let d = R::dimension();
     let k_ = k.div_ceil(d);
@@ -249,10 +249,10 @@ pub fn reduce<R: PolyRing>(crs: &BinaryR1CSCRS<R>, instance: &BinaryR1CSInstance
     for i in 0..SECPARAM {
         // Constrain <alpha_i, a_i> + <beta_i, b_i> + <gamma_i, c_i> - <delta_i, w_i> = g_i (over the constant coefficients)
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
-        phi[a_idx] = embed_Zqlinear_Rqlinear(&alpha.row(i).transpose(), k, n_pr);
-        phi[b_idx] = embed_Zqlinear_Rqlinear(&beta.row(i).transpose(), k, n_pr);
-        phi[c_idx] = embed_Zqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
-        phi[w_idx] = -embed_Zqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
+        phi[a_idx] = embed_Fqlinear_Rqlinear(&alpha.row(i).transpose(), k, n_pr);
+        phi[b_idx] = embed_Fqlinear_Rqlinear(&beta.row(i).transpose(), k, n_pr);
+        phi[c_idx] = embed_Fqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
+        phi[w_idx] = -embed_Fqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
 
         ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(Matrix::<R>::zeros(r_pr, r_pr), phi, g[i]));
     }

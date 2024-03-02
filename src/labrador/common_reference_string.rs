@@ -38,31 +38,31 @@ pub struct CommonReferenceString<R: PolyRing> {
     // (r x r x t2) x k2 x 1
     pub D: Vec<Vec<Vec<Vector<R>>>>,
     // (r x r x t1) x k2 x 1
-    pub b: usize,
-    pub b1: usize,
-    pub b2: usize,
+    pub b: u128,
+    pub b1: u128,
+    pub b2: u128,
 }
 
-fn round_to_odd(x: f64) -> usize {
-    if x.floor() as usize % 2 == 1 { x.floor() as usize } else { x.ceil() as usize }
+fn round_to_even(x: f64) -> u128 {
+    if x.floor() as usize % 2 == 0 { x.floor() as u128 } else { x.ceil() as u128 }
 }
 
 impl<R: PolyRing> CommonReferenceString<R> {
-    fn t1_b1(decomposition_basis: usize) -> (usize, usize) {
+    fn t1_b1(decomposition_basis: u128) -> (usize, u128) {
         let log2_q: f64 = R::modulus().next_power_of_two().ilog2() as f64;
         let log2_b = (decomposition_basis as f64).log2();
         let t1 = (log2_q / log2_b).round() as usize;
-        let b1 = round_to_odd((R::modulus() as f64).powf(1. / t1 as f64));
+        let b1 = round_to_even((R::modulus() as f64).powf(1. / t1 as f64));
         (t1, b1)
     }
 
-    fn t2_b2(r: usize, n: usize, beta_sq: f64, decomposition_basis: usize) -> (usize, usize) {
+    fn t2_b2(r: usize, n: usize, beta_sq: f64, decomposition_basis: u128) -> (usize, u128) {
         let d = R::dimension();
         let log2_b = (decomposition_basis as f64).log2();
         let s_std_dev_sq: f64 = beta_sq / ((r * n * d) as f64); // standard deviation of s vectors = beta / sqrt(r * n * d)
         let tmp = f64::sqrt((24 * n * d) as f64) * s_std_dev_sq;
         let t2 = (f64::log2(tmp) / log2_b).round() as usize;
-        let b2 = round_to_odd(tmp.powf(1. / t2 as f64));
+        let b2 = round_to_even(tmp.powf(1. / t2 as f64));
         (t2, b2)
     }
 
@@ -79,7 +79,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let s_sq = beta / ((r * n * d) as f64);
         let s = s_sq.sqrt(); // standard deviation of the Z_q coefficients of the s vectors
         let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
-        let b = round_to_odd((s * (12. * r as f64 * tau).sqrt()).sqrt());
+        let b = round_to_even((s * (12. * r as f64 * tau).sqrt()).sqrt());
 
         // Set t1 and t2
         let (t1, b1) = Self::t1_b1(b);
@@ -168,7 +168,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
     }
 
     /// Compute the squared norm bound for the next folded instance (cf. Section 5.4 of the Labrador paper)
-    pub fn next_norm_bound_sq(r: usize, n: usize, norm_bound_squared: f64, k: usize, decomposition_basis: usize) -> f64 {
+    pub fn next_norm_bound_sq(r: usize, n: usize, norm_bound_squared: f64, k: usize, decomposition_basis: u128) -> f64 {
         let b_sq = decomposition_basis * decomposition_basis;
         let d = R::dimension();
         let challenge_variance = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
@@ -177,8 +177,8 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let (t2, b2) = Self::t2_b2(r, n, norm_bound_squared, decomposition_basis);
 
         let gamma_sq = norm_bound_squared * challenge_variance;
-        let gamma_1_sq = (b1 * b1 * t1) as f64 / 12. * (r * k * d) as f64 + (b2 * b2 * t2) as f64 / 12. * ((r * (r + 1)).div_ceil(2) * d) as f64;
-        let gamma_2_sq = (b1 * b1 * t1) as f64 / 12. * ((r * (r + 1)).div_ceil(2) * d) as f64;
+        let gamma_1_sq = (b1 * b1 * t1 as u128) as f64 / 12. * (r * k * d) as f64 + (b2 * b2 * t2 as u128) as f64 / 12. * ((r * (r + 1)).div_ceil(2) * d) as f64;
+        let gamma_2_sq = (b1 * b1 * t1 as u128) as f64 / 12. * ((r * (r + 1)).div_ceil(2) * d) as f64;
         let beta_next_sq: f64 = (2. / b_sq as f64) * gamma_sq + gamma_1_sq * gamma_2_sq;
         beta_next_sq
     }

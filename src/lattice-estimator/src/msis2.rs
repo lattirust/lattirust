@@ -41,6 +41,10 @@ impl MSIS {
         SIS::new(self.n * self.d, self.q, self.length_bound, self.m * self.d, self.norm)
     }
 
+    pub fn upper_bound_n(&self) -> usize {
+        self.to_sis().upper_bound_n().div_floor(self.d)
+    }
+
     /// Return lambda such that MSIS_{n, d, q, length_bound, m} is 2^lambda-hard (for a given norm).
     /// We estimate the security by reducing to SIS_{n*d, q, length_bound, m*d} and calling the SIS security estimator.
     pub fn security_level(&self) -> f64 {
@@ -53,8 +57,8 @@ impl MSIS {
 
     /// Return the smallest n such that MSIS_{n, d, q, length_bound, m} is 2^lambda-hard (for a given norm).
     pub fn find_optimal_n(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
-        let hi: usize = self.to_sis().upper_bound_n().div_floor(self.d);
         let lo: usize = 1;
+        let hi: usize = self.upper_bound_n();
 
         // Start from n=1 and exhaustively test upwards, since the upper bound hi is often not very large, and computing the security level for larger n is expensive.
         for n in lo..=hi {
@@ -62,15 +66,15 @@ impl MSIS {
                 return Ok(n);
             }
         }
-        panic!("no suitable n found")
+        Err(LatticeEstimatorError::from(format!("no suitable n found in range [{lo}, {hi}] for {self}")))
     }
 
     /// Return the smallest n such that MSIS_{n, d, q, length_bound(n), m} is 2^lambda-hard (for a given norm), where length_bound is a function of n.
     pub fn find_optimal_n_dynamic<F>(&self, length_bound: F, lambda: usize) -> Result<usize, LatticeEstimatorError>
         where F: Fn(usize) -> f64
     {
-        let hi: usize = self.to_sis().upper_bound_n().div_floor(self.d);
         let lo: usize = 1;
+        let hi: usize = self.upper_bound_n();
 
         // Start from n=1 and exhaustively test upwards, since the upper bound hi is often not very large, and computing the security level for larger n is expensive.
         for n in lo..=hi {
@@ -79,7 +83,7 @@ impl MSIS {
                 return Ok(n);
             }
         }
-        panic!("no suitable n found")
+        Err(LatticeEstimatorError::from(format!("no suitable n found in range [{lo}, {hi}] for {self}")))
     }
 }
 

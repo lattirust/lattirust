@@ -32,17 +32,11 @@ impl<F: Field> Iterator for BooleanHypercube<F> {
     }
 }
 
-// On input x <= max, returns the bit-decomposition (x_0, x_1, ..., x_{m-1}) of x (as elements of F), where m = floor(log_2(max) + 1)
-pub fn index<F: Field>(x: u128, max: u128) -> Vec<F> {
-    let m = max.next_power_of_two().ilog2();
-    (0..m).map(|i| F::from((x >> i) & 1)).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use num_traits::{One, Zero};
     use crate::lattice_arithmetic::ring::Fq;
-    use crate::latticefold::boolean_hypercube::BooleanHypercube;
+    use super::BooleanHypercube;
 
     type F = Fq<655357>;
 

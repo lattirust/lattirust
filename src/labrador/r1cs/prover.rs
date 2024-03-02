@@ -11,7 +11,7 @@ use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorCh
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::Zq;
+use crate::lattice_arithmetic::ring::Fq;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::arthur::LatticeArthur;
 
@@ -21,8 +21,8 @@ use crate::nimue::arthur::LatticeArthur;
 pub struct FqConfig;
 
 pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
-// pub type Z64 = Zq<18446744073709551617>;
-pub type Z64 = Zq<3>; // TODO
+// pub type Z64 = Fq<18446744073709551617>;
+pub type Z64 = Fq<3>; // TODO
 
 fn enc<R: PolyRing>(vec: &Vector<Z64>) -> Vector<R> {
     todo!()

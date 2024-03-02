@@ -14,10 +14,13 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing};
 use crate::lattice_arithmetic::ring::Ring;
-use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, WithL2Norm, WithConjugationAutomorphism, WithLinfNorm};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, WithL2Norm, WithConjugationAutomorphism, WithLinfNorm};
+use crate::lattice_arithmetic::serde::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
-pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleField, const N: usize>(SVector<BaseRing, N>);
+pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleField, const N: usize>(
+    SVector<BaseRing, N>
+);
 
 impl<BaseRing: ConvertibleField, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
     pub fn from_fn<F>(mut f: F) -> Self
@@ -47,8 +50,6 @@ impl<BaseRing: ConvertibleField, const N: usize> Modulus for Pow2CyclotomicPolyR
 impl<BaseRing: ConvertibleField, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
     const ZERO: Self = Self { 0: vec_from_element(BaseRing::ZERO) };
     const ONE: Self = Self { 0: vec_from_element(BaseRing::ONE) };
-
-    fn inverse(&self) -> Option<Self> { None } // TODO: should we move this into a separate trait?
 }
 
 impl<BaseRing: ConvertibleField, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -67,15 +68,13 @@ impl<BaseRing: ConvertibleField, const N: usize> FromRandomBytes<Self> for Pow2C
 
 impl<BaseRing: ConvertibleField, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        // self.0.serialize(serializer)
-        todo!()
+        ark_se(&self.coeffs(), serializer)
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'a> {
-        // Ok(Self { 0: Deserialize::deserialize(deserializer)? })
-        todo!()
+impl<'de, BaseRing: ConvertibleField, const N: usize> Deserialize<'de> for Pow2CyclotomicPolyRing<BaseRing, N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        ark_de(deserializer).map(|v: Vec<BaseRing>| Self::from(v))
     }
 }
 
@@ -246,14 +245,6 @@ impl<BaseRing: ConvertibleField, const N: usize> PolyRing for Pow2CyclotomicPoly
 
     fn from_scalar(v: Self::BaseRing) -> Self {
         Self { 0: SVector::<BaseRing, N>::from_fn(|i, _| if i == 0 { v } else { BaseRing::zero() }) }
-    }
-
-    fn signed_repr(x: &Self::BaseRing) -> i128 {
-        todo!()
-    }
-
-    fn unsigned_repr(x: &Self::BaseRing) -> u128 {
-        todo!()
     }
 }
 

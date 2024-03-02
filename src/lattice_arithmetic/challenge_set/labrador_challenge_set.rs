@@ -263,7 +263,7 @@ mod tests {
         assert_eq!(c.len(), c_poly.coeffs().len());
         for i in 0..c.len() {
             let val = if c[i] >= 0 { R::from(c[i] as u32) } else { -R::from(-c[i] as u32) };
-            assert!(val == c_poly.coeffs()[i]);
+            assert_eq!(val, c_poly.coeffs()[i]);
         }
 
         // TODO: this fails sometimes, but it is not clear why

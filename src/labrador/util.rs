@@ -69,7 +69,7 @@ pub fn inner_products_serial<R: PolyRing>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     for i in 0..s.len() {
         G[i] = Vec::<R>::with_capacity(i + 1);
         for j in 0..i + 1 {
-            G[i].push(&s[i].dot(&s[j]));
+            G[i].push(s[i].dot(&s[j]));
         }
     }
     G
@@ -131,7 +131,7 @@ pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> V
 
     lowertriang_from_vec(
         ranges.into_par_iter().map(
-            |(i, j)| &s[i].dot(&t[j])
+            |(i, j)| s[i].dot(&t[j])
         ).collect::<VecDeque<_>>(),
         s.len(),
     )

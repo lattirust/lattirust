@@ -50,7 +50,7 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     let (delta_BR, w_BR) = (delta.map(embed::<R::BaseRing>), w.map(embed::<R::BaseRing>));
 
     let g = &alpha_BR * &a_BR + &beta_BR * &b_BR + &gamma_BR * &c_BR - &delta_BR * &w_BR;
-    arthur.absorb_vector(&g).unwrap();
+    arthur.absorb_vector_baseringlem(&g).unwrap();
 
     let a_tilde = R::sigma_vec(&a_R);
     let b_tilde = R::sigma_vec(&b_R);

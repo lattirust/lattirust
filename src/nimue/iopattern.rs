@@ -1,3 +1,5 @@
+use ark_serialize::{CanonicalSerialize, Compress};
+use bincode::{DefaultOptions, Options};
 use derive_more::Deref;
 use nimue::{DefaultHash, DefaultRng, DuplexHash, IOPattern};
 use nimue::hash::Unit;
@@ -35,8 +37,8 @@ impl<R, H, U> LatticeIOPattern<R, H, U> where
         LatticeArthur::new(self, DefaultRng::default())
     }
 
-    pub fn to_merlin<'a>(&self, transcript: &'a [u8]) -> LatticeMerlin<'a, H, U> {
-        LatticeMerlin::<H, U>::new(self, transcript)
+    pub fn to_merlin<'a>(&self, transcript: &'a [u8]) -> LatticeMerlin<'a, R, H, U> {
+        LatticeMerlin::<R, H, U>::new(self, transcript)
     }
 
     pub fn add_bytes(self, count: usize, label: &'static str) -> Self {
@@ -60,12 +62,13 @@ impl<R, H, U> LatticeIOPattern<R, H, U> where
         self.add_bytes(s as usize, label)
     }
 
-    pub fn absorb_ringelem(self, label: &'static str) -> Self {
-        self.absorb_serializable_like(&R::zero(), label)
+    pub fn absorb_canonical_serializable_like<S: CanonicalSerialize>(self, like: &S, label: &'static str) -> Self {
+        let s = like.serialized_size(Compress::Yes);
+        self.add_bytes(s, label)
     }
 
-    pub fn absorb_baseringelem(self, label: &'static str) -> Self {
-        self.absorb_serializable_like(&R::BaseRing::zero(), label)
+    pub fn absorb_ringelem(self, label: &'static str) -> Self {
+        self.absorb_serializable_like(&R::zero(), label)
     }
 
     pub fn absorb_vec(self, size: usize, label: &'static str) -> Self {
@@ -89,12 +92,17 @@ impl<R, H, U> LatticeIOPattern<R, H, U> where
         self.absorb_serializable_like(&mat, label)
     }
 
+    pub fn absorb_baseringelem(self, label: &'static str) -> Self {
+        self.absorb_canonical_serializable_like(&R::BaseRing::zero(), label)
+    }
+
     pub fn absorb_vec_baseringelem(self, size: usize, label: &'static str) -> Self {
-        self.absorb_serializable_like(&vec![R::BaseRing::zero(); size], label)
+        self.absorb_canonical_serializable_like(&vec![R::BaseRing::zero(); size], label)
     }
 
     pub fn absorb_vector_baseringelem(self, size: usize, label: &'static str) -> Self {
-        self.absorb_serializable_like(&Vector::<R::BaseRing>::zeros(size), label)
+        // TODO: we use Vec here instead of Vector, because Vector does not implement CanonicalSerialize, which is not ideal
+        self.absorb_vec_baseringelem(size, label)
     }
 
     pub fn squeeze_elem<T, A: FromRandomBytes<T>>(self, label: &'static str) -> Self {
