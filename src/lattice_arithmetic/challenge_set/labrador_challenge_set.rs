@@ -39,8 +39,10 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
+    // TODO: is there a way to sample vectors with bounded operator norm without rejection sampling?
 
     /// Returns an integer uniformly sampled from [0, p[ using rejection sampling, as well as the unused random bytes
+    // TODO: sample without rejection sampling instead?
     fn u8_from_random_bytes(p: u8, bytes: &[u8]) -> Option<(u8, &[u8])> {
         let mut i = 0;
         loop {
@@ -54,6 +56,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
             }
         }
     }
+
 
     fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
         assert!(bytes.len() >= Self::sample_byte_size());

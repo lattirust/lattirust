@@ -133,7 +133,7 @@ impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
     const MODULUS: BigInt<1> = BigInt::<1> { 0: [Q] };
     const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1> { 0: [2u64] });
     // TODO: check if this needed/makes sense
-    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::zero()); // TODO
+    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = todo!(); // TODO
 }
 
 pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;

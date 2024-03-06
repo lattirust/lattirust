@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::iter::Product;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use ark_ff::Field;
+use ark_ff::{Field, PrimeField};
 
 use ark_serialize::{SerializationError, Valid};
 use ark_std::UniformRand;
@@ -29,12 +29,6 @@ impl<BaseRing: ConvertibleField, const N: usize> Pow2CyclotomicPolyRing<BaseRing
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Valid for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn check(&self) -> Result<(), SerializationError> {
-        todo!()
-    }
-}
-
 const fn vec_from_element<BaseRing: ConvertibleField, const N: usize>(elem: BaseRing) -> SVector<BaseRing, N> {
     let mut coeffs = [BaseRing::ZERO; N];
     coeffs[0] = elem;
@@ -43,7 +37,10 @@ const fn vec_from_element<BaseRing: ConvertibleField, const N: usize>(elem: Base
 
 impl<BaseRing: ConvertibleField, const N: usize> Modulus for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn modulus() -> u64 {
-       todo!()
+        let binding = BaseRing::BasePrimeField::MODULUS;
+        let q_limbs: &[u64] = binding.as_ref();
+        debug_assert_eq!(q_limbs.len(), 1, "BaseRing::BasePrimeField::MODULUS should be a single-limb prime");
+        q_limbs[0]
     }
 }
 
