@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use rand::thread_rng;
 use crate::labrador::binary_r1cs::util::SECPARAM;
 use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat};
@@ -35,9 +36,10 @@ impl<R: PolyRing> R1CSCRS<R> {
         let m_d = 10usize; // TODO: choose such that MSIS_{m_d, l*k} is hard with l_2 norm bound = beta
         let l = (SECPARAM - 1).div_ceil(18); // protocol has soundness 2*p^-l, where p ~= 2^18 is the smallest prime factor of 2^64 + 1
 
+        let rng = &mut thread_rng();
         Self {
-            A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d)),
-            B: sample_uniform_mat(m.div_ceil(d), l * k),
+            A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d), rng),
+            B: sample_uniform_mat(m.div_ceil(d), l * k,  rng),
             num_constraints,
             num_variables,
             m,
@@ -55,7 +57,7 @@ impl<R: PolyRing> R1CSCRS<R> {
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECPARAM;
 
-        CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints)
+        CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints, &mut thread_rng())
     }
 }
 

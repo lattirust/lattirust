@@ -1,16 +1,18 @@
 #![allow(non_snake_case)]
 
+use std::borrow::Borrow;
+
 use rayon::prelude::*;
 
-use crate::labrador::setup::CommonReferenceString;
-use crate::labrador::shared::{BaseTranscript, fold_instance, recurse};
+use crate::labrador::common_reference_string::{CommonReferenceString, fold_instance};
+use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::*;
 pub use crate::labrador::witness::Witness;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::matrix::Vector;
-use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::poly_ring::{PolyRing, SignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::arthur::LatticeArthur;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
@@ -150,7 +152,12 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         let H_2 = inner_products2(&witness.s, &phi);
         for i in 0..crs.r {
             for j in 0..i + 1 {
-                H[i][j] += H_2[i][j]; // TODO: divide by 2
+                H[i][j] += H_2[i][j];
+                H[i][j] = R::from(
+                    H[i][j].coeffs().into_iter().map(|h|
+                        Into::<R::BaseRing>::into(SignedRepresentative(Into::<SignedRepresentative>::into(h).0 / 2))
+                    ).collect::<Vec<_>>()
+                );
             }
         }
 
@@ -238,11 +245,11 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
 
     prover.prove_5();
 
-    let recurse = recurse(&prover.transcript);
+    let recurse = crs.next_crs.is_some();
     if recurse {
         // Fold relation and recurse
-        let (instance_next, crs_next, witness_next) = fold_instance(&prover.transcript, true);
-        prove_principal_relation(arthur, &instance_next, &witness_next.unwrap(), &crs_next)
+        let (instance_next, witness_next) = fold_instance(&prover.transcript, true);
+        prove_principal_relation(arthur, &instance_next, &witness_next.unwrap(), &crs.next_crs.as_ref().unwrap())
     } else {
         // Append final messages to Fiat-Shamir transcript and finish
         // TODO: implement optimization of sending G, H first

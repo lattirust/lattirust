@@ -2,6 +2,7 @@
 
 use ark_ff::MontConfig;
 use num_traits::{One, Zero};
+use rand::thread_rng;
 
 use lattice_estimator::msis2::MSIS;
 use lattice_estimator::norms::Norm;
@@ -61,7 +62,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         );
 
         Self {
-            A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d)),
+            A: sample_uniform_mat(m.div_ceil(d), (3 * k + n).div_ceil(d), &mut thread_rng()),
             num_constraints,
             num_variables,
             m,
@@ -77,7 +78,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECPARAM;
 
-        CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints)
+        CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints, &mut thread_rng())
     }
 }
 

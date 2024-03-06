@@ -1,14 +1,14 @@
 #![allow(non_snake_case)]
 
 use ark_std::UniformRand;
-use rand::thread_rng;
 use serde::Serialize;
-use crate::labrador::prover::Witness;
-use crate::labrador::setup::CommonReferenceString;
-use crate::labrador::util::inner_products;
 
+use crate::labrador::common_reference_string::CommonReferenceString;
+use crate::labrador::prover::Witness;
+use crate::labrador::util::inner_products;
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat_symmetric, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
+use crate::lattice_arithmetic::serde::*;
 
 #[derive(Clone, Serialize)]
 pub struct QuadDotProdFunction<R: PolyRing> {
@@ -37,8 +37,8 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
         Self { A: None, phi, b, _private: () }
     }
 
-    pub fn new_dummy(r: usize, n: usize) -> Self {
-        Self::new(sample_uniform_mat_symmetric(r, r), vec![sample_uniform_vec(n); r], R::rand(&mut thread_rng()))
+    pub fn new_dummy<Rng: rand::Rng + ?Sized>(r: usize, n: usize, rng: &mut Rng) -> Self {
+        Self::new(sample_uniform_mat_symmetric(r, r, rng), vec![sample_uniform_vec(n, rng); r], R::rand(rng))
     }
 
     pub fn new_empty(r: usize, n: usize) -> Self {
@@ -73,6 +73,7 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
     pub A: Option<Matrix<R>>,
     pub phi: Vec<Vector<R>>,
+    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub b: R::BaseRing,
     _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
 }
@@ -94,8 +95,8 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
         Self { A: None, phi, b, _private: () }
     }
 
-    pub fn new_dummy(r: usize, n: usize) -> Self {
-        Self::new(sample_uniform_mat_symmetric(r, r), vec![sample_uniform_vec(n); r], R::BaseRing::rand(&mut thread_rng()))
+    pub fn new_dummy<Rng: rand::Rng + ?Sized>(r: usize, n: usize, rng: &mut Rng) -> Self {
+        Self::new(sample_uniform_mat_symmetric(r, r, rng), vec![sample_uniform_vec(n, rng); r], R::BaseRing::rand(rng))
     }
 
     pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
@@ -122,27 +123,13 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct PrincipalRelation<R: PolyRing> {
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,
 }
 
 impl<R: PolyRing> PrincipalRelation<R> {
-    pub fn new_empty(crs: &CommonReferenceString<R>) -> Self {
-        Self {
-            quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(crs.r, crs.n); crs.num_constraints],
-            ct_quad_dot_prod_funcs: vec![ConstantQuadDotProdFunction::new_dummy(crs.r, crs.n); crs.num_constraints],
-        }
-    }
-
-    pub fn new_dummy(r: usize, n: usize, _norm_bound: f64, num_constraints: usize, num_ct_constraints: usize) -> PrincipalRelation<R> {
-        Self {
-            quad_dot_prod_funcs: vec![QuadDotProdFunction::new_dummy(r, n); num_constraints],
-            ct_quad_dot_prod_funcs: vec![ConstantQuadDotProdFunction::new_dummy(r, n); num_ct_constraints],
-        }
-    }
-
     pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
         self.quad_dot_prod_funcs.iter().all(|c| c.is_valid_witness(&witness)) &&
             self.ct_quad_dot_prod_funcs.iter().all(|c| c.is_valid_witness(&witness))

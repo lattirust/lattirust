@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use anyhow::Error;
+use log::debug;
 
 use crate::labrador::binary_r1cs::util::*;
 use crate::labrador::prover::prove_principal_relation;
@@ -15,6 +16,8 @@ use crate::nimue::arthur::LatticeArthur;
 pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, instance: &BinaryR1CSInstance, witness: &BinaryR1CSWitness) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
+    debug!("labrador::binary_r1cs starting BinR1CS -> PrincipalRelation reduction");
+    print!("__labrador::binary_r1cs starting BinR1CS -> PrincipalRelation reduction");
     debug_assert!(is_satisfied(&crs, &instance, &witness));
     let (A, B, C) = (&instance.A, &instance.B, &instance.C);
     let w = &witness.w;
@@ -27,6 +30,8 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     let b = B * w;
     let c = C * w;
 
+    debug!("labrador::binary_r1cs computed A*w, B*w, C*w");
+
     let a_R = lift::<R>(&a);
     let b_R = lift::<R>(&b);
     let c_R = lift::<R>(&c);
@@ -37,8 +42,11 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
 
     arthur.absorb_vector(&t).unwrap();
 
+    debug!("labrador::binary_r1cs squeeze alpha in {{0,1}}^{SECPARAM}x{k}");
     let alpha = arthur.squeeze_binary_matrix(SECPARAM, k).unwrap();
+    debug!("labrador::binary_r1cs squeeze beta in {{0,1}}^{SECPARAM}x{k}");
     let beta = arthur.squeeze_binary_matrix(SECPARAM, k).unwrap();
+    debug!("labrador::binary_r1cs squeeze gamma in {{0,1}}^{SECPARAM}x{k}");
     let gamma = arthur.squeeze_binary_matrix(SECPARAM, k).unwrap();
 
     // delta_i is computed mod 2, i.e., over Z2
@@ -50,6 +58,9 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     let (delta_BR, w_BR) = (delta.map(embed::<R::BaseRing>), w.map(embed::<R::BaseRing>));
 
     let g = &alpha_BR * &a_BR + &beta_BR * &b_BR + &gamma_BR * &c_BR - &delta_BR * &w_BR;
+
+    debug_assert_eq!(g.len(), SECPARAM, "g has length {} but should have length {}", g.len(), SECPARAM);
+    debug!("labrador::binary_r1cs absorb g in R_q^{SECPARAM}");
     arthur.absorb_vector_baseringlem(&g).unwrap();
 
     let a_tilde = R::sigma_vec(&a_R);
@@ -66,6 +77,8 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     };
 
     arthur.ratchet()?;
+
+    debug!("labrador::binary_r1cs finished BinR1CS -> PrincipalRelation reduction");
     prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.pr_crs())
 }
 

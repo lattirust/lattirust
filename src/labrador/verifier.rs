@@ -3,8 +3,8 @@
 use nimue::ProofError;
 use rayon::prelude::*;
 
-use crate::labrador::common_reference_string::CommonReferenceString;
-use crate::labrador::shared::{BaseTranscript, fold_instance, recurse};
+use crate::labrador::common_reference_string::{CommonReferenceString, fold_instance};
+use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::*;
 use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
@@ -282,9 +282,10 @@ pub fn verify_principal_relation<R: PolyRing>(merlin: &mut LatticeMerlin<R>, ins
     let mut crs = crs.to_owned();
     loop {
         transcript = verify_core(&crs, &instance, merlin)?;
-        let recurse = recurse(&transcript);
+        let recurse = crs.next_crs.is_some();
         if recurse {
-            (instance, crs, _) = fold_instance(&transcript, false);
+            (instance, _) = fold_instance(&transcript, false);
+            crs = *crs.next_crs.unwrap();
         } else {
             break;
         }

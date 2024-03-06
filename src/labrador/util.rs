@@ -157,6 +157,7 @@ pub fn linear_combination_symmetric_matrix<R: Ring>(A: &Vec<Vec<R>>, c: &Vec<R>)
 
 #[cfg(test)]
 mod tests {
+    use ark_std::test_rng;
     use crate::lattice_arithmetic::matrix::sample_uniform_vec;
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
@@ -189,7 +190,7 @@ mod tests {
     #[test]
     fn test_inner_products() {
         // Test parallelized implementation against a straightforward serial implementation
-        let v = vec![sample_uniform_vec::<PR>(2); 3];
+        let v = vec![sample_uniform_vec::<PR, _>(2, &mut test_rng()); 3];
         assert_eq!(inner_products_serial(&v), inner_products(&v));
     }
 }
