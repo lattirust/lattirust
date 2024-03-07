@@ -1,12 +1,13 @@
+use ark_relations::r1cs::ConstraintSystem;
 use nimue::DuplexHash;
 use nimue::hash::Unit;
 
-use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSInstance};
+use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, Z2};
 use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::traits::{FromRandomBytes};
+use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::iopattern::LatticeIOPattern;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 
@@ -21,7 +22,7 @@ pub trait LabradorIOPattern<R, H, U = u8>
     fn labrador_crs(self, crs: &CommonReferenceString<R>) -> Self;
     fn labrador_instance(self, instance: &PrincipalRelation<R>) -> Self;
     fn labrador_io(self, crs: &CommonReferenceString<R>) -> Self;
-    fn labrador_binaryr1cs_io(self, r1cs: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Self;
+    fn labrador_binaryr1cs_io(self, r1cs: &ConstraintSystem<Z2>, crs: &BinaryR1CSCRS<R>) -> Self;
 }
 
 impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
@@ -58,10 +59,10 @@ impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
             .absorb_lower_triangular_matrix(crs.r, "prover message 5 (H)")
     }
 
-    fn labrador_binaryr1cs_io(self, r1cs: &BinaryR1CSInstance, crs: &BinaryR1CSCRS<R>) -> Self {
-        let k = r1cs.A.nrows();
+    fn labrador_binaryr1cs_io(self, r1cs: &ConstraintSystem<Z2>, crs: &BinaryR1CSCRS<R>) -> Self {
+        let k = r1cs.num_constraints;
         let secparam = 128;
-        self.absorb_vector(crs.A.nrows(), "prover message 1 (t)")
+        self.absorb_vector(k, "prover message 1 (t)")
             .squeeze_binary_matrix(secparam, k, "verifier message 1 (alpha)")
             .squeeze_binary_matrix(secparam, k, "verifier message 1 (beta)")
             .squeeze_binary_matrix(secparam, k, "verifier message 1 (gamma)")

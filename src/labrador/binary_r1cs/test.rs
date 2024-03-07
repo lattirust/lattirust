@@ -1,10 +1,11 @@
+use ark_relations::lc;
 use log::{debug, error, info, warn};
 use nimue::hash::Keccak;
 use num_traits::One;
 use pretty_env_logger::env_logger;
 
 use crate::labrador::binary_r1cs::prover::prove_binary_r1cs;
-use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSInstance, BinaryR1CSWitness, Z2};
+use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, Z2};
 use crate::labrador::binary_r1cs::verifier::verify_binary_r1cs;
 use crate::labrador::iopattern::LabradorIOPattern;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
@@ -27,28 +28,36 @@ fn init() {
 fn test_prove_binary_r1cs() {
     init();
 
-    let m: usize = (R::modulus().next_power_of_two().ilog2() * 2) as usize;
+    let m: usize = (1 << 15); //(R::modulus().next_power_of_two().ilog2() * 2) as usize;
     let k = m * D;
-    let A = Matrix::<Z2>::identity(k, k);
-    let B = Matrix::<Z2>::identity(k, k);
-    let C = Matrix::<Z2>::identity(k, k);
 
+    debug!("Constructing constraint system...");
+    let mut cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new();
+    for _ in 0..k {
+        let v = cs.new_witness_variable(|| Ok(Z2::one())).unwrap();
+        cs.enforce_constraint(lc!() + v, lc!() - v, lc!() + v).unwrap();
+    }
+    let mats = cs.to_matrices().unwrap();
+    debug!("\t{} ≈ 2^{} constraints, {}+{} ≈ 2^{} variables, ({}, {}, {}) non-zero entries", cs.num_constraints,cs.num_constraints.next_power_of_two().ilog2(), cs.num_instance_variables, cs.num_witness_variables, (cs.num_instance_variables+cs.num_witness_variables).next_power_of_two().ilog2(), mats.a_num_non_zero, mats.b_num_non_zero, mats.c_num_non_zero);
+
+    debug!("Constructing common reference string...");
     let crs = BinaryR1CSCRS::<R>::new(k, k);
-    let instance = BinaryR1CSInstance { A, B, C };
-    let witness = BinaryR1CSWitness { w: Vector::<Z2>::from_element(k, Z2::one()) };
 
+    debug!("Setting IOPattern...");
     let io = LatticeIOPattern::<R, Keccak>::new("labrador_binaryr1cs")
-        .labrador_binaryr1cs_io(&instance, &crs)
+        .labrador_binaryr1cs_io(&cs, &crs)
         .ratchet()
         // .labrador_crs(&crs.pr_crs())
         // .ratchet()
         // .labrador_instance(&PrincipalRelation::<R>::new_empty(&crs.pr_crs()))
         // .ratchet()
-        .labrador_io(&crs.pr_crs());
+        .labrador_io(&crs.core_crs);
     let mut arthur = io.to_arthur();
-    let proof = prove_binary_r1cs(&crs, &mut arthur, &instance, &witness).unwrap();
-    println!("Finished proving, proof size = {} bytes", proof.len());
+
+    debug!("Proving...");
+    let proof = prove_binary_r1cs(&crs, &mut arthur, &cs).unwrap();
+    debug!("Finished proving, proof size = {} bytes", proof.len());
 
     let mut merlin = io.to_merlin(proof);
-    verify_binary_r1cs(&mut merlin, &instance, &crs).unwrap();
+    verify_binary_r1cs(&mut merlin, &cs, &crs).unwrap();
 }

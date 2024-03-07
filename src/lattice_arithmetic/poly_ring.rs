@@ -1,13 +1,13 @@
 use std::ops::Mul;
 
-use ark_ff::{BigInt, BigInteger, Field, Fp64, PrimeField};
+use ark_ff::{BigInt, BigInteger, Field, Fp, Fp64, FpConfig, PrimeField};
 use ark_serialize::CanonicalSerialize;
 use bincode::Options;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::Vector;
-use crate::lattice_arithmetic::ring::{Fq, Ring};
+use crate::lattice_arithmetic::ring::{Fq, Fq2, Ring};
 use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
 
 pub trait ConvertibleField: Field + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative> + FromRandomBytes<Self> {}
@@ -39,13 +39,13 @@ Ring
     fn from_scalar(scalar: Self::BaseRing) -> Self;
 }
 
-impl<const Q: u64> FromRandomBytes<Fq<Q>> for Fq<Q> {
+impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     fn byte_size() -> usize {
-        Fq::<Q>::zero().uncompressed_size() + 9 // TODO: check if this is correct; this is inferred from Fp<C, N>::from_random_bytes()
+        Self::zero().uncompressed_size() + 9 // TODO: check if this is correct; this is inferred from Fp<C, N>::from_random_bytes()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        Fq::<Q>::from_random_bytes(&mut bytes.as_ref())
+        Self::from_random_bytes(&mut bytes.as_ref())
     }
 }
 

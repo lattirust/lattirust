@@ -1,15 +1,17 @@
 #![allow(non_snake_case)]
 
-use ark_ff::MontConfig;
+use ark_ff::{Field, MontConfig};
+use ark_relations::r1cs::{ConstraintSystem, LcIndex, SynthesisError};
 use num_traits::{One, Zero};
 use rand::thread_rng;
+use rayon::prelude::*;
 
 use lattice_estimator::msis2::MSIS;
 use lattice_estimator::norms::Norm;
 
 use crate::labrador::common_reference_string::CommonReferenceString;
-use crate::labrador::r1cs::util::{R1CSCRS, R1CSInstance};
-use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, Vector};
+use crate::labrador::r1cs::util::{basis_vector, embed, R1CSCRS};
+use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, SparseMatrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::{Fq, Ring};
 use crate::lattice_arithmetic::traits::Modulus;
@@ -29,6 +31,7 @@ pub struct BinaryR1CSCRS<R: PolyRing> {
     pub num_constraints: usize,
     pub num_variables: usize,
     pub m: usize,
+    pub core_crs: CommonReferenceString<R>,
 }
 
 
@@ -50,9 +53,10 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
-        debug_assert!(msis.with_n(m).security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
-        // TODO: fix lattice-estimator to not chocke on inputs of this size
+        // let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
+        let m: usize = 163;
+        // debug_assert!(msis.with_n(m).security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+        // TODO: fix lattice-estimator to not choke on inputs of this size
         // let m: usize = 1;
 
         let q = R::modulus() as usize;
@@ -66,78 +70,21 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             num_constraints,
             num_variables,
             m,
+            core_crs: Self::pr_crs(num_variables, m),
         }
     }
 
-    pub fn pr_crs(&self) -> CommonReferenceString<R> {
+    pub fn pr_crs(num_variables: usize, m: usize) -> CommonReferenceString<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
-        let n_pr = self.num_variables.div_ceil(d);
+        let n_pr = num_variables.div_ceil(d);
         let norm_bound = (R::modulus() as f64).sqrt();
 
-        let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
+        let num_quad_constraints = m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECPARAM;
 
         CommonReferenceString::<R>::new(r_pr, n_pr, norm_bound, num_quad_constraints, num_constant_quad_constraints, &mut thread_rng())
     }
-}
-
-impl<R> R1CSInstance<R> {
-    pub fn new(A: Matrix<R>, B: Matrix<R>, C: Matrix<R>) -> Self {
-        assert_eq!(A.nrows(), B.nrows(), "A and B must have the same number of rows");
-        assert_eq!(A.nrows(), C.nrows(), "A and C must have the same number of rows");
-        assert_eq!(A.ncols(), B.ncols(), "A and B must have the same number of columns");
-        assert_eq!(A.ncols(), C.ncols(), "A and C must have the same number of columns");
-        Self { A, B, C }
-    }
-
-    pub fn num_constraints(&self) -> usize {
-        self.A.nrows()
-    }
-
-    pub fn num_variables(&self) -> usize {
-        self.A.ncols()
-    }
-}
-
-pub type BinaryR1CSInstance = R1CSInstance<Z2>;
-
-pub struct R1CSWitness<R> {
-    pub w: Vector<R>,
-}
-
-pub type BinaryR1CSWitness = R1CSWitness<Z2>;
-
-pub fn is_wellformed<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance, w: &BinaryR1CSWitness) -> bool {
-    return x.num_constraints() == crs.num_constraints && x.num_variables() == crs.num_variables && x.num_variables() == w.w.len();
-}
-
-pub fn is_satisfied<R: PolyRing>(crs: &BinaryR1CSCRS<R>, x: &BinaryR1CSInstance, w: &BinaryR1CSWitness) -> bool {
-    is_wellformed(crs, x, w) && (&x.A * &w.w).component_mul(&(&x.B * &w.w)) == (&x.C * &w.w)
-}
-
-pub fn Z2_to_R_vec<R: Zero + One>(vec: &Vec<Z2>) -> Vec<R> {
-    vec.iter().map(|x| if x.is_zero() { R::zero() } else { R::one() }).collect()
-}
-
-/// Reinterprets a vector of k = k' * d binary coefficients as k' vectors of d binary coefficients, represented as a vector of k' elements of the polynomial ring R with dimension d.
-pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
-    let d = R::dimension();
-    assert_eq!(vec.len() % d, 0, "vector length {} must be multiple of dimension {}", vec.len(), d);
-    let coeffs = vec.as_slice().chunks(d).map(|chunk| R::from(Z2_to_R_vec::<R::BaseRing>(&chunk.to_vec()))).collect();
-    Vector::<R>::from_vec(coeffs)
-}
-
-/// Upcast an element in Z2 to an element in R
-pub fn embed<R: Zero + One>(x: Z2) -> R {
-    if x.is_zero() { R::zero() } else { R::one() }
-}
-
-pub fn basis_vector<R: PolyRing>(i: usize, n: usize) -> Vector<R> {
-    assert!(i < n, "i = {} must be less than n = {}", i, n);
-    let mut coeffs = vec![R::zero(); n];
-    coeffs[i] = R::one();
-    Vector::<R>::from_vec(coeffs)
 }
 
 pub struct BinaryR1CSTranscript<R: PolyRing> {
@@ -150,7 +97,7 @@ pub struct BinaryR1CSTranscript<R: PolyRing> {
 }
 
 /// Express the constraint <alpha_i, a> = 0 as a constraint on the polynomial <alphaR_i, a_R> = 0, where alphaR_i is the element of R such that the constant term of alphaR_i * a_R (as polynomial multiplication over R) is equal to <alpha_i, a>
-fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector::<R> {
+fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector<R> {
     let mut phi_a_idx = Vec::<R>::with_capacity(n_pr);
     let d = R::dimension();
     let k_ = k.div_ceil(d);
@@ -168,8 +115,8 @@ fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
     Vector::<R>::from(phi_a_idx)
 }
 
-pub fn reduce<R: PolyRing>(crs: &BinaryR1CSCRS<R>, instance: &BinaryR1CSInstance, transcript: &BinaryR1CSTranscript<R>) -> PrincipalRelation<R> {
-    let (k, n) = (instance.num_constraints(), instance.num_variables());
+pub fn reduce<R: PolyRing>(crs: &BinaryR1CSCRS<R>, cs: &ConstraintSystem<Z2>, transcript: &BinaryR1CSTranscript<R>) -> PrincipalRelation<R> {
+    let (k, n) = (cs.num_constraints, cs.num_instance_variables + cs.num_witness_variables);
     let d = R::dimension();
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 

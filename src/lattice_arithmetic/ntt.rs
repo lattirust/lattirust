@@ -1,4 +1,5 @@
 use ark_ff::Field;
+
 use crate::lattice_arithmetic::ring::{const_fq_from, Fq, Ring};
 use crate::lattice_arithmetic::traits::Modulus;
 
@@ -156,7 +157,7 @@ pub trait NTT<const Q: u64, const N: usize> {
         }
     }
 
-    fn ntt_coeffs(&self) -> Vec<Fq::<Q>>;
+    fn ntt_coeffs(&self) -> Vec<Fq<Q>>;
 }
 
 #[cfg(test)]

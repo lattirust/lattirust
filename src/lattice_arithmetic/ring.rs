@@ -137,6 +137,7 @@ impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
 }
 
 pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
+pub type Fq2<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 2>>;
 
 impl<const Q: u64> const Modulus for Fq<Q> {
     fn modulus() -> u64 {

@@ -22,11 +22,13 @@ use crate::lattice_arithmetic::traits::{FromRandomBytes, Modulus, WithConjugatio
 pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Fq<Q>, N>);
 
 impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
-    pub fn from_slice(coeffs: &[Fq<Q>]) -> Self {
-        assert_eq!(coeffs.len(), N);
-        Self { 0: SVector::<Fq<Q>, N>::from_row_slice(coeffs) }
+    /// Constructs a polynomial from a slice of coefficients in NTT form.
+    fn from_slice(coeffs_ntt: &[Fq<Q>]) -> Self { // private since we can't enforce coeffs being in NTT form.
+        assert_eq!(coeffs_ntt.len(), N);
+        Self { 0: SVector::<Fq<Q>, N>::from_row_slice(coeffs_ntt) }
     }
 
+    /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
     pub fn from_fn<F>(mut f: F) -> Self
         where F: FnMut(usize) -> Fq<Q> {
         let mut coeffs = (0..N).map(|i| f(i)).collect::<Vec<Fq<Q>>>();
@@ -37,7 +39,7 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
 
 impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn ntt_coeffs(&self) -> Vec<Fq<Q>> {
-        self.coeffs().into_iter().map(|x| Into::into(x)).collect()
+        self.coeffs()
     }
 }
 
@@ -213,6 +215,12 @@ impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Fq<Q>, N>> for Po
     }
 }
 
+impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Fq<Q>, N>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn into(self) -> Pow2CyclotomicPolyRing<Fq<Q>, N> {
+        Pow2CyclotomicPolyRing::<Fq<Q>, N>::from(self.coeffs())
+    }
+}
+
 impl<const Q: u64, const N: usize> Mul<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
     type Output = Self;
 
@@ -224,8 +232,9 @@ impl<const Q: u64, const N: usize> Mul<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N
 impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> {
     type BaseRing = Fq<Q>;
     fn coeffs(&self) -> Vec<Fq<Q>> {
-        // TODO: or return coeffs in coefficient representation instead of evaluation representation?
-        self.0.iter().map(|v_i| Fq::<Q>::from(*v_i)).collect()
+        let mut coeffs = self.ntt_coeffs();
+        Self::intt(&mut coeffs);
+        coeffs
     }
     fn dimension() -> usize { N }
 
@@ -250,11 +259,8 @@ impl<const Q: u64, const N: usize> From<u128> for Pow2CyclotomicPolyRingNTT<Q, N
 
 impl<const Q: u64, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn sigma(&self) -> Self {
-        let coeffs = self.0.as_slice();
-        let mut new_coeffs = Vec::<Fq<Q>>::with_capacity(N);
-        new_coeffs.push(coeffs[0]);
-        new_coeffs.extend(coeffs[1..].iter().rev().map(|v_i| -*v_i).collect::<Vec<Fq<Q>>>());
-        Self::from(new_coeffs)
+        // TODO: can we implement the automorphism directly in NTT form?
+        Into::<Pow2CyclotomicPolyRing<Fq<Q>, N>>::into(*self).sigma().into()
     }
 }
 

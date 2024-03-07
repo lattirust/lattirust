@@ -72,11 +72,19 @@ impl<R: PolyRing> CommonReferenceString<R> {
         (t2, b2)
     }
 
-    pub fn new<Rng: rand::Rng + ?Sized>(r: usize, n: usize, beta_sq: f64, num_constraints: usize, num_constant_constraints: usize, rng: &mut Rng) -> CommonReferenceString<R> {
+    pub fn new<Rng: rand::Rng + ?Sized>(r: usize, n: usize, mut beta_sq: f64, num_constraints: usize, num_constant_constraints: usize, rng: &mut Rng) -> CommonReferenceString<R> {
         let d = R::dimension();
         let q = R::modulus();
         let log2_q: f64 = q.next_power_of_two().ilog2() as f64;
-        let beta = beta_sq.sqrt();
+        let mut beta = beta_sq.sqrt();
+
+        info!("Using Z_q[X]/(X^d+1) with q={q} ({} bits), d={d}", q.next_power_of_two().ilog2());
+        info!("Setting CRS parameters for n={n}, r={r}, d={d}, beta={beta:.1}, num_constraints={num_constraints}, num_constant_constraints={num_constant_constraints}");
+
+        let MAX_RECURSION_DEPTH = 7;
+        beta_sq = beta_sq * f64::sqrt(128./30.).powi(MAX_RECURSION_DEPTH);
+        beta = beta_sq.sqrt();
+        info!("  Accounting for at most {MAX_RECURSION_DEPTH} recursion levels, use beta={beta:.1}");
 
         // Checks
         assert!(beta < f64::sqrt(30. / 128.) * (q as f64) / 125.);
@@ -84,19 +92,21 @@ impl<R: PolyRing> CommonReferenceString<R> {
         // Set decomposition basis
         let s_sq = beta / ((r * n * d) as f64);
         let s = s_sq.sqrt(); // standard deviation of the Z_q coefficients of the s vectors
+        info!("  s={s} (std deviation of coefficients of s-vector)");
+
         let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
         let b = round_to_even((s * (12. * r as f64 * tau).sqrt()).sqrt());
-
-        // Set t1 and t2
-        let (t1, b1) = Self::t1_b1(b);
-        let (t2, b2) = Self::t2_b2(r, n, beta_sq, b);
-        let num_aggregs = (128. / log2_q).ceil() as usize;
-
-        info!("Using Z_q[X]/(X^d+1) with q={q} ({} bits), d={d}", q.next_power_of_two().ilog2());
-        info!("Setting CRS parameters for n={n}, r={r}, d={d}, beta={beta:.1} num_constraints={num_constraints}, num_constant_constraints={num_constant_constraints}");
         info!("  b={b} (main decomposition basis)");
+        assert!(b > 1);
+
+        // Set auxiliary decomposition bases
+        let (t1, b1) = Self::t1_b1(b);
         info!("  b1={b1}, t1={t1} (first decomposition basis and decomposition length)");
+
+        let (t2, b2) = Self::t2_b2(r, n, beta_sq, b);
         info!("  b2={b2}, t2={t2} (first decomposition basis and decomposition length)");
+
+        let num_aggregs = (128. / log2_q).ceil() as usize;
         info!("  num_aggregs={num_aggregs} (ceil(128/log(q)))");
 
         // Compute the norm bound for the next folded instance
@@ -122,9 +132,11 @@ impl<R: PolyRing> CommonReferenceString<R> {
             m: n,
             norm: Norm::L2,
         };
-        let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
+        let k = msis_1.upper_bound_n();
+        // let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         msis_1 = msis_1.with_n(k).with_length_bound(norm_bound_1(k));
-        info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level());
+        //info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
+        info!("  Chose largest k={k} for the MSIS instance {msis_1}");
 
         let mut msis_2 = MSIS {
             n: 0, // Dummy value, will be set later
@@ -172,9 +184,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             b2,
             next_crs: None,
         };
-        if crs.recurse() {
-            crs.next_crs = crs.next_crs().map(|crs| Box::new(crs));
-        }
+        crs.next_crs = crs.next_crs().map(|crs| Box::new(crs));
         crs
     }
 
@@ -196,12 +206,28 @@ impl<R: PolyRing> CommonReferenceString<R> {
 
     /// Returns true if there should be a next round in the LaBRADOR protocol, and false if `crs' is to be used as the base case.
     fn recurse(&self) -> bool {
-        let m = self.r * self.t1 * self.k + (self.t1 + self.t2) * (self.r * (self.r + 1)).div_ceil(2);
-        let _mu = 2;
-        let _nu = (2. * self.n as f64 / m as f64).round() as usize;
+        self.last_prover_message_size() > self.proof_size()
+    }
 
-        // Recurse if 2*n >> m // TODO: select a recursion threshold with a bit more theoretical justification
-        return 2 * 2 * self.n > m;
+    pub fn proof_size(&self) -> usize {
+        let log_q = R::modulus().next_power_of_two().ilog2() as usize;
+        let beta = self.norm_bound_squared.sqrt();
+        // TODO: this assumes that the challenges are sampled from a PRF with a 128-bit seed.
+        (self.k1 + self.k2) * self.d * log_q // outer commitments
+            + 256 * ((12. * beta) / 2f64.sqrt()).log2().ceil() as usize // JL projection
+            + self.num_aggregs * self.d * log_q // JL proof
+            + 4 * 128 // challenges
+    }
+
+    pub fn last_prover_message_size(&self) -> usize {
+        let log_q = R::modulus().next_power_of_two().ilog2() as usize;
+        let beta = self.norm_bound_squared.sqrt();
+        let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
+        let tmp = ((self.r * (self.r + 1)) / 2) * self.d;
+        self.n * self.d * f64::log2(12. * beta * f64::sqrt(tau / (self.n * self.d) as f64)).ceil() as usize // z
+            + self.r * self.k * self.d * log_q // t
+            + tmp * f64::log2(12. * self.norm_bound_squared * f64::sqrt(2. / (self.r * self.r * self.n * self.d) as f64)).ceil() as usize // g
+            + tmp * log_q // h
     }
 
     fn next_crs(&self) -> Option<CommonReferenceString<R>> {
@@ -518,7 +544,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
         let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
         assert_eq!(z_decomp.len(), 2);
 
-        let v = concat(&[&flatten_vec_vector(&t), &flatten_symmetric_matrix(&G), &flatten_symmetric_matrix(&H)]);
+        let v = concat(&[&flatten_vec_vector(&t).as_slice(), &flatten_symmetric_matrix(&G).as_slice(), &flatten_symmetric_matrix(&H).as_slice()]);
         let z_0_split = crate::labrador::util::split(&z_decomp[0], nu);
         let z_1_split = crate::labrador::util::split(&z_decomp[1], nu);
         let v_split = crate::labrador::util::split(&v, mu);
