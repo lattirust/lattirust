@@ -36,7 +36,7 @@ impl MSIS {
         MSIS { n: self.n, d: self.d, q: self.q, length_bound, m: self.m, norm: self.norm }
     }
 
-    pub fn to_sis(&self) -> SIS {
+    pub const fn to_sis(&self) -> SIS {
         SIS::new(self.n * self.d, self.q, self.length_bound, self.m * self.d, self.norm)
     }
 

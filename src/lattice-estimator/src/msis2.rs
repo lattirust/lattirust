@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::{Debug, Display};
+use log::debug;
 
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
@@ -60,9 +61,13 @@ impl MSIS {
         let lo: usize = 1;
         let hi: usize = self.upper_bound_n();
 
+        debug!("Searching optimal n in [{lo}, {hi}] for {self} with target lambda={lambda}...");
         // Start from n=1 and exhaustively test upwards, since the upper bound hi is often not very large, and computing the security level for larger n is expensive.
         for n in lo..=hi {
-            if self.with_n(n).security_level() >= lambda as f64 {
+            let curr = self.with_n(n);
+            let lambda_curr = curr.security_level();
+            debug!("\t{curr} -> {lambda_curr} bits of security");
+            if lambda_curr >= lambda as f64 {
                 return Ok(n);
             }
         }
@@ -77,8 +82,11 @@ impl MSIS {
         let hi: usize = self.upper_bound_n();
 
         // Start from n=1 and exhaustively test upwards, since the upper bound hi is often not very large, and computing the security level for larger n is expensive.
+        debug!("Searching optimal n in [{lo}, {hi}] for {self} with target lambda={lambda}...");
         for n in lo..=hi {
-            let lambda_curr = self.with_n(n).with_length_bound(length_bound(n)).security_level();
+            let curr = self.with_n(n).with_length_bound(length_bound(n));
+            let lambda_curr = curr.security_level();
+            debug!("\t{curr} -> {lambda_curr} bits of security");
             if lambda_curr >= lambda as f64 {
                 return Ok(n);
             }
