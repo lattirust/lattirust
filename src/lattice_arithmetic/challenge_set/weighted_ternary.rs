@@ -1,10 +1,8 @@
 use num_traits::{One, Zero};
 
-use crate::lattice_arithmetic::challenge_set::challenge::ChallengeSet;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use ark_ff::Field;
 use crate::lattice_arithmetic::ring::Fq;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 
@@ -33,8 +31,6 @@ impl<const Q: u64> FromRandomBytes<Fq<Q>> for WeightedTernaryChallengeSet<Fq<Q>>
 }
 
 /// Challenge set {-1, 0, 1} for Fq, where Pr[0] = 1/2, Pr[1] = Pr[-1] = 1/4
-impl<const Q: u64> ChallengeSet<Fq<Q>> for WeightedTernaryChallengeSet<Fq<Q>> {}
-
 impl<R: PolyRing> WeightedTernaryChallengeSet<R> {
     pub type BaseRing = R::BaseRing;
     pub type BaseChallengeSet = WeightedTernaryChallengeSet<R::BaseRing>;
@@ -56,9 +52,6 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Fq<Q>,
     }
 }
 
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {}
-
-
 impl<const Q: u64, const N: usize> WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
@@ -66,5 +59,3 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, 
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> { Pow2CyclotomicPolyRing::<Fq<Q>, N>::try_from_random_bytes(bytes).map(|x| x.into()) }
 }
-
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}

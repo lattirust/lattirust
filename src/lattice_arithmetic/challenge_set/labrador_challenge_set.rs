@@ -1,6 +1,5 @@
 use bitter::BitReader;
 
-use crate::lattice_arithmetic::challenge_set::challenge::ChallengeSet;
 use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
@@ -181,7 +180,6 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
     }
 }
 
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {}
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
     fn byte_size() -> usize {
@@ -192,8 +190,6 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, 
         LabradorChallengeSet::<Pow2CyclotomicPolyRing<Fq::<Q>, N>>::try_from_random_bytes(bytes).map(|x| x.into())
     }
 }
-
-impl<const Q: u64, const N: usize> ChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {}
 
 #[cfg(test)]
 mod tests {
