@@ -4,9 +4,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress};
 use bincode;
 use bincode::Options;
 use delegate::delegate;
-use nalgebra::Scalar;
-use nimue::{DefaultHash, DuplexHash, IOPatternError, Merlin, UnitTranscript};
-use nimue::hash::Unit;
+use nimue::{ByteChallenges, BytePublic, ByteReader, ByteTranscript, DefaultHash, DuplexHash, IOPatternError, Merlin, UnitTranscript};
 use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
@@ -14,39 +12,95 @@ use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::{Fq, Ring};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::iopattern::LatticeIOPattern;
+use crate::nimue::traits::ChallengeFromRandomBytes;
 
-pub struct LatticeMerlin<'a, PR, H = DefaultHash, U = u8>
+pub trait SerMerlin<H>
+    where H: DuplexHash<u8>,
+          Self: ByteReader
+{
+    fn next_serializable_size<S>(&mut self, size: usize) -> Result<S, IOPatternError>
+        where S: Serialize + for<'de> Deserialize<'de>
+    {
+        let mut buf = vec![0u8; size];
+        self.fill_next_bytes(&mut buf)?;
+        let res = bincode::deserialize(buf.as_slice());
+        Ok(res.expect("Invalid"))
+    }
+    fn next_like_serializable<S>(&mut self, like: &S) -> Result<S, IOPatternError>
+        where S: Serialize + for<'de> Deserialize<'de>
+    {
+        let size = bincode::serialized_size(&like).unwrap();
+        self.next_serializable_size(size as usize)
+    }
+
+    fn next_canonical_serializable_size<S: CanonicalSerialize + CanonicalDeserialize>(&mut self, size: usize) -> Result<S, IOPatternError> {
+        let mut buf = vec![0u8; size];
+        self.fill_next_bytes(&mut buf)?;
+        let res = S::deserialize_compressed(buf.as_slice());
+        Ok(res.expect("Invalid"))
+    }
+
+    fn next_like_canonical_serializable<S: CanonicalSerialize + CanonicalDeserialize>(&mut self, like: &S) -> Result<S, IOPatternError> {
+        self.next_canonical_serializable_size(like.serialized_size(Compress::Yes))
+    }
+}
+
+impl<H> SerMerlin<H> for Merlin<'_, H, u8> where H: DuplexHash<u8> {}
+
+impl<PR, H> SerMerlin<H> for LatticeMerlin<'_, PR, H> where PR: PolyRing, H: DuplexHash<u8> {}
+
+
+impl<PR: PolyRing, H: DuplexHash<u8>> ChallengeFromRandomBytes for LatticeMerlin<'_, PR, H> {}
+
+pub struct LatticeMerlin<'a, PR, H = DefaultHash>
     where
         PR: PolyRing,
-        H: DuplexHash<U>,
-        U: Unit
+        H: DuplexHash<u8>,
 {
-    merlin: Merlin<'a, H, U>,
+    merlin: Merlin<'a, H, u8>,
     _polyring: std::marker::PhantomData<PR>,
 }
 
+impl<'a, PR: PolyRing, H: DuplexHash<u8>> ByteReader for LatticeMerlin<'a, PR, H> {
+    fn fill_next_bytes(&mut self, input: &mut [u8]) -> Result<(), IOPatternError> {
+        self.merlin.fill_next_bytes(input)
+    }
+}
 
-impl<'a, PR, H, U> LatticeMerlin<'a, PR, H, U>
+impl<'a, PR: PolyRing, H: DuplexHash<u8>> BytePublic for LatticeMerlin<'a, PR, H> {
+    fn public_bytes(&mut self, input: &[u8]) -> Result<(), IOPatternError> {
+        self.merlin.public_bytes(input)
+    }
+}
+
+impl<'a, PR: PolyRing, H: DuplexHash<u8>> ByteChallenges for LatticeMerlin<'a, PR, H> {
+    fn fill_challenge_bytes(&mut self, output: &mut [u8]) -> Result<(), IOPatternError> {
+        self.merlin.fill_challenge_bytes(output)
+    }
+}
+
+impl<'a, PR: PolyRing, H: DuplexHash<u8>> ByteTranscript for LatticeMerlin<'a, PR, H> {}
+
+impl<'a, PR, H> LatticeMerlin<'a, PR, H>
     where
         PR: PolyRing,
-        H: DuplexHash<U>,
-        U: Unit
+        H: DuplexHash<u8>,
 {
-    pub fn new(io_pattern: &LatticeIOPattern<PR, H, U>, transcript: &'a [u8]) -> Self {
-        Self { merlin: Merlin::<H, U>::new(&io_pattern.deref(), transcript), _polyring: std::marker::PhantomData }
+    pub fn new(io_pattern: &LatticeIOPattern<PR, H>, transcript: &'a [u8]) -> Self {
+        Self { merlin: Merlin::<H, u8>::new(&io_pattern.deref(), transcript), _polyring: std::marker::PhantomData }
     }
 
     delegate! {
         to self.merlin {
-            pub fn public_units(&mut self, input: &[U]) -> Result<(), IOPatternError>;
-            pub fn fill_challenge_units(&mut self, input: &mut [U]) -> Result<(), IOPatternError>;
+            pub fn public_units(&mut self, input: &[u8]) -> Result<(), IOPatternError>;
+            pub fn fill_challenge_units(&mut self, input: &mut [u8]) -> Result<(), IOPatternError>;
             pub fn ratchet(&mut self) -> Result<(), IOPatternError>;
-            pub fn preprocess(self) -> Result<&'static [U], IOPatternError>;
+            pub fn preprocess(self) -> Result<&'static [u8], IOPatternError>;
         }
     }
 }
 
-impl<'a, PR, H> LatticeMerlin<'a, PR, H, u8>
+impl<'a, PR, H> LatticeMerlin<'a, PR, H>
     where
         PR: PolyRing,
         H: DuplexHash<u8>
@@ -132,53 +186,6 @@ impl<'a, PR, H> LatticeMerlin<'a, PR, H, u8>
 
     pub fn next_vector_baseringelem(&mut self, n: usize) -> Result<Vector<PR::BaseRing>, IOPatternError> {
         self.next_vec_baseringelem(n).map(|v| Vector::<PR::BaseRing>::from_vec(v))
-    }
-
-    fn challenge<S, A: FromRandomBytes<S>>(&mut self) -> Result<S, IOPatternError> {
-        let mut buf = vec![0u8; A::byte_size()];
-        self.merlin.fill_challenge_units(&mut buf)?;
-        A::try_from_random_bytes(&buf).ok_or(IOPatternError::from("error while generating ring element from random bytes"))
-    }
-
-    pub fn challenge_vec<T, A: FromRandomBytes<T>>(&mut self, size: usize) -> Result<Vec<T>, IOPatternError> {
-        let mut vals = Vec::<T>::with_capacity(size);
-        for _ in 0..size {
-            match self.challenge::<T, A>() {
-                Ok(v) => vals.push(v),
-                Err(s) => return Err(IOPatternError::from(s))
-            }
-        }
-        Ok(vals)
-    }
-
-    pub fn challenge_vector<T: Scalar, A: FromRandomBytes<T>>(&mut self, size: usize) -> Result<Vector<T>, IOPatternError> {
-        self.challenge_vec::<T, A>(size).map(|v| Vector::<T>::from_vec(v))
-    }
-
-    pub fn challenge_vectors<T: Scalar, A: FromRandomBytes<T>>(&mut self, size: usize, num_vectors: usize) -> Result<Vec<Vector<T>>, IOPatternError> {
-        let mut vals = Vec::<Vector<T>>::with_capacity(size);
-        for _ in 0..num_vectors {
-            match self.challenge_vector::<T, A>(size) {
-                Ok(v) => vals.push(v),
-                Err(s) => return Err(IOPatternError::from(s))
-            }
-        }
-        Ok(vals)
-    }
-
-    pub fn challenge_matrix<T: Scalar, A: FromRandomBytes<T>>(&mut self, n_rows: usize, n_cols: usize) -> Result<Matrix<T>, IOPatternError> {
-        self.challenge_vec::<T, A>(n_rows * n_cols).map(|v| Matrix::<T>::from_vec(n_rows, n_cols, v))
-    }
-
-    pub fn challenge_matrices<T: Scalar, A: FromRandomBytes<T>>(&mut self, n_rows: usize, n_cols: usize, n_matrices: usize) -> Result<Vec<Matrix<T>>, IOPatternError> {
-        let mut vals = Vec::<Matrix<T>>::with_capacity(n_matrices);
-        for _ in 0..n_matrices {
-            match self.challenge_matrix::<T, A>(n_rows, n_cols) {
-                Ok(val) => vals.push(val),
-                Err(e) => return Err(IOPatternError::from(e))
-            }
-        }
-        Ok(vals)
     }
 
     pub fn challenge_binary_matrix(&mut self, n_rows: usize, n_cols: usize) -> Result<Matrix<Fq<2>>, IOPatternError> {
