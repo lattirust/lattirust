@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 
 use ark_std::rand::thread_rng;
+use ark_std::UniformRand;
+use nalgebra::Scalar;
 use rand::Rng;
 
 use crate::lattice_arithmetic::poly_ring::PolyRing;
@@ -14,7 +16,7 @@ pub type SparseMatrix<R> = nalgebra_sparse::CscMatrix<R>; // We typically have m
 // TODO: implement as Mul trait for Vector<R> so that left-multiplication with a scalar is possible
 pub type Vector<R> = nalgebra::DVector<R>;
 
-pub fn sample_uniform_mat<R: PolyRing, Rng: rand::Rng + ?Sized>(m: usize, n: usize, rng: &mut Rng) -> Matrix<R> {
+pub fn sample_uniform_mat<R: Scalar + UniformRand, Rng: rand::Rng + ?Sized>(m: usize, n: usize, rng: &mut Rng) -> Matrix<R> {
     Matrix::<R>::from_fn(m, n, |_, _| R::rand(rng))
 }
 

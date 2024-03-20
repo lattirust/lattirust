@@ -5,7 +5,7 @@ use std::cmp::max;
 use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::labrador::prover::Witness;
 use crate::labrador::util::{chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, shift_right};
-use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec;
+use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec_polyring;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::relations::labrador::principal_relation::{PrincipalRelation, QuadDotProdFunction};

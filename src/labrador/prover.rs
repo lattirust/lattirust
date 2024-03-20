@@ -8,13 +8,14 @@ use crate::labrador::common_reference_string::{CommonReferenceString, fold_insta
 use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::*;
 pub use crate::labrador::witness::Witness;
-use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
+use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec_polyring};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::{PolyRing, SignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::arthur::LatticeArthur;
+use crate::nimue::traits::ChallengeFromRandomBytes;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 
 pub struct Prover<'a, R: PolyRing> {
@@ -41,7 +42,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         let t: Vec<Vector<R>> = witness.s.par_iter().map(
             |s_i| commit(&crs.A, s_i)
         ).collect();
-        let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.b1, Some(crs.t1))).collect();
+        let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec_polyring(t_i, crs.b1, Some(crs.t1))).collect();
 
         let G = inner_products(&witness.s);
 
@@ -215,15 +216,15 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
     let u_1 = prover.transcript.u_1.as_ref().unwrap();
     arthur.absorb_vector(&u_1).expect("error absorbing prover message 1");
 
-    let pis = arthur.squeeze_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r).expect("error squeezing verifier message 1");
+    let pis = arthur.challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r).expect("error squeezing verifier message 1");
     prover.transcript.Pi.replace(pis);
 
     prover.prove_2();
     let p = prover.transcript.p.as_ref().unwrap();
     arthur.absorb_vector_baseringlem(&p).expect("error absorbing prover message 2");
 
-    let psi = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error squeezing verifier message 2 (psi)");
-    let omega = arthur.squeeze_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error squeezing verifier message 2 (omega)");
+    let psi = arthur.challenge_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs).expect("error squeezing verifier message 2 (psi)");
+    let omega = arthur.challenge_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs).expect("error squeezing verifier message 2 (omega)");
     prover.transcript.psi.replace(psi);
     prover.transcript.omega.replace(omega);
 
@@ -231,8 +232,8 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
     let b__ = prover.transcript.b__.as_ref().unwrap();
     arthur.absorb_vec(&b__).expect("error absorbing prover message 3");
 
-    let alpha = arthur.squeeze_vector::<R, R>(num_constraints).expect("error squeezing verifier message 3 (alpha)");
-    let beta = arthur.squeeze_vector::<R, R>(crs.num_aggregs).expect("error squeezing verifier message 3 (beta)");
+    let alpha = arthur.challenge_vector::<R, R>(num_constraints).expect("error squeezing verifier message 3 (alpha)");
+    let beta = arthur.challenge_vector::<R, R>(crs.num_aggregs).expect("error squeezing verifier message 3 (beta)");
     prover.transcript.alpha.replace(alpha);
     prover.transcript.beta.replace(beta);
 
@@ -240,7 +241,7 @@ pub fn prove_principal_relation<'a, R: PolyRing>(arthur: &'a mut LatticeArthur<R
     let u_2 = prover.transcript.u_2.as_ref().unwrap();
     arthur.absorb_vector(&u_2).expect("error absorbing prover message 4");
 
-    let c = arthur.squeeze_vec::<R, LabradorChallengeSet<R>>(crs.r).expect("error squeezing verifier message 4");
+    let c = arthur.challenge_vec::<R, LabradorChallengeSet<R>>(crs.r).expect("error squeezing verifier message 4");
     prover.transcript.c.replace(c);
 
     prover.prove_5();

@@ -9,6 +9,23 @@ use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing, SignedRep
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::IntegerDiv;
 
+/// Given a vector of vectors `v`, pads each row to the same length and transposes the result.
+pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
+    let rows = v.len();
+    let cols = v.iter().map(|d_i| d_i.len()).max().unwrap();
+    // Pad each row to the same length `cols'
+    for row in &mut v {
+        row.resize(cols, F::zero());
+    }
+
+    // Reshape as cols x rows
+    (0..cols).map(|col| {
+        (0..rows)
+            .map(|row| v[row][col])
+            .collect::<Vec<F>>()
+    }).collect()
+}
+
 /// Returns the decomposition of `v' in basis `b', where centered representatives are used, i.e.,
 /// v = \sum_i b^i v_i, with ||v_i||_\infty <= b/2.
 pub fn decompose_balanced<R: ConvertibleField>(v: &R, b: u128, padding_size: Option<usize>) -> Vec<R>
@@ -53,41 +70,24 @@ pub fn decompose_balanced<R: ConvertibleField>(v: &R, b: u128, padding_size: Opt
     decomp_bal
 }
 
-pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: u128, padding_size: Option<usize>) -> Vec<R>
+pub fn decompose_balanced_vec<F: ConvertibleField>(v: &[F], b: u128, padding_size: Option<usize>) -> Vec<Vec<F>>
 {
-    let mut decomp: Vec<Vec<R::BaseRing>> = v.coeffs().iter().map(|ring_elem| decompose_balanced(ring_elem, b, padding_size)).collect(); // len(v) x decomp_size
-    let rows = v.coeffs().len();
-    let cols = decomp.iter().map(|d_i| d_i.len()).max().unwrap();
-    // Pad each row to the same length `cols'
-    for row in &mut decomp {
-        row.resize(cols, R::BaseRing::zero());
-    }
-
-    (0..cols).map(|col| {
-        R::from(
-            (0..rows)
-                .map(|row| decomp[row][col])
-                .collect::<Vec<R::BaseRing>>()
-        )
-    }).collect()
+    let decomp: Vec<Vec<F>> = v.iter().map(|v_i| decompose_balanced(v_i, b, padding_size)).collect(); // v.len() x decomp_size
+    pad_and_transpose(decomp) // decomp_size x v.len() x
 }
 
-
-pub fn decompose_balanced_vec<R: PolyRing>(v: &Vector<R>, b: u128, padding_size: Option<usize>) -> Vec<Vector<R>>
+pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: u128, padding_size: Option<usize>) -> Vec<R>
 {
-    let mut decomp: Vec<Vec<R>> = v.as_slice().iter().map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size)).collect(); // len(v) x decomp_size
-    let rows = v.len();
-    let cols = decomp.iter().map(|d_i| d_i.len()).max().unwrap();
-    // Pad each row to the same length `cols'
-    for row in &mut decomp {
-        row.resize(cols, R::zero());
-    }
+    decompose_balanced_vec::<R::BaseRing>(v.coeffs().as_slice(), b, padding_size)
+        .into_iter()
+        .map(|v_i| R::from(v_i))
+        .collect()
+}
 
-    (0..cols).map(|col| {
-        Vector::<R>::from((0..rows)
-            .map(|row| decomp[row][col])
-            .collect::<Vec<_>>())
-    }).collect()
+pub fn decompose_balanced_vec_polyring<R: PolyRing>(v: &Vector<R>, b: u128, padding_size: Option<usize>) -> Vec<Vector<R>>
+{
+    let decomp: Vec<Vec<R>> = v.as_slice().iter().map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size)).collect(); // v.len() x decomp_size
+    pad_and_transpose(decomp).into_iter().map(|v_i| Vector::from(v_i)).collect() // decomp_size x v.len()
 }
 
 pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
@@ -157,7 +157,7 @@ mod tests {
             );
         for b in BASIS_TEST_RANGE {
             let b_half = R::from(b / 2);
-            let decomp = decompose_balanced_vec::<PolyR>(&v, b, None);
+            let decomp = decompose_balanced_vec_polyring::<PolyR>(&v, b, None);
 
             for v_i in &decomp {
                 for v_ij in v_i.as_slice() {

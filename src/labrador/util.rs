@@ -2,6 +2,7 @@
 
 use std::collections::VecDeque;
 use ark_ff::Field;
+use ark_std::iterable::Iterable;
 
 use nalgebra::Scalar;
 use rayon::iter::IntoParallelIterator;
@@ -53,8 +54,11 @@ pub fn flatten_symmetric_matrix<R: Ring>(v: &Vec<Vec<R>>) -> Vector<R> {
     Vector::<R>::from_vec(v.into_iter().flatten().cloned().collect())
 }
 
-pub fn concat<R: Clone + Scalar>(vecs: &[&Vector<R>]) -> Vector<R> {
-    let vals = vecs.into_iter().map(|v| v.data.as_vec()).cloned().flatten().collect::<Vec<R>>();
+pub fn concat<R: Clone + Scalar>(vecs: &[&[R]]) -> Vector<R> {
+    let mut vals = Vec::<R>::with_capacity(vecs.into_iter().map(|v| v.len()).sum());
+    for v in vecs {
+        vals.extend_from_slice(v);
+    }
     Vector::<R>::from_vec(vals)
 }
 

@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::ring::{Fq, Fq2, Ring};
-use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
+use crate::lattice_arithmetic::traits::{FromRandomBytes, IntegerDiv, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
 
-pub trait ConvertibleField: Field + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative> + FromRandomBytes<Self> {}
+pub trait ConvertibleField: Field + Modulus + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative> + FromRandomBytes<Self> {}
 
 pub trait PolyRing:
 Ring
@@ -161,7 +161,7 @@ mod tests {
 
     const Q: u128 = 2u128.pow(61) - 1;
     const Q_HALF: i128 = (Q as i128 - 1) / 2;
-    const TEST_STEP_SIZE: usize = (Q  / 10) as usize;
+    const TEST_STEP_SIZE: usize = (Q / 10) as usize;
 
     type F = Fq<{ Q as u64 }>;
 

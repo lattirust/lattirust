@@ -2,42 +2,20 @@
 
 use nimue::ProofError;
 use rayon::prelude::*;
+use crate::{check, check_eq};
 
 use crate::labrador::common_reference_string::{CommonReferenceString, fold_instance};
 use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::*;
-use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec};
+use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced_polyring, decompose_balanced_vec_polyring};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use crate::nimue::merlin::LatticeMerlin;
+use crate::nimue::traits::ChallengeFromRandomBytes;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
-
-#[macro_export]
-macro_rules! check {
-    ($ cond: expr) => {
-        {
-            if !($cond) {
-                return Err(ProofError::InvalidProof);
-            }
-        }
-    };
-    ( $ cond : expr , $ ( $ arg : tt ) + ) => {
-        {
-            if !($cond) {
-                return Err(ProofError::InvalidProof);
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! check_eq {
-    ( $ a : expr , $ b : expr ) => { check!($a == $b) };
-    ( $ a : expr , $ b : expr , $ ( $ arg : tt ) + ) => { check!($a == $b, $($arg)+) };
-}
 
 /// Verify the final dot product constraints and consolidated norm check, used in the last step of the recursion
 pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), ProofError> {
@@ -50,7 +28,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
     // Decompose z, t, G, H
     let mut sum_norm_sq = 0u64;
 
-    let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
+    let z_decomp = decompose_balanced_vec_polyring(&z, crs.b, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
     check!(&z_decomp[0].linf_norm() * 2 <= crs.b as u128);
 
@@ -58,7 +36,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> Result<(), P
         sum_norm_sq += z_i.l2_norm_squared();
     }
 
-    let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec(t_i, crs.b1, Some(crs.t1))).collect();
+    let t_decomp: Vec<Vec<Vector<R>>> = t.par_iter().map(|t_i| decompose_balanced_vec_polyring(t_i, crs.b1, Some(crs.t1))).collect();
     for t_i in t_decomp.iter() {
         assert_eq!(t_i.len(), crs.t1);
         for k in 0..crs.t1 - 1 {

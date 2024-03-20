@@ -13,7 +13,7 @@ use crate::labrador::binary_r1cs::util::SECPARAM;
 use crate::labrador::prover::Witness;
 use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::{chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, mul_matrix_basescalar, shift_right};
-use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec;
+use crate::lattice_arithmetic::balanced_decomposition::decompose_balanced_vec_polyring;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, sample_uniform_vec, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
@@ -541,7 +541,7 @@ pub fn fold_instance<'a, R: PolyRing>(transcript: &BaseTranscript<R>, compute_wi
 
     let witness = if compute_witness {
         let (z, t, G, H) = (transcript.z.as_ref().unwrap(), transcript.t.as_ref().unwrap(), transcript.G.as_ref().unwrap(), transcript.H.as_ref().unwrap());
-        let z_decomp = decompose_balanced_vec(&z, crs.b, Some(2usize));
+        let z_decomp = decompose_balanced_vec_polyring(&z, crs.b, Some(2usize));
         assert_eq!(z_decomp.len(), 2);
 
         let v = concat(&[&flatten_vec_vector(&t).as_slice(), &flatten_symmetric_matrix(&G).as_slice(), &flatten_symmetric_matrix(&H).as_slice()]);

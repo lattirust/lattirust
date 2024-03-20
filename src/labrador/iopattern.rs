@@ -8,14 +8,13 @@ use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorCh
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::iopattern::LatticeIOPattern;
+use crate::nimue::iopattern::{LatticeIOPattern, SerIOPattern, SqueezeFromRandomBytes};
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 
-pub trait LabradorIOPattern<R, H, U = u8>
+pub trait LabradorIOPattern<R, H>
     where
         R: PolyRing,
-        H: DuplexHash<U>,
-        U: Unit,
+        H: DuplexHash<u8>,
         LabradorChallengeSet<R>: FromRandomBytes<R>,
         WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
@@ -25,10 +24,9 @@ pub trait LabradorIOPattern<R, H, U = u8>
     fn labrador_binaryr1cs_io(self, r1cs: &ConstraintSystem<Z2>, crs: &BinaryR1CSCRS<R>) -> Self;
 }
 
-impl<R, H, U> LabradorIOPattern<R, H, U> for LatticeIOPattern<R, H, U> where
+impl<R, H> LabradorIOPattern<R, H> for LatticeIOPattern<R, H> where
     R: PolyRing,
-    H: DuplexHash<U>,
-    U: Unit,
+    H: DuplexHash<u8>,
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
