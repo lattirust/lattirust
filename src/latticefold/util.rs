@@ -14,15 +14,15 @@ use crate::lattice_arithmetic::ntt::NTT;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 use crate::lattice_arithmetic::ring::Fq;
-use crate::latticefold::boolean_hypercube::BooleanHypercube;
 use crate::relations::{ccs, cm_ccs};
+use crate::sumcheck::boolean_hypercube::BooleanHypercube;
 
 const TAU: usize = 4;
 const Q: u64 = ((1u128 << 64) - 59u128) as u64;
 const D: usize = 64;  //TODO: check?
 
-type F = Fq<Q>;
-type R = Pow2CyclotomicPolyRingNTT<Q, D>;
+pub type F = Fq<Q>;
+pub type R = Pow2CyclotomicPolyRingNTT<Q, D>;
 
 // TODO: implement extension fields F_q^tau and partial NTT
 
@@ -48,7 +48,7 @@ pub fn transpose<T>(v: &Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
 }
 
 // v in (R_q = Z_q[X]/(X^d+1))^m -> (f_i)_{i in [d]}, where f_i: {0,1}^log(m) -> R_q is the MLE of the i-th coefficients of v in NTT representation
-pub fn mle_vec<R: PolyRing, const Q: u64, const N: usize>(v: &Vector<R>) -> Vec<DenseMultilinearExtension<crate::lattice_arithmetic::ring::Fq<Q>>>
+pub fn mle_vec<R: PolyRing, const Q: u64, const N: usize>(v: &Vector<R>) -> Vec<DenseMultilinearExtension<Fq<Q>>>
     where R: NTT<Q, N>
 {
     let m = v.len();
@@ -95,7 +95,7 @@ fn mul_mle(f: &DenseMultilinearExtension<F>, g: &DenseMultilinearExtension<F>) -
 }
 
 /// Return sum_{b in {0,1}^n_c} mle[M_j](X, b) * mle[z_ccs](b)
-pub fn linearization_sumcheck_poly_inner(mat: &Matrix<R>, z: &Vector<R>) -> Vec<DenseMultilinearExtension<F>> {
+fn linearization_sumcheck_poly_inner(mat: &Matrix<R>, z: &Vector<R>) -> Vec<DenseMultilinearExtension<F>> {
     let log_nc = mat.ncols().next_power_of_two().ilog2();
     let mle_mat = mle_mat::<R, Q, D>(mat, false); // Ensure we can partially evaluate on column indices without relabelling
     let mle_z = mle_vec::<R, Q, D>(&z);
@@ -149,7 +149,7 @@ mod tests {
     use crate::lattice_arithmetic::matrix::{sample_uniform_mat, Vector};
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
     use crate::lattice_arithmetic::ring::Fq;
-    use crate::latticefold::boolean_hypercube::index;
+    use crate::sumcheck::boolean_hypercube::index;
 
     use super::*;
 
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     pub fn test_mle_mat() {
         let rng = &mut ark_std::test_rng();
-        let mat = sample_uniform_mat(M, N);
+        let mat = sample_uniform_mat(M, N, rng);
         let mle = mle_mat::<R, Q, D>(&mat, true);
         assert_eq!(mle.len(), D);
         for k in 0..D {

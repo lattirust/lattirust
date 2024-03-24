@@ -10,3 +10,5 @@ pub mod nimue;
 pub mod labrador;
 pub mod latticefold;
 pub mod lova;
+pub mod util;
+pub mod sumcheck;

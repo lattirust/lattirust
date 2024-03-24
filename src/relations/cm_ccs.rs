@@ -26,12 +26,12 @@ impl<R: PolyRing> Crs<R> {
 
 pub struct Instance<R: PolyRing> {
     cm: ajtai_cm::Instance<R>,
-    pub(crate) x_ccs: ccs::Instance<R>,
+    pub x_ccs: ccs::Instance<R>,
 }
 
 pub struct Witness<R: PolyRing> {
-    f: ajtai_cm::Witness<R>,
-    pub(crate) w_ccs: ccs::Witness<R>,
+    pub f: ajtai_cm::Witness<R>,
+    pub w_ccs: ccs::Witness<R>,
 }
 
 pub fn is_satisfied<R: PolyRing>(crs: &Crs<R>, x: &Instance<R>, w: &Witness<R>) -> bool {
