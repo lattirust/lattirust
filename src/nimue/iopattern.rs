@@ -9,8 +9,8 @@ use serde::Serialize;
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::arthur::LatticeArthur;
-use crate::nimue::merlin::LatticeMerlin;
+use crate::nimue::lattice_arthur::LatticeArthur;
+use crate::nimue::lattice_merlin::LatticeMerlin;
 
 pub trait SerIOPattern<H = DefaultHash>
     where

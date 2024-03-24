@@ -11,7 +11,7 @@ use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorCh
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::{PolyRing, UnsignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::merlin::LatticeMerlin;
+use crate::nimue::lattice_merlin::LatticeMerlin;
 
 pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin<R>, cs: &ConstraintSystem<Z2>, crs: &BinaryR1CSCRS<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>

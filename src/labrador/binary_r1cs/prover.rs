@@ -15,7 +15,7 @@ use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryC
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::arthur::LatticeArthur;
+use crate::nimue::lattice_arthur::LatticeArthur;
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, mut cs: &ConstraintSystem<Z2>) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
