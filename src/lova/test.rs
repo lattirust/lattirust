@@ -3,12 +3,12 @@ use nimue::IOPattern;
 use num_traits::Zero;
 
 use crate::lattice_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
-use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::ring::Fq;
-use crate::lattice_arithmetic::traits::Modulus;
+use crate::lattice_arithmetic::traits::{Modulus, WithL2Norm};
 use crate::lova::prover::prove_folding;
 use crate::lova::util::{CRS, SECPARAM};
-use crate::lova::verifier::verify_folding;
+use crate::lova::verifier::{decide, verify_folding};
 use crate::nimue::iopattern::SqueezeFromRandomBytes;
 
 const Q: u64 = (1 << 8) + 1;
@@ -33,11 +33,23 @@ fn test_prover() {
 
     let mut arthur = io.to_arthur();
 
-    let s = vec![Vector::<F>::zeros(N); 2 * SECPARAM];
+    let s = Matrix::<F>::zeros(N, 2 * SECPARAM);
+    let t = &crs.commitment_mat * &s;
 
-    let z = prove_folding(&mut arthur, &crs, &s).unwrap();
+    // Fold
+    let s_new = prove_folding(&mut arthur, &crs, &t, &s).unwrap();
+    let folding_proof = arthur.transcript();
+    let mut merlin = io.to_merlin(folding_proof);
+    let t_new = verify_folding(&mut merlin, &crs, &t).unwrap();
 
-    let mut merlin = io.to_merlin(arthur.transcript());
+    // Check that (t_new, s_new) is in the relation
+    assert_eq!(t_new, &crs.commitment_mat * &s_new);
+    for s_i in s_new.iter() {
+        assert!(s_i.l2_norm_squared() as f64 <= crs.norm_bound);
 
-    verify_folding(&mut merlin, &crs, &z).unwrap();
+    }
+
+    // Check that decider accepts
+    let verifies = decide(&mut merlin, &crs, &t_new, &s_new);
+    assert!(verifies.is_ok());
 }

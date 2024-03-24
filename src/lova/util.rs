@@ -4,7 +4,7 @@ use lattice_estimator::sis::SIS;
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat};
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 
-pub type SymmetricMatrix<F, const N: usize> = nalgebra::SMatrix<F, N, N>; // TODO: use lower triangular representation instead
+pub type SparseMatrix<F, const N: usize> = nalgebra::SMatrix<F, N, N>; // TODO: use lower triangular representation instead
 
 pub const SECPARAM: usize = 128;
 
