@@ -1,3 +1,8 @@
+use ark_ff::Field;
+use ark_std::iterable::Iterable;
+use crypto_bigint::Zero;
+use nalgebra::Scalar;
+use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, SignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 
@@ -44,3 +49,68 @@ impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
         Some(res)
     }
 }
+
+pub fn mul_f_trit<F: Field>(a: &Matrix<F>, b: &Matrix<Trit>) -> Matrix<F> {
+    let mut c = Matrix::<F>::zeros(a.nrows(), b.ncols());
+    for (i, a_i) in a.row_iter().enumerate() {
+        for (j, b_j) in b.column_iter().enumerate() {
+            for (a_ik, b_jk) in a_i.iter().zip(b_j.iter()) {
+                match b_jk {
+                    Trit::MinusOne => c[(i, j)] -= a_ik,
+                    Trit::One => c[(i, j)] += a_ik,
+                    Trit::Zero => {}
+                }
+            }
+        }
+    }
+    c
+}
+
+pub fn mul_f_trit_sym<F: Field>(a: &Vec<Vec<F>>, b: &Matrix<Trit>) -> Matrix<F> {
+    let mut c = Matrix::<F>::zeros(a.len(), b.ncols());
+    for (i, a_i) in a.iter().enumerate() {
+        for (j, b_j) in b.column_iter().enumerate() {
+            for (k, b_jk) in b.iter().enumerate() {
+                // Use the fact that a is symmetric
+                let a_ik = if (k <= i+1) {a[i][k]} else {a[k][i]};
+                match b_jk {
+                    Trit::MinusOne => c[(i, j)] -= a_ik,
+                    Trit::One => c[(i, j)] += a_ik,
+                    Trit::Zero => {}
+                }
+            }
+        }
+    }
+    c
+}
+
+// pub fn mul_F_Trit_vec<F: Field>(a: Matrix<F>, b: &Vector<Trit>) -> Matrix<F> {
+//     let mut c = Vector::<F>::zeros(a.nrows());
+//     for (i, a_i) in a.row_iter().enumerate() {
+//         for (a_ik, b_jk) in a_i.iter().zip(b.iter()) {
+//             match b_jk {
+//                 Trit::MinusOne => c[i] -= a_ik,
+//                 Trit::One => c[i] += a_ik,
+//                 Trit::Zero => {}
+//             }
+//         }
+//     }
+//     c
+// }
+
+pub fn mul_trit_f<F: Field>(a: Matrix<Trit>, b: &Matrix<F>) -> Matrix<F> {
+    let mut c = Matrix::<F>::zeros(a.nrows(), b.ncols());
+    for (i, a_i) in a.row_iter().enumerate() {
+        for (j, b_j) in b.column_iter().enumerate() {
+            for (a_ik, b_jk) in a_i.iter().zip(b_j.iter()) {
+                match a_ik {
+                    Trit::MinusOne => c[(i, j)] -= b_jk,
+                    Trit::One => c[(i, j)] += b_jk,
+                    Trit::Zero => {}
+                }
+            }
+        }
+    }
+    c
+}
+

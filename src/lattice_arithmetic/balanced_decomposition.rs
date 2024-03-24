@@ -4,7 +4,7 @@ use ark_ff::Field;
 use num_traits::{One, Pow, Zero};
 use rounded_div::RoundedDiv;
 
-use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing, SignedRepresentative};
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::IntegerDiv;
@@ -88,6 +88,15 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(v: &Vector<R>, b: u128, padd
 {
     let decomp: Vec<Vec<R>> = v.as_slice().iter().map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size)).collect(); // v.len() x decomp_size
     pad_and_transpose(decomp).into_iter().map(|v_i| Vector::from(v_i)).collect() // decomp_size x v.len()
+}
+
+// Decomposes a m x n matrix into a m x n*decomposition_length matrix
+pub fn decompose_matrix<F: ConvertibleField>(mat: &Matrix<F>, decomposition_basis: u128, decomposition_length: usize) -> Matrix<F> {
+    Matrix::<F>::from_rows(
+        mat.row_iter().map(|s_i|
+            Vector::<F>::from(s_i.map(|s_ij| decompose_balanced(&s_ij, decomposition_basis, Some(decomposition_length))).as_slice().concat()).transpose()
+        ).collect::<Vec<_>>().as_slice()
+    )
 }
 
 pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
