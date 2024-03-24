@@ -1,6 +1,7 @@
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use nalgebra::Scalar;
 use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
+
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 

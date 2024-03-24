@@ -3,7 +3,7 @@ use nimue::IOPattern;
 use num_traits::Zero;
 
 use crate::lattice_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::ring::Fq;
 use crate::lattice_arithmetic::traits::{Modulus, WithL2Norm};
 use crate::lova::prover::prove_folding;

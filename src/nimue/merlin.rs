@@ -1,20 +1,12 @@
-use std::ops::Deref;
-
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress};
 use bincode;
 use bincode::Options;
-use delegate::delegate;
 use nalgebra::Scalar;
-use nimue::{ByteChallenges, BytePublic, ByteReader, ByteTranscript, DefaultHash, DuplexHash, IOPatternError, Merlin, UnitTranscript};
+use nimue::{ByteReader, DuplexHash, IOPatternError, Merlin};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
-use crate::lattice_arithmetic::poly_ring::PolyRing;
-use crate::lattice_arithmetic::ring::{Fq, Ring};
-use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::iopattern::LatticeIOPattern;
-use crate::nimue::traits::ChallengeFromRandomBytes;
 
 pub trait SerMerlin<H>
     where H: DuplexHash<u8>,

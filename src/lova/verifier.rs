@@ -1,13 +1,9 @@
-use ark_serialize::Compress;
-use nimue::{IOPatternError, Merlin, ProofError};
-use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
-
+use nimue::{Merlin, ProofError};
 
 use crate::{check, check_eq};
 use crate::lattice_arithmetic::balanced_decomposition::decompose_matrix;
-
-use crate::lattice_arithmetic::challenge_set::ternary::{mul_F_Trit, mul_F_Trit_sym, mul_Trit_F, TernaryChallengeSet, Trit};
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 use crate::lattice_arithmetic::traits::WithL2Norm;
 use crate::lova::util::{CRS, SECPARAM};

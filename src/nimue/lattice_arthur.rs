@@ -1,7 +1,9 @@
 use std::ops::Deref;
+
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use delegate::delegate;
 use nimue::{Arthur, ByteWriter, DefaultHash, DefaultRng, DuplexHash, IOPatternError, Unit, UnitTranscript};
+
 use crate::labrador::common_reference_string::CommonReferenceString;
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;

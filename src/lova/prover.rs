@@ -1,11 +1,9 @@
 use ark_std::iterable::Iterable;
-use nalgebra::{DMatrix, SMatrix};
 use nimue::{Arthur, IOPatternError};
-use rayon::prelude::*;
 
-use crate::lattice_arithmetic::balanced_decomposition::{decompose_balanced, decompose_balanced_vec, decompose_matrix};
-use crate::lattice_arithmetic::challenge_set::ternary::{mul_F_Trit, TernaryChallengeSet, Trit};
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::balanced_decomposition::decompose_matrix;
+use crate::lattice_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
+use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 use crate::lattice_arithmetic::traits::WithL2Norm;
 use crate::lova::util::{CRS, SECPARAM};
@@ -42,7 +40,7 @@ pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, crs: &CRS<F>, t: 
     let c = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
 
     // Compute z
-    let z = mul_F_Trit(&d, &c);
+    let z = mul_f_trit(&d, &c);
 
     for z_i in z.iter() {
         debug_assert!(z_i.l2_norm_squared() as f64  <= crs.norm_bound);

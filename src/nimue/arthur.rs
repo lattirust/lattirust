@@ -2,6 +2,7 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use bincode;
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteWriter, DefaultHash, DefaultRng, DuplexHash, IOPatternError};
+
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 
 pub trait SerArthur<H = DefaultHash, R = DefaultRng>
