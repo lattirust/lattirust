@@ -2,7 +2,7 @@ use nimue::{Merlin, ProofError};
 
 use crate::{check, check_eq};
 use crate::lattice_arithmetic::balanced_decomposition::decompose_matrix;
-use crate::lattice_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use crate::lattice_arithmetic::challenge_set::ternary::{mul_f_trit, mul_f_trit_sym, mul_trit_f, TernaryChallengeSet, Trit};
 use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 use crate::lattice_arithmetic::traits::WithL2Norm;
@@ -20,7 +20,7 @@ pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, crs: &CRS<F>, t:
 
     let c = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
 
-    let t_new = mul_F_Trit(&w, &c);
+    let t_new = mul_f_trit(&w, &c);
     Ok(t_new)
 }
 
@@ -45,7 +45,7 @@ pub fn decide<F: ConvertibleField>(merlin: &mut Merlin, crs: &CRS<F>, t: &Matrix
     check_eq!(&crs.commitment_mat * z, w);
 
     // Check <Z_i, Z_i> == C_i * G * C^T_i
-    let rhs = mul_Trit_F(c.transpose(), &mul_F_Trit_sym(&g, &c));
+    let rhs = mul_trit_f(c.transpose(), &mul_f_trit_sym(&g, &c));
     debug_assert_eq!(rhs.nrows(), 1);
     debug_assert_eq!(rhs.ncols(), SECPARAM);
     for (z_i, rhs_i) in z.row_iter().zip(rhs.as_slice()) {
