@@ -5,7 +5,8 @@ use nimue::ProofError;
 
 use crate::{check, check_eq};
 use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, SECPARAM, Z2};
-use crate::labrador::r1cs::util::{ark_sparse_matrices, mul_dense_sparse};
+use crate::labrador::r1cs::util::{mul_dense_sparse};
+use crate::labrador::util::ark_sparse_matrices;
 use crate::labrador::verifier::verify_principal_relation;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;

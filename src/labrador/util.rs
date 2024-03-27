@@ -2,13 +2,16 @@
 
 use std::collections::VecDeque;
 use ark_ff::Field;
+use ark_relations::r1cs::ConstraintSystem;
 use ark_std::iterable::Iterable;
 
 use nalgebra::Scalar;
+use num_traits::{One, Zero};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use crate::labrador::binary_r1cs::util::Z2;
 
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, SparseMatrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
 
@@ -157,6 +160,10 @@ pub fn linear_combination_symmetric_matrix<R: Ring>(A: &Vec<Vec<R>>, c: &Vec<R>)
         }
     }
     lc
+}
+
+pub fn ark_sparse_matrices(cs: &ConstraintSystem<Z2>) -> (SparseMatrix<Z2>, SparseMatrix<Z2>, SparseMatrix<Z2>) {
+    todo!()
 }
 
 #[cfg(test)]

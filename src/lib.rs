@@ -8,5 +8,5 @@ pub mod lattice_arithmetic;
 pub mod relations;
 pub mod nimue;
 pub mod labrador;
-pub mod latticefold;
 pub mod lova;
+pub mod util;
