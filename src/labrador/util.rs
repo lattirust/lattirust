@@ -5,7 +5,7 @@ use ark_ff::Field;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::iterable::Iterable;
 
-use nalgebra::Scalar;
+use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -127,9 +127,21 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
     indices
 }
 
+/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n
 pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     inner_products2(s, s)
 }
+
+/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n
+pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send>(s: &Matrix<R>) -> Vec<Vec<R>> {
+    let ranges = lower_triang_indices(s.nrows());
+
+    lowertriang_from_vec(
+        ranges.into_par_iter().map(
+            |(i, j)| s.row(i).dot(&s.row(j))
+        ).collect::<VecDeque<_>>(),
+        s.len(),
+    )}
 
 /// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
 pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {

@@ -1,57 +1,27 @@
 use nimue::{Merlin, ProofError};
 
 use crate::{check, check_eq};
-use crate::lattice_arithmetic::balanced_decomposition::decompose_matrix;
-use crate::lattice_arithmetic::challenge_set::ternary::{mul_f_trit, mul_f_trit_sym, mul_trit_f, TernaryChallengeSet, Trit};
+use crate::labrador::util::mul_basescalar_vector;
+use crate::lattice_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
+use crate::lattice_arithmetic::challenge_set::ternary::{mul_f_trit, mul_f_trit_sym, mul_trit_f, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit};
 use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 use crate::lattice_arithmetic::traits::WithL2Norm;
-use crate::lova::util::{CRS, SECPARAM};
+use crate::lova::util::{Instance, PublicParameters, SECPARAM, Witness};
 use crate::nimue::merlin::SerMerlin;
 use crate::nimue::traits::ChallengeFromRandomBytes;
 
-pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, crs: &CRS<F>, t: &Matrix<F>) -> Result<Matrix<F>, ProofError> {
-    // Check W = decompose(T)
-    // TODO: or recompute ourselves? We'll need to do a pass on the full matrix anyway
-    let w = merlin.next_matrix(crs.commitment_mat.nrows(), 2 * SECPARAM * crs.decomposition_length)?;
-    check_eq!(w, decompose_matrix(&t, crs.decomposition_basis, crs.decomposition_length));
+pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, crs: &PublicParameters<F>, instance: &Instance<F>) -> Result<Instance<F>, ProofError> {
+    let committed_decomp_witness = merlin.next_matrix(crs.commitment_mat.nrows(), 2 * SECPARAM * crs.decomposition_length)?;
 
-    let g = merlin.next_symmetric_matrix::<F>(2 * SECPARAM)?;
+    let inner_products = merlin.next_symmetric_matrix::<F>(2 * SECPARAM)?.into();
 
-    let c = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
+    let challenge = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
 
-    let t_new = mul_f_trit(&w, &c);
-    Ok(t_new)
-}
+    // Check WG = T (mod q)
+    check_eq!(recompose_matrix(&committed_decomp_witness, &crs.powers_of_basis().as_slice()), instance.commitment);
 
-pub fn decide<F: ConvertibleField>(merlin: &mut Merlin, crs: &CRS<F>, t: &Matrix<F>, z: &Matrix<F>) -> Result<(), ProofError> {
-    // Check W = decompose(T)
-    // TODO: or recompute ourselves? We'll need to do a pass on the full matrix anyway
-    let w = merlin.next_matrix(crs.commitment_mat.nrows(), 2 * SECPARAM * crs.decomposition_length)?;
-    check_eq!(w, decompose_matrix(&t, crs.decomposition_basis, crs.decomposition_length));
-
-    let g = merlin.next_symmetric_matrix(2 * SECPARAM)?;
-
-    let c = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
-
-    // Check ||Z|| <= beta_z
-    let norm_bound_z = crs.norm_bound * (2 * SECPARAM) as f64; // TODO
-    let norm_bound_z_sq = norm_bound_z.powi(2);
-    for z_i in z.row_iter() {
-        check!(z_i.transpose().l2_norm_squared() as f64 <= norm_bound_z_sq);
-    }
-
-    // Check AZ == T
-    check_eq!(&crs.commitment_mat * z, w);
-
-    // Check <Z_i, Z_i> == C_i * G * C^T_i
-    let rhs = mul_trit_f(c.transpose(), &mul_f_trit_sym(&g, &c));
-    debug_assert_eq!(rhs.nrows(), 1);
-    debug_assert_eq!(rhs.ncols(), SECPARAM);
-    for (z_i, rhs_i) in z.row_iter().zip(rhs.as_slice()) {
-        let lhs = z_i.dot(&z_i);
-        check_eq!(lhs, *rhs_i);
-    }
-
-    Ok(())
+    let commitment_new = mul_f_trit(&committed_decomp_witness, &challenge);
+    let inner_products_new = mul_trit_transpose_sym_trit(&inner_products, &challenge);
+    Ok(Instance{commitment: commitment_new, inner_products: inner_products_new})
 }

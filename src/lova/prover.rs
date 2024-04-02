@@ -1,4 +1,3 @@
-use ark_std::iterable::Iterable;
 use nimue::{Arthur, IOPatternError};
 
 use crate::lattice_arithmetic::balanced_decomposition::decompose_matrix;
@@ -6,45 +5,37 @@ use crate::lattice_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChall
 use crate::lattice_arithmetic::matrix::Matrix;
 use crate::lattice_arithmetic::poly_ring::ConvertibleField;
 use crate::lattice_arithmetic::traits::WithL2Norm;
-use crate::lova::util::{CRS, SECPARAM};
+use crate::lova::util::{Instance, norm_l2_squared_columnwise, PublicParameters, SECPARAM, Witness};
 use crate::nimue::arthur::SerArthur;
 use crate::nimue::traits::ChallengeFromRandomBytes;
 
-pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, crs: &CRS<F>, t: &Matrix<F>, s: &Matrix<F>) -> Result<(Matrix<F>), IOPatternError> {
-    let n = s.nrows();
-    debug_assert_eq!(s.ncols(), 2 * SECPARAM);
+pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, pp: &PublicParameters<F>, instance: &Instance<F>, witness: &Witness<F>) -> Result<(Matrix<F>), IOPatternError> {
+    debug_assert_eq!(witness.ncols(), 2 * SECPARAM);
+    debug_assert!(norm_l2_squared_columnwise(witness).into_iter().all(|l2_norm_sq| l2_norm_sq as f64 <= pp.norm_bound));
 
-    // d in {x in F | ||x|| <= decomposition_basis}^(n x 2*SEC*decomposition_length)
-    let d = decompose_matrix(&s, crs.decomposition_basis, crs.decomposition_length);
+    // in {x in F | ||x|| <= decomposition_basis}^(n x 2*SEC*decomposition_length)
+    let decomp_witness = decompose_matrix(&witness, pp.decomposition_basis, pp.decomposition_length);
 
-    debug_assert_eq!(d.nrows(), n);
-    debug_assert_eq!(d.ncols(), 2 * SECPARAM * crs.decomposition_length);
+    // in F^(2*SEC*decomposition_length x m)
+    let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
 
-    // w in F^(2*SEC*decomposition_length x m)
-    let w = &crs.commitment_mat * &d;
+    // Add to FS transcript
+    arthur.absorb_matrix(&committed_decomp_witness)?;
 
-    // Add w to FS transcript
-   arthur.absorb_matrix(&w)?;
+    // in {x in F | ||x|| <= norm_bound^2}^(2*SEC*decomposition_length x 2*SEC*decomposition_length)
+    let inner_products = &decomp_witness.transpose() * &decomp_witness; // TODO: compute only lower triangular part
 
-    // g in {x in F | ||x|| <= norm_bound^2}^(2*SEC*decomposition_length x 2*SEC*decomposition_length)
-    let g = &d.transpose() * &d; // TODO: compute only lower triangular part
-
-    // Add g to FS transcript
-    for g_i in g.row_iter() {
-        for g_ij in g_i.iter() {
-            arthur.absorb_canonical_serializable(g_ij)?;
-        }
-    }
+    // Add to FS transcript
+    arthur.absorb_matrix(&inner_products)?;
 
     // Get challenge
-    let c = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * crs.decomposition_length, SECPARAM)?;
+    let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * pp.decomposition_length, SECPARAM)?;
 
-    // Compute z
-    let z = mul_f_trit(&d, &c);
+    // Compute next witness
+    let new_witness = mul_f_trit(&decomp_witness, &challenge);
 
-    for z_i in z.iter() {
-        debug_assert!(z_i.l2_norm_squared() as f64  <= crs.norm_bound);
-    }
+    // Check that the new witness does not grow in norm
+    debug_assert!(norm_l2_squared_columnwise(&new_witness).into_iter().all(|l2_norm_sq| l2_norm_sq as f64 <= pp.norm_bound));
 
-    Ok(z)
+    Ok(new_witness)
 }
