@@ -1,8 +1,7 @@
 use ark_ff::Field;
 use ark_std::iterable::Iterable;
-use crypto_bigint::Zero;
-use nalgebra::Scalar;
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+
+use crate::lattice_arithmetic::matrix::{Matrix, SymmetricMatrix};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, SignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 
@@ -72,7 +71,7 @@ pub fn mul_f_trit_sym<F: Field>(a: &Vec<Vec<F>>, b: &Matrix<Trit>) -> Matrix<F> 
         for (j, b_j) in b.column_iter().enumerate() {
             for (k, b_jk) in b.iter().enumerate() {
                 // Use the fact that a is symmetric
-                let a_ik = if (k <= i+1) {a[i][k]} else {a[k][i]};
+                let a_ik = if (k <= i + 1) { a[i][k] } else { a[k][i] };
                 match b_jk {
                     Trit::MinusOne => c[(i, j)] -= a_ik,
                     Trit::One => c[(i, j)] += a_ik,
@@ -82,6 +81,30 @@ pub fn mul_f_trit_sym<F: Field>(a: &Vec<Vec<F>>, b: &Matrix<Trit>) -> Matrix<F> 
         }
     }
     c
+}
+
+#[inline]
+pub fn non_zero(trit: &Trit) -> bool {
+    *trit != Trit::Zero
+}
+
+/// Returns the symmetric matrix equal to c.transpose() * a * c
+pub fn mul_trit_transpose_sym_trit<F: Field>(a: &SymmetricMatrix<F>, c: &Matrix<Trit>) -> SymmetricMatrix<F> {
+    let mut res = SymmetricMatrix::<F>::zero(a.size());
+    for (l, c_l) in c.row_iter().enumerate() {
+        for (k, c_k) in c.row_iter().enumerate() {
+            let c1 = c_l.into_iter().enumerate().filter(|(i, c_li)| **c_li != Trit::Zero);
+            let c2 = c_k.into_iter().enumerate().filter(|(j, c_kj)| **c_kj != Trit::Zero);
+            for (i, j, positive) in c1.zip(c2).map(|((i, c_li), (j, c_kj))| (i, j, c_li == c_kj)) {
+                if positive {
+                    res.at_mut(i, j).add_assign(a.at(l, k));
+                } else {
+                    res.at_mut(i, j).sub_assign(a.at(l, k));
+                }
+            }
+        }
+    }
+    res
 }
 
 // pub fn mul_F_Trit_vec<F: Field>(a: Matrix<F>, b: &Vector<Trit>) -> Matrix<F> {
