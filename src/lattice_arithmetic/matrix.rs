@@ -21,19 +21,26 @@ pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);
 
 impl<F: Clone> From<Vec<Vec<F>>> for SymmetricMatrix<F> {
     fn from(value: Vec<Vec<F>>) -> Self {
-        todo!()
+        assert!(value.iter().enumerate().all(|(i, v_i)| v_i.len() == i + 1), "cannot convert value: Vec<Vec<F>> to SymmetricMatrix<F>, row has wrong number of entries");
+        Self(value)
     }
 }
 
-impl<F: Clone> From<Matrix<F>> for SymmetricMatrix<F> {
+impl<F: Clone + Scalar> From<Matrix<F>> for SymmetricMatrix<F> {
     fn from(value: Matrix<F>) -> Self {
-        todo!()
+        assert_eq!(value.transpose(), value);
+        Self(
+            value.row_iter().enumerate().map(
+                |(i, v_i)|
+                    v_i.columns(0, i + 1).into_iter().map(|v| v.clone()).collect()
+            ).collect()
+        )
     }
 }
 
-impl<F: Clone> Into<Matrix<F>> for SymmetricMatrix<F> {
+impl<F: Clone + Scalar> Into<Matrix<F>> for SymmetricMatrix<F> {
     fn into(self) -> Matrix<F> {
-        todo!()
+        Matrix::<F>::from_fn(self.size(), self.size(), |i, j| self.at(i, j).clone())
     }
 }
 
@@ -71,6 +78,18 @@ impl<F: Clone> SymmetricMatrix<F> {
 
     pub fn diag(&self) -> Vec<F> {
         (0..self.size()).map(|i| self.at(i, i).clone()).collect()
+    }
+
+    pub fn rows(&self) -> &Vec<Vec<F>> { &self.0 }
+
+    pub fn map<T, M>(&self, func: M) -> SymmetricMatrix<T>
+        where T: Clone, M: Fn(&F) -> T
+    {
+        SymmetricMatrix::<T>::from(
+            self.rows().into_iter().map(
+                |row| row.into_iter().map(&func).collect()
+            ).collect::<Vec<Vec<T>>>()
+        )
     }
 }
 

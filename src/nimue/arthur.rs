@@ -2,8 +2,9 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use bincode;
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteWriter, DefaultHash, DefaultRng, DuplexHash, IOPatternError};
+use serde::Serialize;
 
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, SymmetricMatrix, Vector};
 
 pub trait SerArthur<H = DefaultHash, R = DefaultRng>
     where
@@ -30,6 +31,24 @@ pub trait SerArthur<H = DefaultHash, R = DefaultRng>
         for elem in vec.iter() {
             self.absorb_canonical_serializable(elem)?;
         }
+        Ok(())
+    }
+
+    fn absorb_symmetric_matrix<F: CanonicalSerialize + Clone>(&mut self, mat: &SymmetricMatrix<F>) -> Result<(), IOPatternError> {
+        for row in mat.rows() {
+            for elem in row.iter() {
+                self.absorb_canonical_serializable(elem)?;
+            }
+        };
+        Ok(())
+    }
+
+    fn absorb_symmetric_matrix_ser<F: serde::Serialize + Clone>(&mut self, mat: &SymmetricMatrix<F>) -> Result<(), IOPatternError> {
+        for row in mat.rows() {
+            for elem in row.iter() {
+                self.absorb_serializable(elem)?;
+            }
+        };
         Ok(())
     }
 

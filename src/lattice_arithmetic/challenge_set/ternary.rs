@@ -1,5 +1,9 @@
+use std::ops::{AddAssign, SubAssign};
+
 use ark_ff::Field;
 use ark_std::iterable::Iterable;
+use nalgebra::Scalar;
+use num_traits::Zero;
 
 use crate::lattice_arithmetic::matrix::{Matrix, SymmetricMatrix};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, SignedRepresentative};
@@ -49,14 +53,14 @@ impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
     }
 }
 
-pub fn mul_f_trit<F: Field>(a: &Matrix<F>, b: &Matrix<Trit>) -> Matrix<F> {
+pub fn mul_f_trit<F: Scalar + Zero + SubAssign + AddAssign>(a: &Matrix<F>, b: &Matrix<Trit>) -> Matrix<F> {
     let mut c = Matrix::<F>::zeros(a.nrows(), b.ncols());
     for (i, a_i) in a.row_iter().enumerate() {
         for (j, b_j) in b.column_iter().enumerate() {
             for (a_ik, b_jk) in a_i.iter().zip(b_j.iter()) {
                 match b_jk {
-                    Trit::MinusOne => c[(i, j)] -= a_ik,
-                    Trit::One => c[(i, j)] += a_ik,
+                    Trit::MinusOne => c[(i, j)] -= a_ik.clone(),
+                    Trit::One => c[(i, j)] += a_ik.clone(),
                     Trit::Zero => {}
                 }
             }
@@ -89,7 +93,7 @@ pub fn non_zero(trit: &Trit) -> bool {
 }
 
 /// Returns the symmetric matrix equal to c.transpose() * a * c
-pub fn mul_trit_transpose_sym_trit<F: Field>(a: &SymmetricMatrix<F>, c: &Matrix<Trit>) -> SymmetricMatrix<F> {
+pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(a: &SymmetricMatrix<F>, c: &Matrix<Trit>) -> SymmetricMatrix<F> {
     let mut res = SymmetricMatrix::<F>::zero(a.size());
     for (l, c_l) in c.row_iter().enumerate() {
         for (k, c_k) in c.row_iter().enumerate() {
@@ -97,9 +101,9 @@ pub fn mul_trit_transpose_sym_trit<F: Field>(a: &SymmetricMatrix<F>, c: &Matrix<
             let c2 = c_k.into_iter().enumerate().filter(|(j, c_kj)| **c_kj != Trit::Zero);
             for (i, j, positive) in c1.zip(c2).map(|((i, c_li), (j, c_kj))| (i, j, c_li == c_kj)) {
                 if positive {
-                    res.at_mut(i, j).add_assign(a.at(l, k));
+                    res.at_mut(i, j).add_assign(a.at(l, k).clone());
                 } else {
-                    res.at_mut(i, j).sub_assign(a.at(l, k));
+                    res.at_mut(i, j).sub_assign(a.at(l, k).clone());
                 }
             }
         }

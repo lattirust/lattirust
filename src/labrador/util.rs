@@ -1,16 +1,16 @@
 #![allow(non_snake_case)]
 
 use std::collections::VecDeque;
+
 use ark_ff::Field;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::iterable::Iterable;
-
 use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
-use crate::labrador::binary_r1cs::util::Z2;
 
+use crate::labrador::binary_r1cs::util::Z2;
 use crate::lattice_arithmetic::matrix::{Matrix, SparseMatrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Ring;
@@ -132,16 +132,18 @@ pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> Vec<Vec<R>> {
     inner_products2(s, s)
 }
 
-/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n
+/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n, where s is an m x n matrix, and s[i] is the i-th column of s.
+/// This is equivalent to the lower triangular part of the symmetric matrix s^T * s.
 pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send>(s: &Matrix<R>) -> Vec<Vec<R>> {
-    let ranges = lower_triang_indices(s.nrows());
+    let ranges = lower_triang_indices(s.ncols());
 
     lowertriang_from_vec(
         ranges.into_par_iter().map(
-            |(i, j)| s.row(i).dot(&s.row(j))
+            |(i, j)| s.column(i).dot(&s.column(j))
         ).collect::<VecDeque<_>>(),
-        s.len(),
-    )}
+        s.ncols(),
+    )
+}
 
 /// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
 pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> Vec<Vec<R>> {
@@ -181,6 +183,7 @@ pub fn ark_sparse_matrices(cs: &ConstraintSystem<Z2>) -> (SparseMatrix<Z2>, Spar
 #[cfg(test)]
 mod tests {
     use ark_std::test_rng;
+
     use crate::lattice_arithmetic::matrix::sample_uniform_vec;
     use crate::lattice_arithmetic::ntt::ntt_modulus;
     use crate::lattice_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;

@@ -45,14 +45,24 @@ pub trait SerMerlin<H>
             ).collect()
         ).collect()
     }
-    fn next_vector<F: Scalar+CanonicalSerialize + CanonicalDeserialize + Zero>(&mut self, n: usize) -> Result<Vector<F>, IOPatternError> {
-        let size = F::zero().serialized_size(Compress::Yes);
-        Ok(Vector::<F>::from_fn(n, |_,_| self.next_canonical_serializable_size(size).unwrap()))
+
+    fn next_symmetric_matrix_ser<F: serde::Serialize + for<'de> serde::Deserialize<'de> + Zero>(&mut self, n: usize) -> Result<Vec<Vec<F>>, IOPatternError> {
+        let size = bincode::serialized_size(&F::zero()).unwrap() as usize;
+        (0..n).map(
+            |i| (0..i + 1).map(
+                |_| self.next_serializable_size(size)
+            ).collect()
+        ).collect()
     }
 
-    fn next_matrix<F: Scalar+Zero+CanonicalSerialize + CanonicalDeserialize>(&mut self, m: usize, n: usize) -> Result<Matrix<F>, IOPatternError> {
+    fn next_vector<F: Scalar + CanonicalSerialize + CanonicalDeserialize + Zero>(&mut self, n: usize) -> Result<Vector<F>, IOPatternError> {
         let size = F::zero().serialized_size(Compress::Yes);
-        Ok(Matrix::<F>::from_fn(m, n, |_,_| self.next_canonical_serializable_size(size).unwrap()))
+        Ok(Vector::<F>::from_fn(n, |_, _| self.next_canonical_serializable_size(size).unwrap()))
+    }
+
+    fn next_matrix<F: Scalar + Zero + CanonicalSerialize + CanonicalDeserialize>(&mut self, m: usize, n: usize) -> Result<Matrix<F>, IOPatternError> {
+        let size = F::zero().serialized_size(Compress::Yes);
+        Ok(Matrix::<F>::from_fn(m, n, |_, _| self.next_canonical_serializable_size(size).unwrap()))
     }
 }
 

@@ -12,9 +12,8 @@ use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::lattice_arthur::LatticeArthur;
 use crate::nimue::lattice_merlin::LatticeMerlin;
 
-pub trait SerIOPattern<H = DefaultHash>
+pub trait SerIOPattern
     where
-        H: DuplexHash<u8>,
         Self: ByteIOPattern + Sized
 {
     fn absorb_serializable_like<S: Serialize + Sized>(self, like: &S, label: &'static str) -> Self {
@@ -26,19 +25,30 @@ pub trait SerIOPattern<H = DefaultHash>
         let s = like.serialized_size(Compress::Yes);
         self.add_bytes(s, label)
     }
+
+    fn absorb_vec<S: CanonicalSerialize + Default>(self, size: usize, label: &'static str) -> Self {
+        let s = S::default().serialized_size(Compress::Yes);
+        self.add_bytes(s * size, label)
+    }
+
+    fn absorb_symmetric_matrix<S: CanonicalSerialize + Default>(self, size: usize, label: &'static str) -> Self {
+        let s = S::default().serialized_size(Compress::Yes);
+        let num_entries = (size * (size + 1)).div_ceil(2);
+        self.add_bytes(s * num_entries, label)
+    }
+
+    fn absorb_matrix<S: CanonicalSerialize + Default>(self, num_rows: usize, num_cols: usize, label: &'static str) -> Self {
+        let s = S::default().serialized_size(Compress::Yes);
+        self.add_bytes(s * num_rows * num_cols, label)
+    }
 }
 
-impl<H> SerIOPattern<H> for IOPattern<H> where H: DuplexHash<u8> {}
+impl<H: DuplexHash<u8>> SerIOPattern for IOPattern<H> {}
 
-impl<R, H> SerIOPattern<H> for LatticeIOPattern<R, H>
-    where H: DuplexHash<u8>,
-          R: PolyRing
-{}
+impl<R: PolyRing, H: DuplexHash<u8>> SerIOPattern for LatticeIOPattern<R, H> {}
 
-pub trait SqueezeFromRandomBytes<H = DefaultHash, U = u8>
+pub trait SqueezeFromRandomBytes
     where
-        H: DuplexHash<u8>,
-        u8: Unit,
         Self: ByteIOPattern + Sized
 {
     fn squeeze_elem<T, A: FromRandomBytes<T>>(self, label: &'static str) -> Self {
@@ -66,12 +76,9 @@ pub trait SqueezeFromRandomBytes<H = DefaultHash, U = u8>
     }
 }
 
-impl<H> SqueezeFromRandomBytes<H> for IOPattern<H> where H: DuplexHash<u8> {}
+impl<H: DuplexHash<u8>> SqueezeFromRandomBytes for IOPattern<H> {}
 
-impl<R, H> SqueezeFromRandomBytes<H> for LatticeIOPattern<R, H>
-    where R: PolyRing,
-          H: DuplexHash<u8>,
-{}
+impl<R: PolyRing, H: DuplexHash<u8>> SqueezeFromRandomBytes for LatticeIOPattern<R, H> {}
 
 impl<R, H> ByteIOPattern for LatticeIOPattern<R, H>
     where H: DuplexHash<u8>,
