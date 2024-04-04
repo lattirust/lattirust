@@ -20,7 +20,7 @@ rand = "0.8.5"
 delegate = "0.12.0"
 nalgebra = { version = "0.32.3", features = ["serde-serialize"] }
 nalgebra-sparse = "0.9.0"
-nimue = "0.0.1"
+nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
 delegate-attr = "0.3.0"
 derive_more = { version = "0.99.17", features = ["from", "add", "iterator"] }
 serde = { version = "1.0.197", features = ["derive"] }
