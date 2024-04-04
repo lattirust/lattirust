@@ -1,9 +1,12 @@
 #![allow(non_snake_case)]
 
+use std::ops::Neg;
+
 use ark_ff::Field;
 use ark_std::UniformRand;
 use nalgebra::Scalar;
-use num_traits::Zero;
+use num_traits::{One, Zero};
+use rand::prelude::SliceRandom;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -67,12 +70,12 @@ impl<F: Clone> SymmetricMatrix<F> {
     #[inline]
     pub fn at(&self, i: usize, j: usize) -> &F {
         debug_assert!(i < self.0.len() && j < self.0.len());
-        if i <= j { &self.0[i][j] } else { &self.0[j][i] }
+        if j <= i { &self.0[i][j] } else { &self.0[j][i] }
     }
     #[inline]
     pub fn at_mut(&mut self, i: usize, j: usize) -> &mut F {
         debug_assert!(i < self.0.len() && j < self.0.len());
-        if i <= j { &mut self.0[i][j] } else { &mut self.0[j][i] }
+        if j <= i { &mut self.0[i][j] } else { &mut self.0[j][i] }
     }
 
     pub fn diag(&self) -> Vec<F> {
@@ -92,6 +95,17 @@ impl<F: Clone> SymmetricMatrix<F> {
     }
 }
 
+impl<F: Clone + UniformRand> SymmetricMatrix<F> {
+    pub fn rand(n: usize, rng: &mut impl Rng) -> SymmetricMatrix<F> {
+        SymmetricMatrix::<F>(
+            (0..n).map(
+                |i| (0..i + 1).map(
+                    |_| F::rand(rng)
+                ).collect()
+            ).collect()
+        )
+    }
+}
 
 // TODO: implement as Mul trait for Vector<R> so that left-multiplication with a scalar is possible
 pub type Vector<R> = nalgebra::DVector<R>;
@@ -113,6 +127,10 @@ pub fn sample_uniform_mat_symmetric<R: Ring, Rng: rand::Rng + ?Sized>(m: usize, 
 
 pub fn sample_uniform_vec<R: Ring, Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> Vector<R> {
     Vector::<R>::from_fn(n, |_, _| R::rand(rng))
+}
+
+pub fn sample_ternary_mat<R: Scalar + UniformRand + Zero + One + Neg<Output=R>, Rng: rand::Rng + ?Sized>(m: usize, n: usize, rng: &mut Rng) -> Matrix<R> {
+    Matrix::<R>::from_fn(m, n, |_, _| [-R::one(), R::zero(), R::one()].choose(rng).unwrap().clone())
 }
 
 #[allow(non_snake_case)]

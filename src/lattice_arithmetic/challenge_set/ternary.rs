@@ -1,9 +1,9 @@
-use std::ops::{AddAssign, SubAssign};
+use std::ops::{AddAssign, Neg, SubAssign};
 
 use ark_ff::Field;
 use ark_std::iterable::Iterable;
 use nalgebra::Scalar;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 
 use crate::lattice_arithmetic::matrix::{Matrix, SymmetricMatrix};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, SignedRepresentative};
@@ -33,6 +33,26 @@ pub enum Trit {
     MinusOne,
     Zero,
     One,
+}
+
+pub fn field_to_trit<F: Zero + One + Neg<Output=F> + PartialEq>(f: F) -> Option<Trit> {
+    if f.is_zero() {
+        Some(Trit::Zero)
+    } else if f.is_one() {
+        Some(Trit::One)
+    } else if (-f).is_one() {
+        Some(Trit::MinusOne)
+    } else {
+        None
+    }
+}
+
+pub fn trit_to_field<F: Zero + One + Neg<Output=F>>(trit: Trit) -> F {
+    match trit {
+        Trit::MinusOne => -F::one(),
+        Trit::Zero => F::zero(),
+        Trit::One => F::one(),
+    }
 }
 
 impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
@@ -69,41 +89,21 @@ pub fn mul_f_trit<F: Scalar + Zero + SubAssign + AddAssign>(a: &Matrix<F>, b: &M
     c
 }
 
-pub fn mul_f_trit_sym<F: Field>(a: &Vec<Vec<F>>, b: &Matrix<Trit>) -> Matrix<F> {
-    let mut c = Matrix::<F>::zeros(a.len(), b.ncols());
-    for (i, a_i) in a.iter().enumerate() {
-        for (j, b_j) in b.column_iter().enumerate() {
-            for (k, b_jk) in b.iter().enumerate() {
-                // Use the fact that a is symmetric
-                let a_ik = if (k <= i + 1) { a[i][k] } else { a[k][i] };
-                match b_jk {
-                    Trit::MinusOne => c[(i, j)] -= a_ik,
-                    Trit::One => c[(i, j)] += a_ik,
-                    Trit::Zero => {}
-                }
-            }
-        }
-    }
-    c
-}
-
-#[inline]
-pub fn non_zero(trit: &Trit) -> bool {
-    *trit != Trit::Zero
-}
-
 /// Returns the symmetric matrix equal to c.transpose() * a * c
 pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(a: &SymmetricMatrix<F>, c: &Matrix<Trit>) -> SymmetricMatrix<F> {
-    let mut res = SymmetricMatrix::<F>::zero(a.size());
+    assert_eq!(a.size(), c.nrows());
+    let mut res = SymmetricMatrix::<F>::zero(c.ncols());
     for (l, c_l) in c.row_iter().enumerate() {
         for (k, c_k) in c.row_iter().enumerate() {
-            let c1 = c_l.into_iter().enumerate().filter(|(i, c_li)| **c_li != Trit::Zero);
-            let c2 = c_k.into_iter().enumerate().filter(|(j, c_kj)| **c_kj != Trit::Zero);
-            for (i, j, positive) in c1.zip(c2).map(|((i, c_li), (j, c_kj))| (i, j, c_li == c_kj)) {
-                if positive {
-                    res.at_mut(i, j).add_assign(a.at(l, k).clone());
-                } else {
-                    res.at_mut(i, j).sub_assign(a.at(l, k).clone());
+            for (i, c_li) in c_l.into_iter().enumerate().filter(|(i, c_li)| **c_li != Trit::Zero) {
+                // We only need to set entries for j <= i (otherwise we'll have update off-diagonal entries twice), hence the .take(i+1)
+                for (j, c_kj) in c_k.into_iter().enumerate().take(i + 1).filter(|(j, c_kj)| **c_kj != Trit::Zero) {
+                    let positive = c_li == c_kj;
+                    if positive {
+                        res.at_mut(i, j).add_assign(a.at(l, k).clone());
+                    } else {
+                        res.at_mut(i, j).sub_assign(a.at(l, k).clone());
+                    }
                 }
             }
         }
@@ -111,33 +111,53 @@ pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(a: &
     res
 }
 
-// pub fn mul_F_Trit_vec<F: Field>(a: Matrix<F>, b: &Vector<Trit>) -> Matrix<F> {
-//     let mut c = Vector::<F>::zeros(a.nrows());
-//     for (i, a_i) in a.row_iter().enumerate() {
-//         for (a_ik, b_jk) in a_i.iter().zip(b.iter()) {
-//             match b_jk {
-//                 Trit::MinusOne => c[i] -= a_ik,
-//                 Trit::One => c[i] += a_ik,
-//                 Trit::Zero => {}
-//             }
-//         }
-//     }
-//     c
-// }
 
-pub fn mul_trit_f<F: Field>(a: Matrix<Trit>, b: &Matrix<F>) -> Matrix<F> {
-    let mut c = Matrix::<F>::zeros(a.nrows(), b.ncols());
-    for (i, a_i) in a.row_iter().enumerate() {
-        for (j, b_j) in b.column_iter().enumerate() {
-            for (a_ik, b_jk) in a_i.iter().zip(b_j.iter()) {
-                match a_ik {
-                    Trit::MinusOne => c[(i, j)] -= b_jk,
-                    Trit::One => c[(i, j)] += b_jk,
-                    Trit::Zero => {}
-                }
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use ark_std::test_rng;
+
+    use crate::lattice_arithmetic::matrix::{sample_ternary_mat, sample_uniform_mat};
+    use crate::lattice_arithmetic::ring::Fq;
+
+    use super::*;
+
+    const Q: u64 = 65537;
+
+    type F = Fq<Q>;
+
+    const M: usize = 64;
+    const N: usize = 128;
+    const K: usize = 256;
+
+    #[test]
+    fn test_mul_f_trit() {
+        let rng = &mut test_rng();
+        let mat: Matrix<F> = sample_uniform_mat(M, N, rng);
+        let trits_field: Matrix<F> = sample_ternary_mat(N, K, rng);
+        let trits = trits_field.map(|f| field_to_trit(f).unwrap());
+
+        println!("{}", mat);
+        println!("{}", trits_field);
+
+        let mat_trits = mul_f_trit(&mat, &trits);
+        let mat_trits_field = mat * trits_field;
+
+        println!("is:     {:?}", mat_trits);
+        println!("should: {:?}", mat_trits_field);
+        assert_eq!(mat_trits_field, mat_trits);
     }
-    c
+
+    #[test]
+    fn test_mul_trit_transpose_sym_trit() {
+        let rng = &mut test_rng();
+        let mat = SymmetricMatrix::<F>::rand(N, rng);
+        let trits_field: Matrix<F> = sample_ternary_mat(N, M, rng);
+        let trits = trits_field.map(|f| field_to_trit(f).unwrap());
+
+        let mat_trits = mul_trit_transpose_sym_trit(&mat, &trits);
+        let mat_trits_field: SymmetricMatrix<F> = (trits_field.transpose() * Into::<Matrix<F>>::into(mat) * trits_field).into();
+
+        assert_eq!(mat_trits_field, mat_trits);
+    }
 }
 
