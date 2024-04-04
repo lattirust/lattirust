@@ -6,7 +6,7 @@ use nimue::hash::Unit;
 use num_traits::Zero;
 use serde::Serialize;
 
-use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::matrix::{SymmetricMatrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
 use crate::nimue::lattice_arthur::LatticeArthur;
@@ -31,10 +31,10 @@ pub trait SerIOPattern
         self.add_bytes(s * size, label)
     }
 
-    fn absorb_symmetric_matrix<S: CanonicalSerialize + Default>(self, size: usize, label: &'static str) -> Self {
-        let s = S::default().serialized_size(Compress::Yes);
-        let num_entries = (size * (size + 1)).div_ceil(2);
-        self.add_bytes(s * num_entries, label)
+    fn absorb_symmetric_matrix<S: Clone + Zero>(self, size: usize, label: &'static str) -> Self
+        where SymmetricMatrix<S>: Serialize
+    {
+        self.absorb_serializable_like(&SymmetricMatrix::<S>::zero(size), label)
     }
 
     fn absorb_matrix<S: CanonicalSerialize + Default>(self, num_rows: usize, num_cols: usize, label: &'static str) -> Self {
@@ -79,6 +79,18 @@ pub trait SqueezeFromRandomBytes
 impl<H: DuplexHash<u8>> SqueezeFromRandomBytes for IOPattern<H> {}
 
 impl<R: PolyRing, H: DuplexHash<u8>> SqueezeFromRandomBytes for LatticeIOPattern<R, H> {}
+
+// NOTE: In nimue, ratchet() is not exposed through a trait. This trait allows other traits to call ratchet as part of their implementation.
+pub trait RatchetIOPattern {
+    fn ratchet(self) -> Self;
+}
+
+impl<H: DuplexHash<u8>> RatchetIOPattern for IOPattern<H> {
+    fn ratchet(self) -> Self {
+        self.ratchet()
+    }
+}
+
 
 impl<R, H> ByteIOPattern for LatticeIOPattern<R, H>
     where H: DuplexHash<u8>,

@@ -1,6 +1,7 @@
 use ark_serialize::{CanonicalSerialize, Compress};
 use bincode;
 use crypto_bigint::rand_core::{CryptoRng, RngCore};
+use nalgebra::Scalar;
 use nimue::{Arthur, ByteWriter, DefaultHash, DefaultRng, DuplexHash, IOPatternError};
 use serde::Serialize;
 
@@ -20,7 +21,7 @@ pub trait SerArthur<H = DefaultHash, R = DefaultRng>
     }
 
     fn absorb_canonical_serializable<S: CanonicalSerialize>(&mut self, msg: &S) -> Result<(), IOPatternError> {
-        let mut bytes = vec![0u8; msg.serialized_size(Compress::Yes)];
+        let mut bytes = vec![];
         match msg.serialize_compressed(&mut bytes) {
             Ok(()) => self.add_bytes(bytes.as_slice()),
             Err(e) => Err(IOPatternError::from(e.to_string()))
@@ -34,22 +35,10 @@ pub trait SerArthur<H = DefaultHash, R = DefaultRng>
         Ok(())
     }
 
-    fn absorb_symmetric_matrix<F: CanonicalSerialize + Clone>(&mut self, mat: &SymmetricMatrix<F>) -> Result<(), IOPatternError> {
-        for row in mat.rows() {
-            for elem in row.iter() {
-                self.absorb_canonical_serializable(elem)?;
-            }
-        };
-        Ok(())
-    }
-
-    fn absorb_symmetric_matrix_ser<F: serde::Serialize + Clone>(&mut self, mat: &SymmetricMatrix<F>) -> Result<(), IOPatternError> {
-        for row in mat.rows() {
-            for elem in row.iter() {
-                self.absorb_serializable(elem)?;
-            }
-        };
-        Ok(())
+    fn absorb_symmetric_matrix<F: Clone>(&mut self, mat: &SymmetricMatrix<F>) -> Result<(), IOPatternError>
+        where SymmetricMatrix<F>: Serialize
+    {
+        self.absorb_serializable(&mat)
     }
 
     fn absorb_matrix<F: CanonicalSerialize>(&mut self, mat: &Matrix<F>) -> Result<(), IOPatternError> {
