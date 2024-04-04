@@ -14,7 +14,7 @@ use crate::lattice_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Tri
 use crate::lattice_arithmetic::matrix::{Matrix, sample_uniform_mat, SymmetricMatrix};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, SignedRepresentative};
 use crate::lattice_arithmetic::traits::WithL2Norm;
-use crate::nimue::iopattern::{SerIOPattern, SqueezeFromRandomBytes};
+use crate::nimue::iopattern::{RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes};
 use crate::relations::traits::Relation;
 
 pub const SECPARAM: usize = 128;
@@ -106,11 +106,13 @@ pub fn to_integers<F: ConvertibleField>(mat: &Matrix<F>) -> Matrix<i128> {
 }
 
 pub trait LovaIOPattern
-    where Self: SerIOPattern + SqueezeFromRandomBytes
+    where Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern
 {
     fn folding_round<F: ConvertibleField>(self, pp: &PublicParameters<F>) -> Self {
         self.absorb_matrix::<F>(pp.commitment_mat.nrows(), 2 * SECPARAM * pp.decomposition_length, "commitment")
-            .absorb_symmetric_matrix::<F>(2 * SECPARAM * pp.decomposition_length, "inner_products")
+            .ratchet()
+            .absorb_symmetric_matrix::<i128>(2 * SECPARAM * pp.decomposition_length, "inner products")
+            .ratchet()
             .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * pp.decomposition_length, SECPARAM, "challenge")
     }
 }

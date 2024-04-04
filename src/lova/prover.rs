@@ -29,7 +29,8 @@ pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, pp: &PublicParame
     let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
 
     // Add to FS transcript
-    arthur.absorb_matrix(&committed_decomp_witness)?;
+    arthur.absorb_matrix::<F>(&committed_decomp_witness).unwrap();
+    arthur.ratchet().unwrap();
 
     // Compute inner products over the integers
     let decomp_witness_int = &decomp_witness.map(|x| Into::<SignedRepresentative>::into(x).0);
@@ -37,10 +38,11 @@ pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, pp: &PublicParame
     debug_assert_eq!(inner_products.size(), 2 * SECPARAM * pp.decomposition_length);
 
     // Add to FS transcript
-    arthur.absorb_symmetric_matrix_ser(&inner_products)?;
+    arthur.absorb_symmetric_matrix::<i128>(&inner_products).unwrap();
+    arthur.ratchet().unwrap();
 
     // Get challenge
-    let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * pp.decomposition_length, SECPARAM)?;
+    let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * pp.decomposition_length, SECPARAM).unwrap();
 
     // Compute next witness
     // TODO: We don't actually have to do this mod q, but with the current implementation we're barely doing modular arithmetic, not sure if it makes sense to work over the integers instead here.
