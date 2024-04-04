@@ -1,3 +1,4 @@
+use log::debug;
 use nimue::{Arthur, IOPatternError};
 
 use crate::labrador::util::inner_products_mat;
@@ -49,7 +50,15 @@ pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, pp: &PublicParame
     let new_witness = mul_f_trit(&decomp_witness, &challenge);
 
     // Check that the new witness does not grow in norm
-    debug_assert!(norm_l2_squared_columnwise(&new_witness).into_iter().all(|l2_norm_sq| l2_norm_sq as f64 <= pp.norm_bound));
+    let new_norms = norm_l2_squared_columnwise(&new_witness);
+    debug!("Columns of folded witness have norms (min, mean, max) = ({}, {}, {})",
+        new_norms.iter().min().unwrap(),
+        new_norms.iter().sum::<u64>() as f64 / new_norms.len() as f64,
+    new_norms.iter().max().unwrap());
+    debug!("(Assuming uniform witness norms), expected norm should be should give (mean, max) = ({}, {})",
+        (2 * pp.decomposition_length * SECPARAM * pp.decomposition_basis as usize) as f64 / 3.,
+        (2 * pp.decomposition_length * SECPARAM * pp.decomposition_basis as usize) as f64);
+    debug_assert!(new_norms.into_iter().all(|l2_norm_sq| l2_norm_sq as f64 <= pp.norm_bound));
 
     Ok(new_witness)
 }
