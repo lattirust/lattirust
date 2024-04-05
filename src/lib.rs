@@ -3,6 +3,7 @@
 #![feature(const_trait_impl)]
 #![feature(const_fn_floating_point_arithmetic)]
 #![feature(round_ties_even)]
+#![feature(int_roundings)]
 
 pub mod lattice_arithmetic;
 pub mod relations;

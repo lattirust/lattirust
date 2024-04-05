@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use ark_ff::Field;
 use nalgebra::Scalar;
 use nimue::{DuplexHash, IOPattern};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
@@ -17,17 +17,10 @@ use crate::lattice_arithmetic::traits::WithL2Norm;
 use crate::nimue::iopattern::{RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes};
 use crate::relations::traits::Relation;
 
-pub const SECPARAM: usize = 128;
-
-impl<F: ConvertibleField> PublicParameters<F> {
-    pub fn new(n: usize, norm_bound: f64) -> Self {
-        let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
-        let h = sis.find_optimal_n(SECPARAM).unwrap();
-        let commitment_mat = sample_uniform_mat(h, n, &mut rand::thread_rng());
-        let decomposition_basis = round_to_even(norm_bound.sqrt()); // TODO
-        let decomposition_length = norm_bound.log(decomposition_basis as f64).ceil() as usize;
-        Self { commitment_mat, norm_bound, decomposition_basis, decomposition_length }
-    }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum OptimizationMode {
+    OptimizeForSpeed,
+    OptimizeForSize,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -36,6 +29,52 @@ pub struct PublicParameters<F: ConvertibleField> {
     pub norm_bound: f64,
     pub decomposition_basis: u128,
     pub decomposition_length: usize,
+    pub mode: OptimizationMode,
+    pub security_parameter: usize,
+}
+
+impl<F: ConvertibleField> PublicParameters<F> {
+    pub fn new(n: usize, mode: OptimizationMode) -> Self {
+        /*
+        For inputs of length n we need to fulfill two conditions:
+        1. The commitment must be binding, i.e., SIS_{h, w=n, q, beta, l2} is hard
+        2. For perfect completeness, the columns of the folded witness must have norm at most norm_bound, i.e., 2 * security_parameter * decomposition_length * norm_decomp <= norm_bound, where norm_decomp = floor(decomposition_basis/2) * sqrt(n)
+         */
+        let security_parameter = 128;
+        let norm_bound: f64 = match mode {
+            OptimizationMode::OptimizeForSpeed => (3 * 3 * security_parameter * security_parameter * n) as f64, // for decomposition_basis = sqrt(norm_bound)
+            OptimizationMode::OptimizeForSize => (F::modulus() as f64).sqrt() // TODO: is that required now that we work over the integers?
+        };
+
+        let decomposition_basis: u128 = match mode {
+            OptimizationMode::OptimizeForSpeed => {
+                // For speed, we want to set decomposition_basis to be as large as possible while ensuring perfect completeness.
+                round_to_even(norm_bound.sqrt())
+            }
+            OptimizationMode::OptimizeForSize => {
+                /*
+                The proof size is composed as follows
+                    commitment: h * 2*decomposition_length*security_parameter * log2(q) bits
+                    inner products: (2*decomposition_length*security_parameter)^2 * floor(decomposition_basis/2)^2 bits
+                    challenge: 2*decomposition_length*security_parameter^2 * 2 bits
+                The minimum of the sum of these (for decomposition_basis >= 2) is attained for decomposition_basis ≈ e, which we round down to 2.
+                */
+                2
+            }
+        };
+        let decomposition_length: usize = norm_bound.log(decomposition_basis as f64).floor() as usize + 1;
+        let norm_decomp = decomposition_basis.div_floor(2) as f64 * (n as f64).sqrt();
+        let folded_norm = (2 * security_parameter * decomposition_length) as f64 * norm_decomp;
+        debug_assert!(folded_norm <= norm_bound);
+
+        let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
+        let h = sis.find_optimal_n(security_parameter).unwrap();
+
+
+        let commitment_mat = sample_uniform_mat(h, n, &mut rand::thread_rng());
+
+        Self { commitment_mat, norm_bound, decomposition_basis, decomposition_length, mode, security_parameter }
+    }
 }
 
 impl<F: ConvertibleField> PublicParameters<F> {
@@ -109,11 +148,11 @@ pub trait LovaIOPattern
     where Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern
 {
     fn folding_round<F: ConvertibleField>(self, pp: &PublicParameters<F>) -> Self {
-        self.absorb_matrix::<F>(pp.commitment_mat.nrows(), 2 * SECPARAM * pp.decomposition_length, "commitment")
+        self.absorb_matrix::<F>(pp.commitment_mat.nrows(), 2 * pp.security_parameter * pp.decomposition_length, "commitment")
             .ratchet()
-            .absorb_symmetric_matrix::<i128>(2 * SECPARAM * pp.decomposition_length, "inner products")
+            .absorb_symmetric_matrix::<i128>(2 * pp.security_parameter * pp.decomposition_length, "inner products")
             .ratchet()
-            .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * SECPARAM * pp.decomposition_length, SECPARAM, "challenge")
+            .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter, "challenge")
     }
 }
 
