@@ -18,7 +18,13 @@ pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, pp: &PublicParam
     let challenge = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter)?;
     merlin.ratchet()?;
 
-    // Check committed_decomp_witness * G == commitment (mod q)
+    // Check G^T * inner_products_decomp_1 * G == instance_1.inner_products
+    // TODO
+
+    // Check G^T * inner_products_decomp_2 * G == instance_2.inner_products
+    // TODO
+
+    // Check committed_decomp_witness * G == (instance_1.commitment || instance_2.commitment) (mod q)
     let mut commitment = instance_1.commitment.clone();
     commitment.extend(instance_2.commitment.column_iter());
     check_eq!(recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice()), commitment);
