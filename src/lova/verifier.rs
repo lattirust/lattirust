@@ -10,13 +10,13 @@ use crate::nimue::traits::ChallengeFromRandomBytes;
 
 pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, pp: &PublicParameters<F>, instance_1: &Instance<F>, instance_2: &Instance<F>) -> Result<Instance<F>, ProofError> {
     let committed_decomp_witness = merlin.next_matrix(pp.commitment_mat.nrows(), 2 * pp.security_parameter * pp.decomposition_length)?;
+    merlin.ratchet()?;
 
-    let inner_products = merlin.next_symmetric_matrix_ser::<i128>(2 * pp.security_parameter)?.into();
-
-    // Check G^T * inner_products * G == (witness_1 || witness_2)^T * (witness_1 || witness_2) over the integers
-    // TODO
+    let inner_products_decomp = merlin.next_symmetric_matrix::<i128>(2 * pp.security_parameter * pp.decomposition_length)?.into();
+    merlin.ratchet()?;
 
     let challenge = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter)?;
+    merlin.ratchet()?;
 
     // Check committed_decomp_witness * G == commitment (mod q)
     let mut commitment = instance_1.commitment.clone();
@@ -25,6 +25,6 @@ pub fn verify_folding<F: ConvertibleField>(merlin: &mut Merlin, pp: &PublicParam
 
     // Compute new instance (commitment and inner products)
     let commitment_new = mul_f_trit(&committed_decomp_witness, &challenge);
-    let inner_products_new = mul_trit_transpose_sym_trit(&inner_products, &challenge);
+    let inner_products_new = mul_trit_transpose_sym_trit(&inner_products_decomp, &challenge);
     Ok(Instance { commitment: commitment_new, inner_products: inner_products_new })
 }

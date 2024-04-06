@@ -30,20 +30,21 @@ pub fn prove_folding<F: ConvertibleField>(arthur: &mut Arthur, pp: &PublicParame
     let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
 
     // Add to FS transcript
-    arthur.absorb_matrix::<F>(&committed_decomp_witness).unwrap();
-    arthur.ratchet().unwrap();
+    arthur.absorb_matrix::<F>(&committed_decomp_witness)?;
+    arthur.ratchet()?;
 
     // Compute inner products over the integers
     let decomp_witness_int = &decomp_witness.map(|x| Into::<SignedRepresentative>::into(x).0);
-    let inner_products: SymmetricMatrix<i128> = inner_products_mat(&decomp_witness_int).into();
-    debug_assert_eq!(inner_products.size(), 2 * pp.security_parameter * pp.decomposition_length);
+    let inner_products_decomp: SymmetricMatrix<i128> = inner_products_mat(&decomp_witness_int).into();
+    debug_assert_eq!(inner_products_decomp.size(), 2 * pp.security_parameter * pp.decomposition_length);
 
     // Add to FS transcript
-    arthur.absorb_symmetric_matrix::<i128>(&inner_products).unwrap();
-    arthur.ratchet().unwrap();
+    arthur.absorb_symmetric_matrix::<i128>(&inner_products_decomp)?;
+    arthur.ratchet()?;
 
     // Get challenge
-    let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter).unwrap();
+    let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter)?;
+    arthur.ratchet()?;
 
     // Compute next witness
     // TODO: We don't actually have to do this mod q, but with the current implementation we're barely doing modular arithmetic, not sure if it makes sense to work over the integers instead here.

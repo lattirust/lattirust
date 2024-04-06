@@ -113,8 +113,8 @@ pub fn recompose_matrix<F: Field>(mat: &Matrix<F>, powers_of_basis: &[F]) -> Mat
     let k = powers_of_basis.len();
     debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should be a m x nk entries, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
     let n = nk / k;
-    let pows = Vector::<F>::from_row_slice(powers_of_basis);
-    Matrix::<F>::from_fn(m, n, |i, j| mat.row(i).column_part(j * k, k).dot(&pows))
+    let pows = Vector::<F>::from_row_slice(powers_of_basis).transpose();
+    Matrix::<F>::from_fn(m, n, |i, j| mat.row(i).columns_range(j * k..j * k + k).dot(&pows))
 }
 
 #[cfg(test)]

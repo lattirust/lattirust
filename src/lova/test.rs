@@ -13,7 +13,7 @@ const Q: u64 = ((1u128 << 64) - 1) as u64;
 
 type F = Fq<Q>;
 
-const N: usize = 1 << 6;
+const N: usize = 1 << 4;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();

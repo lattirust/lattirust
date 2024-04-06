@@ -6,7 +6,7 @@ use nimue::{ByteReader, DuplexHash, IOPatternError, Merlin};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-use crate::lattice_arithmetic::matrix::{Matrix, Vector};
+use crate::lattice_arithmetic::matrix::{Matrix, SymmetricMatrix, Vector};
 
 pub trait SerMerlin<H>
     where H: DuplexHash<u8>,
@@ -37,27 +37,16 @@ pub trait SerMerlin<H>
     fn next_like_canonical_serializable<S: CanonicalSerialize + CanonicalDeserialize>(&mut self, like: &S) -> Result<S, IOPatternError> {
         self.next_canonical_serializable_size(like.serialized_size(Compress::Yes))
     }
-    fn next_symmetric_matrix<F: CanonicalSerialize + CanonicalDeserialize + Zero>(&mut self, n: usize) -> Result<Vec<Vec<F>>, IOPatternError> {
-        let size = F::zero().serialized_size(Compress::Yes);
-        (0..n).map(
-            |i| (0..i + 1).map(
-                |_| self.next_canonical_serializable_size(size)
-            ).collect()
-        ).collect()
-    }
-
-    fn next_symmetric_matrix_ser<F: serde::Serialize + for<'de> serde::Deserialize<'de> + Zero>(&mut self, n: usize) -> Result<Vec<Vec<F>>, IOPatternError> {
-        let size = bincode::serialized_size(&F::zero()).unwrap() as usize;
-        (0..n).map(
-            |i| (0..i + 1).map(
-                |_| self.next_serializable_size(size)
-            ).collect()
-        ).collect()
-    }
 
     fn next_vector<F: Scalar + CanonicalSerialize + CanonicalDeserialize + Zero>(&mut self, n: usize) -> Result<Vector<F>, IOPatternError> {
         let size = F::zero().serialized_size(Compress::Yes);
         Ok(Vector::<F>::from_fn(n, |_, _| self.next_canonical_serializable_size(size).unwrap()))
+    }
+
+    fn next_symmetric_matrix<F: Zero + Clone>(&mut self, size: usize) -> Result<SymmetricMatrix<F>, IOPatternError>
+        where SymmetricMatrix<F>: Serialize + for<'de> Deserialize<'de>
+    {
+        self.next_like_serializable(&SymmetricMatrix::<F>::zero(size))
     }
 
     fn next_matrix<F: Scalar + Zero + CanonicalSerialize + CanonicalDeserialize>(&mut self, m: usize, n: usize) -> Result<Matrix<F>, IOPatternError> {

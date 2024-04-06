@@ -153,6 +153,7 @@ pub trait LovaIOPattern
             .absorb_symmetric_matrix::<i128>(2 * pp.security_parameter * pp.decomposition_length, "inner products")
             .ratchet()
             .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(2 * pp.security_parameter * pp.decomposition_length, pp.security_parameter, "challenge")
+            .ratchet()
     }
 }
 

@@ -49,7 +49,7 @@ pub struct CommonReferenceString<R: PolyRing> {
     pub next_crs: Option<Box<CommonReferenceString<R>>>,
 }
 
-fn round_to_even(x: f64) -> u128 {
+pub fn round_to_even(x: f64) -> u128 {
     if x.floor() as usize % 2 == 0 { x.floor() as u128 } else { x.ceil() as u128 }
 }
 
