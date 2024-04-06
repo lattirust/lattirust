@@ -1,10 +1,11 @@
 use std::iter::Sum;
 
 use ark_ff::Field;
+use nalgebra::Scalar;
 use num_traits::{One, Pow, Zero};
 use rounded_div::RoundedDiv;
 
-use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::{ConvertibleField, PolyRing, SignedRepresentative};
 use crate::lattice_arithmetic::ring::Ring;
 use crate::lattice_arithmetic::traits::IntegerDiv;
@@ -90,10 +91,30 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(v: &Vector<R>, b: u128, padd
     pad_and_transpose(decomp).into_iter().map(|v_i| Vector::from(v_i)).collect() // decomp_size x v.len()
 }
 
+/// Decomposes the m x n matrix `mat` into a m x n*`decomposition_length` matrix in basis `decomposition_basis`.
+pub fn decompose_matrix<F: ConvertibleField>(mat: &Matrix<F>, decomposition_basis: u128, decomposition_length: usize) -> Matrix<F> {
+    Matrix::<F>::from_rows(
+        mat.row_iter().map(|s_i|
+            Vector::<F>::from(s_i.map(|s_ij| decompose_balanced(&s_ij, decomposition_basis, Some(decomposition_length))).as_slice().concat()).transpose()
+        ).collect::<Vec<_>>().as_slice()
+    )
+}
+
 pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
     where A: std::ops::Mul<B, Output=A> + Copy + Sum, B: Field
 {
     v.iter().enumerate().map(|(i, v_i)| *v_i * b.pow([i as u64])).sum()
+}
+
+/// Given a m x n*k matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the m x n recomposed matrix.
+pub fn recompose_matrix<F: Field>(mat: &Matrix<F>, powers_of_basis: &[F]) -> Matrix<F>
+{
+    let (m, nk) = (mat.nrows(), mat.ncols());
+    let k = powers_of_basis.len();
+    debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should be a m x nk entries, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
+    let n = nk / k;
+    let pows = Vector::<F>::from_row_slice(powers_of_basis).transpose();
+    Matrix::<F>::from_fn(m, n, |i, j| mat.row(i).columns_range(j * k..j * k + k).dot(&pows))
 }
 
 #[cfg(test)]

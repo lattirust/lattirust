@@ -4,7 +4,6 @@ use anyhow::Error;
 use ark_ff::{Field, Fp, MontBackend};
 use ark_ff::fields::MontConfig;
 
-use crate::labrador::binary_r1cs::util::R1CSWitness;
 use crate::labrador::r1cs::util::{R1CSCRS, R1CSInstance};
 use crate::labrador::util::{concat, flatten_vec_vector};
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
@@ -13,7 +12,8 @@ use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::ring::Fq;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::arthur::LatticeArthur;
+use crate::nimue::lattice_arthur::LatticeArthur;
+use crate::nimue::traits::ChallengeFromRandomBytes;
 
 #[derive(MontConfig)]
 #[modulus = "18446744073709551617"] // 2^64+1
@@ -37,11 +37,11 @@ struct R1CSTranscript<R: PolyRing> {
     // r: _,
 }
 
-pub fn prove_r1cs<'a, R: PolyRing>(crs: &R1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, instance: &R1CSInstance<Z64>, witness: &R1CSWitness<Z64>) -> Result<&'a [u8], Error>
+pub fn prove_r1cs<'a, R: PolyRing>(crs: &R1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, instance: &R1CSInstance<Z64>, witness: &Vector<Z64>) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     let (A, B, C) = (&instance.A, &instance.B, &instance.C);
-    let w = &witness.w;
+    let w = witness;
     let (k, n) = (A.nrows(), A.ncols());
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
     let l = crs.l;
@@ -55,12 +55,12 @@ pub fn prove_r1cs<'a, R: PolyRing>(crs: &R1CSCRS<R>, arthur: &'a mut LatticeArth
     let c_R = enc::<R>(&c);
     let w_R = enc::<R>(w);
 
-    let v = concat(&[&a_R, &b_R, &c_R, &w_R]);
+    let v = concat(&[a_R.as_slice(), b_R.as_slice(), c_R.as_slice(), w_R.as_slice()]);
     let t = &crs.A * &v;
 
     arthur.absorb_vector(&t).unwrap();
 
-    let phi = arthur.squeeze_vectors::<Z64, Z64>(l, k)?;
+    let phi = arthur.challenge_vectors::<Z64, Z64>(l, k)?;
 
     let mut d_R = Vec::<Vector::<R>>::with_capacity(l);
     for i in 0..l {
@@ -72,7 +72,7 @@ pub fn prove_r1cs<'a, R: PolyRing>(crs: &R1CSCRS<R>, arthur: &'a mut LatticeArth
     arthur.absorb_vector(&t_d)?;
 
     // let alpha = arthur.squeeze_vector::<Z64, Z64>()
-    let c = arthur.squeeze_vectors::<Z64, Z64>(l, k * (l + 3) + l);
+    let c = arthur.challenge_vectors::<Z64, Z64>(l, k * (l + 3) + l);
 
     let g = (0..l).map(|i|
         // f(i, a_R, b_R, c_R, w_R, d_R_flat)

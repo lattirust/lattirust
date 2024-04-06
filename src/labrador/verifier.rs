@@ -4,6 +4,7 @@ use nimue::ProofError;
 use rayon::prelude::*;
 use crate::{check, check_eq};
 
+
 use crate::labrador::common_reference_string::{CommonReferenceString, fold_instance};
 use crate::labrador::shared::BaseTranscript;
 use crate::labrador::util::*;
@@ -13,7 +14,7 @@ use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryC
 use crate::lattice_arithmetic::matrix::{Matrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
-use crate::nimue::merlin::LatticeMerlin;
+use crate::nimue::lattice_merlin::LatticeMerlin;
 use crate::nimue::traits::ChallengeFromRandomBytes;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 

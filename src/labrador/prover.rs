@@ -14,7 +14,7 @@ use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryC
 use crate::lattice_arithmetic::matrix::Vector;
 use crate::lattice_arithmetic::poly_ring::{PolyRing, SignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::arthur::LatticeArthur;
+use crate::nimue::lattice_arthur::LatticeArthur;
 use crate::nimue::traits::ChallengeFromRandomBytes;
 use crate::relations::labrador::principal_relation::PrincipalRelation;
 

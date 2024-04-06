@@ -7,22 +7,20 @@ use num_traits::One;
 
 use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, SECPARAM, Z2};
 use crate::labrador::prover::prove_principal_relation;
-use crate::labrador::r1cs::util::{ark_sparse_matrices, embed, is_satisfied, is_wellformed, lift, mul_dense_sparse};
-use crate::labrador::util::concat;
+use crate::labrador::r1cs::util::{embed, lift, mul_dense_sparse};
+use crate::labrador::util::{ark_sparse_matrices, concat};
 use crate::labrador::witness::Witness;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use crate::lattice_arithmetic::matrix::Vector;
+use crate::lattice_arithmetic::matrix::{Matrix, SparseMatrix, Vector};
 use crate::lattice_arithmetic::poly_ring::PolyRing;
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::arthur::LatticeArthur;
+use crate::nimue::lattice_arthur::LatticeArthur;
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mut LatticeArthur<R>, mut cs: &ConstraintSystem<Z2>) -> Result<&'a [u8], Error>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
 {
     debug!("labrador::binary_r1cs starting BinR1CS -> PrincipalRelation reduction");
-    // debug_assert!(is_wellformed(crs, cs));
-    // debug_assert!(is_satisfied(crs, cs));
 
     //cs.set_mode(ark_relations::r1cs::SynthesisMode::Prove { construct_matrices: true });
     let (A, B, C) = ark_sparse_matrices(cs);
@@ -87,4 +85,3 @@ pub fn prove_binary_r1cs<'a, R: PolyRing>(crs: &BinaryR1CSCRS<R>, arthur: &'a mu
     debug!("labrador::binary_r1cs finished BinR1CS -> PrincipalRelation reduction");
     prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.core_crs)
 }
-

@@ -5,13 +5,14 @@ use nimue::ProofError;
 
 use crate::{check, check_eq};
 use crate::labrador::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, SECPARAM, Z2};
-use crate::labrador::r1cs::util::{ark_sparse_matrices, mul_dense_sparse};
+use crate::labrador::r1cs::util::{mul_dense_sparse};
+use crate::labrador::util::ark_sparse_matrices;
 use crate::labrador::verifier::verify_principal_relation;
 use crate::lattice_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use crate::lattice_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use crate::lattice_arithmetic::poly_ring::{PolyRing, UnsignedRepresentative};
 use crate::lattice_arithmetic::traits::FromRandomBytes;
-use crate::nimue::merlin::LatticeMerlin;
+use crate::nimue::lattice_merlin::LatticeMerlin;
 
 pub fn verify_binary_r1cs<R: PolyRing>(merlin: &mut LatticeMerlin<R>, cs: &ConstraintSystem<Z2>, crs: &BinaryR1CSCRS<R>) -> Result<(), ProofError>
     where LabradorChallengeSet<R>: FromRandomBytes<R>, WeightedTernaryChallengeSet<R>: FromRandomBytes<R>
