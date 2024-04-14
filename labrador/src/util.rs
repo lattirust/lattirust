@@ -73,7 +73,7 @@ pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vect
     A.map(|a_ij| a_ij * s)
 }
 
-/// Compute sum_{i,j in [r]} A_ij * c_i * c_j
+/// Compute $\sum_{i,j \in \[r\]} A_ij c_i  c_j$
 pub fn linear_combination_symmetric_matrix<R: Ring>(A: &SymmetricMatrix<R>, c: &Vec<R>) -> R {
     let n = A.size();
     debug_assert_eq!(c.len(), n);

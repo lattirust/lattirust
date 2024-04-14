@@ -72,7 +72,7 @@ impl<F: ConvertibleField> PublicParameters<F> {
         debug_assert!(folded_norm <= norm_bound);
 
         let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
-        let h = sis.find_optimal_n(security_parameter).unwrap();
+        let h = sis.find_optimal_h(security_parameter).unwrap();
 
         let commitment_mat = Matrix::<F>::rand(h, n, &mut rand::thread_rng());
 

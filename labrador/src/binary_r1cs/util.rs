@@ -5,7 +5,8 @@ use ark_relations::r1cs::ConstraintSystem;
 use ark_std::rand;
 use num_traits::Zero;
 
-use lattice_estimator::msis2::MSIS;
+use lattice_estimator::msis::MSIS;
+use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
@@ -58,11 +59,11 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         );
         // Ensure MSIS_{n=m, d=64, q, 1, m=2n+6k} is hard for the l_inf norm
         let msis = MSIS {
-            n: 0, // dummy value, will be set later
+            h: 0, // dummy value, will be set later
             d,
             q: R::modulus(),
             length_bound: 1.,
-            m: 2 * n + 6 * k,
+            w: 2 * n + 6 * k,
             norm: Norm::Linf,
         };
 

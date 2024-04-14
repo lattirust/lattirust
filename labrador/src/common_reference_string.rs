@@ -7,11 +7,13 @@ use ark_std::rand::thread_rng;
 use log::info;
 use serde::Serialize;
 
-use lattice_estimator::msis2::MSIS;
+use lattice_estimator::msis::MSIS;
+use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::balanced_decomposition::decompose_balanced_vec_polyring;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::linear_algebra::Matrix;
+use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::poly_ring::PolyRing;
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::principal_relation::{
@@ -23,8 +25,6 @@ use crate::util::{
     chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, mul_matrix_basescalar,
     shift_right,
 };
-
-use lattirust_arithmetic::linear_algebra::Vector;
 
 pub(crate) const SECURITY_PARAMETER: usize = 128;
 
@@ -150,30 +150,30 @@ impl<R: PolyRing> CommonReferenceString<R> {
 
         // Ensure MSIS_{n=k, d, q, beta_1, m=n} is hard (l_2 norm)
         let mut msis_1 = MSIS {
-            n: 0, // Dummy value, will be set later
+            h: 0, // Dummy value, will be set later
             d,
             q,
             length_bound: 0., // Dummy value
-            m: n,
+            w: n,
             norm: Norm::L2,
         };
-        let k = msis_1.upper_bound_n();
+        let k = msis_1.upper_bound_h();
         // let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
-        msis_1 = msis_1.with_n(k).with_length_bound(norm_bound_1(k));
+        msis_1 = msis_1.with_h(k).with_length_bound(norm_bound_1(k));
         //info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
         info!("  Chose largest k={k} for the MSIS instance {msis_1}");
 
         let mut msis_2 = MSIS {
-            n: 0, // Dummy value, will be set later
+            h: 0, // Dummy value, will be set later
             d,
             q,
             length_bound: 2. * beta_prime(k),
-            m: k,
+            w: k,
             norm: Norm::L2,
         };
-        let k1 = msis_2.find_optimal_n(SECURITY_PARAMETER).expect(format!("failed to find secure rank for {msis_2}. Are there enough constraints in your system?").as_str());
+        let k1 =find_optimal_h(&msis_2, SECURITY_PARAMETER).expect(format!("failed to find secure rank for {msis_2}. Are there enough constraints in your system?").as_str());
         let k2 = k1;
-        msis_2 = msis_2.with_n(k1).with_length_bound(2. * beta_prime(k));
+        msis_2 = msis_2.with_h(k1).with_length_bound(2. * beta_prime(k));
         info!(
             "  k1=k2={k1} for the MSIS instance {msis_2}  gives {} bits of security",
             msis_2.security_level()
