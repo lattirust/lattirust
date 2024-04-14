@@ -1,0 +1,21 @@
+[package]
+name = "labrador"
+version = "0.0.1-alpha"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
+lattice-estimator = { version = "0.0.1-alpha", path = "../lattice-estimator" }
+lattirust-util = { version = "0.0.1-alpha", path = "../lattirust-util" }
+relations = { version = "0.0.1-alpha", path = "../relations" }
+ark-ff = "0.4.2"
+ark-std = "0.4.0"
+ark-relations = "0.4.0"
+log = "0.4.21"
+nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
+num-traits = "0.2.18"
+pretty_env_logger = "0.5.0"
+rayon = "1.10.0"
+serde = "1.0.197"

@@ -16,19 +16,18 @@ At the moment, this repo holds the following Rust crates:
 
 ### Core
 
-- [lattice_arithmetic](src/lattice_arithmetic): 
-Implementations of power-of-two cyclotomic rings $\mathbb{Z}_q[X]/(X^{2^k}+1)$, number-theoretic transforms, matrices and vectors, various norms and challenge sets.
+- [lattirust_arithmetic](lattirust_arithmetic/): 
+Implementations of power-of-two cyclotomic rings $\mathbb{Z}_q[X]/(X^{2^k}+1)$, number-theoretic transforms, matrices and vectors, various norms and challenge sets. 
+Also contains wrappers and helper traits around the excellent [nimue](https://github.com/arkworks-rs/nimue) library (which enforces secure instantiations of the Fiat-Shamir transformation), making it easier to work with in lattice protocols.
 
-- [lattice-estimator](src/lattice-estimator):
-Wrappers around the [lattice-estimator](https://github.com/malb/lattice-estimator) (for SIS) and [pq-crystals/security-estimates](https://github.com/pq-crystals/security-estimates) for MSIS). 
 
-- [nimue](src/nimue):
-Wrappers and helper traits around the excellent [nimue](https://github.com/arkworks-rs/nimue) library (which enforces secure instantiations of the Fiat-Shamir transformation), making it easier to work with in lattice protocols.
+- [lattice-estimator](lattice-estimator/):
+Wrappers around the [lattice-estimator](https://github.com/malb/lattice-estimator) (for SIS) and [pq-crystals/security-estimates](https://github.com/pq-crystals/security-estimates) for MSIS).
 
 ### Protocols
 
-- [labrador](src/labrador):
+- [labrador](labrador/):
 An implementation of the [LaBRADOR protocol](https://eprint.iacr.org/2022/1341) (concretely small proof sizes, linear verifier). 
 
-- [lova](src/lova):
+- [lova](lova/):
 An implementation of the Lova lattice folding scheme. 
