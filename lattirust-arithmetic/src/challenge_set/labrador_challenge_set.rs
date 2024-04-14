@@ -11,10 +11,10 @@ pub struct LabradorChallengeSet<R: PolyRing> {
     _marker: std::marker::PhantomData<R>,
 }
 
-/// Challenge set for Fq[X]/(X^64+1) where entries have 23 zero coefficients, 31 coefficients with value ±1, and 10 coefficients with value ±2
+/// Challenge set for $\mathbb{Z}\_q\[X\]/(X^{64}+1)$ where entries have 23 zero coefficients, 31 coefficients with value ±1, and 10 coefficients with value ±2
 /// There are more than 2^128 such elements, and they all have l2-norm 71.
 /// In addition, rejection sampling is used to restrict to challenges with operator norm at most 15.
-/// On average, 6 elements need to be sampled to get some c with ||c||_op < 15.
+/// On average, 6 elements need to be sampled to get some $c$ with $|c|_\textrm{op} < 15$.
 /// Differences of distinct challenges are invertible.
 impl<R: PolyRing> LabradorChallengeSet<R> {
     pub type Field = R;

@@ -57,12 +57,12 @@ pub fn inner_products_serial<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix
     symmetric_matrix.into()
 }
 
-/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n
+/// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$ for $s \in R^{n \times m}$
 pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
     inner_products2(s, s)
 }
 
-/// Compute (<s[i], s[j])_ij, for 0 <= i < n, 0 <= j < n, where s is an m x n matrix, and s[i] is the i-th column of s.
+/// Compute $(\langle s_{:,i}, t_{:,j}\rangle)_{i, j \in \[n\]}$, where $s \in R^{m \times, n}$
 /// This is equivalent to the lower triangular part of the symmetric matrix s^T * s.
 pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send>(
     s: &Matrix<R>,
@@ -78,7 +78,7 @@ pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send
     )
 }
 
-/// Compute (<s[i], t[j])_ij, for 0 <= i < n, 0 <= j < n
+/// Compute $(\langle s_i, t_j\rangle)_{i, j \in \[n\]}$ for $s,t \in R^{n \times m}$
 pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
     debug_assert_eq!(s.len(), t.len());
     let ranges = lower_triang_indices(s.len());

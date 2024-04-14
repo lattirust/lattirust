@@ -36,7 +36,7 @@ pub mod boolean_hypercube;
 //     ///
 //     /// The resulting polynomial is
 //     ///
-//     /// $$\sum_{i=0}^{n}C_i\cdot\prod_{j=0}^{m_i}P_{ij}$$
+//     /// $\sum_{i=0}^{n}C_i\cdot\prod_{j=0}^{m_i}P_{ij}$
 //     pub fn prove(polynomial: &ListOfProductsOfPolynomials<F>) -> Result<Proof<F>, Error> {
 //         let mut fs_rng = Blake2s512Rng::setup();
 //         Self::prove_as_subprotocol(&mut fs_rng, polynomial).map(|r| r.0)

@@ -178,7 +178,7 @@ where
     }
 }
 
-/// Implement unary operation: GenericMatrix<T> -> GenericMatrix<TO>
+/// Implement unary operation `GenericMatrix<T>` -> `GenericMatrix<TO>`
 macro_rules! impl_unop {
     ($op:ident, $OpTrait:ident) => {
         impl<T: Scalar, R: Dim, C: Dim, S, TO: Scalar, RO: Dim, CO: Dim, SO> $OpTrait
@@ -195,7 +195,7 @@ macro_rules! impl_unop {
     };
 }
 
-/// Implement binary operation: GenericMatrix<T> x GenericMatrix<TRhs> -> GenericMatrix<TO>
+/// Implement binary operation `GenericMatrix<T>` x `GenericMatrix<TRhs>` -> `GenericMatrix<TO>`
 macro_rules! impl_binop_matrix {
     ($op:ident, $OpTrait:ident) => {
         impl<
@@ -256,7 +256,7 @@ macro_rules! impl_binop_matrix {
     };
 }
 
-/// Implement binary operation: GenericMatrix<T> x TRhs -> GenericMatrix<TO> and: &GenericMatrix<T> x TRhs -> GenericMatrix<TO>
+/// Implement binary operation `GenericMatrix<T>` x `TRhs` -> `GenericMatrix<TO>` and `&GenericMatrix<T>` x `TRhs` -> `GenericMatrix<TO>`
 macro_rules! impl_binop {
     ($op:ident, $OpTrait:ident) => {
         impl<T: Scalar, R: Dim, C: Dim, S, Rhs: Scalar, Output> $OpTrait<Rhs>
@@ -286,7 +286,7 @@ macro_rules! impl_binop {
     };
 }
 
-/// Implement binary assignment operation: GenericMatrix<T> x GenericMatrix<TRhs> -> GenericMatrix<T>
+/// Implement binary assignment operation `GenericMatrix<T>` x `GenericMatrix<TRhs>` -> `GenericMatrix<T>`
 macro_rules! impl_binop_assign_matrix {
     ($op:ident, $OpTrait:ident) => {
         impl<T: Scalar, R: Dim, C: Dim, S, TRhs: Scalar, RRhs: Dim, CRhs: Dim, SRhs>
@@ -301,7 +301,7 @@ macro_rules! impl_binop_assign_matrix {
     };
 }
 
-/// Implement binary assignment operation: GenericMatrix<T> x TRhs -> GenericMatrix<T>
+/// Implement binary assignment operation `GenericMatrix<T>` x `TRhs` -> `GenericMatrix<T>`
 macro_rules! impl_binop_assign {
     ($op:ident, $OpTrait:ident) => {
         impl<T: Scalar, R: Dim, C: Dim, S, Rhs> $OpTrait<Rhs> for GenericMatrix<T, R, C, S>

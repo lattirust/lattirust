@@ -8,7 +8,7 @@ use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::Matrix;
 use crate::poly_ring::{ConvertibleField, PolyRing, SignedRepresentative};
 
-/// Return the maximum number of terms in the balanced decomposition in basis `b` of any x with abs(x) <= `max`
+/// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
     if max == 0 {
         0
@@ -17,7 +17,7 @@ pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
     }
 }
 
-/// Given a vector of vectors `v`, pads each row to the same length and transposes the result.
+/// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
 pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
     let rows = v.len();
     let cols = v.iter().map(|d_i| d_i.len()).max().unwrap();
@@ -32,8 +32,16 @@ pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
         .collect()
 }
 
-/// Returns the decomposition of `v` in basis `b`, where centered representatives are used, i.e.,
-/// v = \sum_i b^i out[i], with abs(out[i]) <= floor(b/2).
+/// Returns the balanced decomposition of a slice as a Vec of Vecs.
+///
+/// # Arguments
+/// * `v`: input element
+/// * `b`: basis for the decomposition, must be even
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+///
+/// # Output
+/// Returns `d`, the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
+/// $\texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
 pub fn decompose_balanced<R: ConvertibleField>(
     v: &R,
     b: u128,
@@ -95,8 +103,16 @@ pub fn decompose_balanced<R: ConvertibleField>(
     decomp_bal
 }
 
-/// Given a slice `v` of length l, return the decomposition in basis `b` as a Vec of size decomp_size, with each item being a Vec of length l, i.e.,
-/// for all i in [l]: v[i] = sum_{j \in [k]} b^j out[i][j] and abs(out[i][j]) <= floor(b/2)
+/// Returns the balanced decomposition of a slice as a Vec of Vecs.
+///
+/// # Arguments
+/// * `v`: input slice, of length `l`
+/// * `b`: basis for the decomposition, must be even
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+/// 
+/// # Output
+/// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
+/// for all $i \in \[l\]: \texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[i\]\[j\]$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
 pub fn decompose_balanced_vec<F: ConvertibleField>(
     v: &[F],
     b: u128,
@@ -109,6 +125,16 @@ pub fn decompose_balanced_vec<F: ConvertibleField>(
     pad_and_transpose(decomp) // decomp_size x v.len()
 }
 
+/// Returns the balanced decomposition of a [`PolyRing`] element as a Vec of [`PolyRing`] elements.
+///
+/// # Arguments
+/// * `v`: `PolyRing` element to be decomposed
+/// * `b`: basis for the decomposition, must be even
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+///
+/// # Output
+/// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
+/// for all $\texttt{v} = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
 pub fn decompose_balanced_polyring<R: PolyRing>(
     v: &R,
     b: u128,
@@ -120,6 +146,16 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
         .collect()
 }
 
+/// Returns the balanced decomposition of a slice of [`PolyRing`] elements as a Vec of [`Vector`] of [`PolyRing`] elements.
+///
+/// # Arguments
+/// * `v`: input slice, of length `l`
+/// * `b`: basis for the decomposition, must be even
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+///
+/// # Output
+/// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
+/// for all $i \in \[l\]: \texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[i\]\[j\]$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
 pub fn decompose_balanced_vec_polyring<R: PolyRing>(
     v: &Vector<R>,
     b: u128,
@@ -136,7 +172,16 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
         .collect() // decomp_size x v.len()
 }
 
-/// Decomposes the m x n matrix `mat` into a m x n*`decomposition_length` matrix in basis `decomposition_basis`.
+/// Returns the balanced gadget decomposition of a [`Matrix`] of dimensions `m × n` as a matrix of dimensions `m × (k * n)`.
+///
+/// # Arguments
+/// * `mat`: input matrix of dimensions `m × n`
+/// * `b`: basis for the decomposition, must be even
+/// * `padding_size`: indicates whether the decomposition length is the specified `k` if `padding_size` is `Some(k)`, or if `k` is the largest decomposition length required for `mat` if `padding_size` is `None` 
+///
+/// # Output
+/// Returns `d` the decomposition in basis `b` as a Matrix of dimensions `m × (k * n)`, i.e.,
+/// $\texttt{mat} = \texttt{d} \times G_\texttt{n}$ where $G_\texttt{n} = I_\texttt{n} \otimes (1, \texttt{b}, \ldots, \texttt{b}^k) \in R^{\texttt{k}\texttt{n} \times \texttt{n}}$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
 pub fn decompose_matrix<F: ConvertibleField>(
     mat: &Matrix<F>,
     decomposition_basis: u128,

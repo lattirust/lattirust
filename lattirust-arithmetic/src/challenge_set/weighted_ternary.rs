@@ -5,7 +5,7 @@ use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 use crate::ring::Fq;
 use crate::traits::FromRandomBytes;
 
-/// Challenge set {-1, 0, 1} for Fq, where Pr[0] = 1/2, Pr[1] = Pr[-1] = 1/4
+/// Challenge set $\\{-1, 0, 1\\} \subset \mathbb{Z}_q$, where $Pr\[C = 0\] = \frac{1}{2}$ and $Pr\[C = 1\] = Pr\[C = -1\] = \frac{1}{4}$
 pub struct WeightedTernaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
