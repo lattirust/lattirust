@@ -24,12 +24,6 @@ impl<R: ComplexField> Matrix<R> {
 }
 
 impl<T: Scalar> Matrix<T> {
-    // delegate! {
-    //     to self.0 {
-    //          #[into]
-    //         pub fn map<O: Scalar, F: FnMut(T) -> O>(&self, f: F) -> Matrix<O>;
-    //     }
-    // }
     pub fn from_vec(m: usize, n: usize, data: Vec<T>) -> Self {
         Self::Inner::from_vec(m, n, data).into()
     }
@@ -41,6 +35,18 @@ impl<T: Scalar> Matrix<T> {
     pub fn from_rows(rows: &[RowVector<T>]) -> Self {
         Self::Inner::from_rows(
             rows.to_owned()
+                .into_iter()
+                .map(|row| row.0)
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .into()
+    }
+
+    pub fn from_columns(columns: &[Vector<T>]) -> Self {
+        Self::Inner::from_columns(
+            columns
+                .to_owned()
                 .into_iter()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()

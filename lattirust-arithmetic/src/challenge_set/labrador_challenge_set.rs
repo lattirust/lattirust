@@ -55,7 +55,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
         }
     }
 
-    fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
+    fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> [i8; N] {
         assert!(bytes.len() >= Self::sample_byte_size());
         assert_eq!(N, 64); // The current implementation can easily be generalized to powers of 2, but this is not implemented yet
 
@@ -97,17 +97,17 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
         assert_eq!(bytes[0..sign_bits_bytesize].len(), sign_bits_bytesize);
         let b_ = sign_bits.bits_remaining().unwrap();
         debug_assert_eq!(b_, sign_bits_bytesize * 8 - 8 * (num_sign_bits / 8) - 1);
-        coeffs
+        coeffs.try_into().unwrap()
     }
 
-    fn checked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
+    fn checked_coeffs_from_random_bytes(bytes: &[u8]) -> [i8; N] {
         let mut i = 0;
         let sample_bytesize = Self::sample_byte_size();
         loop {
             let coeffs = Self::unchecked_coeffs_from_random_bytes(
                 &bytes[i * sample_bytesize..(i + 1) * sample_bytesize],
             );
-            if Self::operator_norm(&coeffs) < Self::OPERATOR_NORM_THRESHOLD {
+            if Self::operator_norm(&coeffs.to_vec()) < Self::OPERATOR_NORM_THRESHOLD {
                 return coeffs;
             }
             i += 1;
@@ -158,17 +158,13 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Fq<Q>,
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
         Some(Self::Field::from(
-            Self::checked_coeffs_from_random_bytes(bytes)
-                .iter()
-                .cloned()
-                .map(|c| {
-                    if c >= 0 {
-                        Self::BaseRing::from(c as u32)
-                    } else {
-                        -Self::BaseRing::from(-c as u32)
-                    }
-                })
-                .collect::<Vec<Self::BaseRing>>(),
+            Self::checked_coeffs_from_random_bytes(bytes).map(|c| {
+                if c >= 0 {
+                    Self::BaseRing::from(c as u32)
+                } else {
+                    -Self::BaseRing::from(-c as u32)
+                }
+            }),
         ))
     }
 }
@@ -221,12 +217,12 @@ mod tests {
     use ark_std::{test_rng, UniformRand};
 
     use crate::linear_algebra::Matrix;
+    use crate::linear_algebra::Vector;
     use crate::ntt::ntt_modulus;
     use crate::poly_ring::PolyRing;
     use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::ring::Fq;
     use crate::traits::{FromRandomBytes, WithL2Norm};
-    use crate::linear_algebra::Vector;
 
     use super::LabradorChallengeSet;
 

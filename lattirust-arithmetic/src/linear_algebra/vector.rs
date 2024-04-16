@@ -1,21 +1,36 @@
 use ark_ff::UniformRand;
 use ark_std::rand;
+use ark_std::rand::Rng;
 use delegate::delegate;
-use nalgebra::{
-    self, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage, ViewStorage,
-};
 use nalgebra::allocator::Allocator;
+use nalgebra::{
+    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
+    ViewStorage,
+};
 use num_traits::Zero;
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Scalar;
+use crate::traits::{WithL2Norm, WithLinfNorm};
 
 pub type GenericVector<T, R, S> = GenericMatrix<T, R, Const<1>, S>;
 pub type Vector<T> = GenericVector<T, Dyn, VecStorage<T, Dyn, Const<1>>>;
+pub type SVector<T, const N: usize> = GenericVector<T, Const<N>, ArrayStorage<T, N, 1>>;
 
 impl<T: Scalar> From<Vec<T>> for Vector<T> {
     fn from(v: Vec<T>) -> Self {
         nalgebra::DVector::from(v).into()
+    }
+}
+
+impl<T: Scalar, const N: usize, E> TryFrom<Vec<T>> for SVector<T, N>
+where
+    [T; N]: TryFrom<Vec<T>, Error = E>,
+{
+    type Error = E;
+
+    fn try_from(value: Vec<T>) -> Result<Self, Self::Error> {
+        Ok(Self::const_from_array(value.try_into()?))
     }
 }
 
@@ -38,6 +53,7 @@ impl<T: Scalar> Vector<T> {
         }
     }
 }
+
 impl<T, S> GenericVector<T, Dyn, S>
 where
     T: Scalar,
@@ -65,9 +81,59 @@ where
     }
 }
 
+impl<T: Scalar, const N: usize> SVector<T, N> {
+    pub(crate) const fn const_from_array(array: [T; N]) -> Self {
+        Self(nalgebra::SVector::<T, N>::from_array_storage(
+            ArrayStorage::<T, { N }, 1> { 0: [array; 1] },
+        ))
+    }
+}
+
 impl<T: Scalar + Zero> Vector<T> {
     pub fn zeros(n: usize) -> Self {
         Self::Inner::zeros(n).into()
+    }
+}
+
+impl<T: UniformRand + Scalar> Vector<T> {
+    pub fn rand<Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> Self {
+        Self::from_fn(n, |_, _| T::rand(rng))
+    }
+
+    pub fn rand_vector_with_bounded_norm(n: usize, norm_bound: i128, rng: &mut impl Rng) -> Self
+    where
+        T: From<i128>,
+    {
+        loop {
+            let mut vec = Vector::<f64>::rand(n, rng);
+            let scale = rng.gen_range(0f64..(norm_bound as f64 / vec.0.norm()));
+            vec *= scale;
+            // debug_assert!(vec.l2_norm() <= norm_bound as f64);
+
+            vec = vec.map(|x| x.round());
+            if vec.0.norm() <= norm_bound as f64 {
+                return vec.map(|x| T::from(x as i128));
+            }
+        }
+    }
+}
+
+impl<T: Scalar + WithL2Norm, R: Dim, S: RawStorage<T, R, Const<1>>> WithL2Norm
+    for GenericVector<T, R, S>
+{
+    fn l2_norm_squared(&self) -> u128 {
+        self.into_iter()
+            .cloned()
+            .collect::<Vec<_>>()
+            .l2_norm_squared()
+    }
+}
+
+impl<T: Scalar + WithLinfNorm, R: Dim, S: RawStorage<T, R, Const<1>>> WithLinfNorm
+    for GenericVector<T, R, S>
+{
+    fn linf_norm(&self) -> u128 {
+        self.into_iter().cloned().collect::<Vec<_>>().linf_norm()
     }
 }
 
@@ -86,11 +152,5 @@ impl<T: Scalar> RowVector<T> {
             pub fn len(&self) -> usize;
             pub fn as_slice(&self) -> &[T];
          }
-    }
-}
-
-impl<T: UniformRand + Scalar> Vector<T> {
-    pub fn rand<Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> Self {
-        Self::from_fn(n, |_, _| T::rand(rng))
     }
 }

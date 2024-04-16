@@ -1,76 +1,151 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
-use std::iter::Product;
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::PrimeField;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
-use nalgebra::{ArrayStorage, SVector};
 use num_traits::{One, Zero};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::linear_algebra::SVector;
+use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::poly_ring::{ConvertibleField, PolyRing};
 use crate::ring::Ring;
-use crate::serde::*;
-use crate::traits::{FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
+use crate::traits::{
+    FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
+};
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into)]
-pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleField, const N: usize>(
-    SVector<BaseRing, N>
-);
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
+)]
+pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleField, const N: usize>(SVector<BaseRing, N>);
 
 impl<BaseRing: ConvertibleField, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
+    pub(crate) type Inner = SVector<BaseRing, N>;
     pub fn from_fn<F>(mut f: F) -> Self
-        where F: FnMut(usize) -> BaseRing {
-        Self { 0: SVector::<BaseRing, N>::from_fn(|i, _| f(i)) }
+    where
+        F: FnMut(usize) -> BaseRing,
+    {
+        let coeffs = core::array::from_fn(f);
+        Self(Self::Inner::const_from_array(coeffs))
+    }
+    const fn const_from_element(elem: BaseRing) -> Self {
+        let mut coeffs = [BaseRing::ZERO; N];
+        coeffs[0] = elem;
+        Self(Self::Inner::const_from_array(coeffs))
     }
 }
 
-const fn vec_from_element<BaseRing: ConvertibleField, const N: usize>(elem: BaseRing) -> SVector<BaseRing, N> {
-    let mut coeffs = [BaseRing::ZERO; N];
-    coeffs[0] = elem;
-    SVector::<BaseRing, N>::from_array_storage(ArrayStorage::<BaseRing, { N }, 1> { 0: [coeffs; 1] })
+impl<BaseRing: ConvertibleField, const N: usize> From<[BaseRing; N]>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
+    fn from(value: [BaseRing; N]) -> Self {
+        Self(Self::Inner::const_from_array(value))
+    }
 }
 
 impl<BaseRing: ConvertibleField, const N: usize> Modulus for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn modulus() -> u64 {
-        let binding = BaseRing::BasePrimeField::MODULUS;
-        let q_limbs: &[u64] = binding.as_ref();
-        debug_assert_eq!(q_limbs.len(), 1, "BaseRing::BasePrimeField::MODULUS should be a single-limb prime");
-        q_limbs[0]
+        BaseRing::modulus()
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
-    const ZERO: Self = Self { 0: vec_from_element(BaseRing::ZERO) };
-    const ONE: Self = Self { 0: vec_from_element(BaseRing::ONE) };
+macro_rules! impl_from_primitive_type {
+    ($primitive_type: ty) => {
+        impl<BaseRing: ConvertibleField, const N: usize> From<$primitive_type>
+            for Pow2CyclotomicPolyRing<BaseRing, N>
+        {
+            fn from(value: $primitive_type) -> Self {
+                Self::from_scalar(BaseRing::from(value))
+            }
+        }
+    };
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl_from_primitive_type!(BaseRing);
+impl_from_primitive_type!(u128);
+impl_from_primitive_type!(u64);
+impl_from_primitive_type!(u32);
+impl_from_primitive_type!(u16);
+impl_from_primitive_type!(u8);
+impl_from_primitive_type!(bool);
+
+impl<'a, BaseRing: ConvertibleField, const N: usize> Sum<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+    fn sum<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
+        iter.fold(Self::zero(), |acc, x| acc + x)
+    }
+}
+
+
+impl<BaseRing: ConvertibleField, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
+    const ZERO: Self = Self::const_from_element(BaseRing::ZERO);
+    const ONE: Self = Self::const_from_element(BaseRing::ONE);
+}
+
+impl<BaseRing: ConvertibleField, const N: usize> FromRandomBytes<Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn byte_size() -> usize {
         N * BaseRing::byte_size()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
         assert_eq!(bytes.len(), Self::byte_size());
-        let coeffs = SVector::<BaseRing, N>::from_fn(|i, _|
-            BaseRing::try_from_random_bytes(&bytes[i * BaseRing::byte_size()..(i + 1) * BaseRing::byte_size()]).unwrap()
-        );
+        let coeffs = core::array::from_fn(|i| {
+            BaseRing::try_from_random_bytes(
+                &bytes[i * BaseRing::byte_size()..(i + 1) * BaseRing::byte_size()],
+            )
+            .unwrap()
+        });
         Some(Self::from(coeffs))
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        ark_se(&self.coeffs(), serializer)
+// impl<BaseRing: ConvertibleField, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRing, N> {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         // ark_se(&self.coeffs(), serializer)
+//         // serialize(&self.0, serializer)
+//         todo!()
+//     }
+// }
+
+impl<BaseRing: ConvertibleField, const N: usize> ToBytes for Pow2CyclotomicPolyRing<BaseRing, N>
+where
+    SVector<BaseRing, N>: ToBytes,
+{
+    type ToBytesError = <SVector<BaseRing, N> as ToBytes>::ToBytesError;
+
+    fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
+        self.0.to_bytes()
     }
 }
 
-impl<'de, BaseRing: ConvertibleField, const N: usize> Deserialize<'de> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        ark_de(deserializer).map(|v: Vec<BaseRing>| Self::from(v))
+// impl<'de, BaseRing: ConvertibleField, const N: usize> Deserialize<'de>
+//     for Pow2CyclotomicPolyRing<BaseRing, N>
+// {
+//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+//     where
+//         D: Deserializer<'de>,
+//     {
+//         // ark_de(deserializer).map(|v: Vec<BaseRing>| Self::from(v))
+//         // let coeffs: SVector<BaseRing, N> = Deserialize::deserialize(deserializer)?;
+//         // Ok(Self(coeffs))
+//         todo!()
+//     }
+// }
+
+impl<BaseRing: ConvertibleField, const N: usize> FromBytes for Pow2CyclotomicPolyRing<BaseRing, N>
+where
+    SVector<BaseRing, N>: FromBytes,
+{
+    type FromBytesError = <SVector<BaseRing, N> as FromBytes>::FromBytesError;
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
+        Self::Inner::from_bytes(bytes).map(Self)
     }
 }
 
@@ -82,7 +157,9 @@ impl<BaseRing: ConvertibleField, const N: usize> Default for Pow2CyclotomicPolyR
 }
 
 impl<BaseRing: ConvertibleField, const N: usize> Display for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { std::fmt::Display::fmt(&self.0, f) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
 }
 
 impl<BaseRing: ConvertibleField, const N: usize> Zero for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -104,7 +181,7 @@ impl<BaseRing: ConvertibleField, const N: usize> One for Pow2CyclotomicPolyRing<
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Mul<Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> Mul<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -121,38 +198,67 @@ impl<BaseRing: ConvertibleField, const N: usize> Mul<Self, > for Pow2CyclotomicP
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Neg<> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> Neg for Pow2CyclotomicPolyRing<BaseRing, N> {
     type Output = Self;
 
-    fn neg(self) -> Self::Output { self.0.neg().into() }
+    fn neg(self) -> Self::Output {
+        self.0.neg().into()
+    }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> UniformRand for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> UniformRand
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
         Self::from_fn(|_| BaseRing::rand(rng))
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> MulAssign<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> MulAssign<Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn mul_assign(&mut self, rhs: Self) {
         let out = self.mul(rhs);
         self.0 = out.0;
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Add<&'a Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Add<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
-    fn add(self, rhs: &'a Self) -> Self::Output { self.0.add(&rhs.0).into() }
+    fn add(self, rhs: &'a Self) -> Self::Output {
+        self.0.add(rhs.0).into()
+    }
+}
+macro_rules! impl_binop {
+    ($op: ident, $OpTrait: ident) => {
+        impl<'a, BaseRing: ConvertibleField, const N: usize> $OpTrait<&'a Self>
+            for Pow2CyclotomicPolyRing<BaseRing, N>
+        {
+            type Output = Self;
+
+            fn $op(self, rhs: &'a Self) -> Self::Output {
+                self.0.$op(&rhs.0).into()
+            }
+        }
+    };
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Sub<&'a Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Sub<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
-    fn sub(self, rhs: &'a Self) -> Self::Output { self.0.sub(rhs.0).into() }
+    fn sub(self, rhs: &'a Self) -> Self::Output {
+        self.0.sub(rhs.0).into()
+    }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
     fn mul(self, rhs: &'a Self) -> Self::Output {
@@ -160,34 +266,54 @@ impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a Self, > for Pow2Cyc
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> AddAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn add_assign(&mut self, rhs: &'a Self) { self.0.add_assign(&rhs.0) }
+impl<'a, BaseRing: ConvertibleField, const N: usize> AddAssign<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
+    fn add_assign(&mut self, rhs: &'a Self) {
+        self.0.add_assign(rhs.0)
+    }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> SubAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn sub_assign(&mut self, rhs: &'a Self) { self.0.sub_assign(&rhs.0) }
+impl<'a, BaseRing: ConvertibleField, const N: usize> SubAssign<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
+    fn sub_assign(&mut self, rhs: &'a Self) {
+        self.0.sub_assign(rhs.0)
+    }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> MulAssign<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> MulAssign<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn mul_assign(&mut self, rhs: &'a Self) {
         let out = self.mul(rhs);
         self.0 = out.0;
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Add<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Add<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
-    fn add(self, rhs: &'a mut Self) -> Self::Output { self.0.add(&rhs.0).into() }
+    fn add(self, rhs: &'a mut Self) -> Self::Output {
+        self.0.add(rhs.0).into()
+    }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Sub<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Sub<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
-    fn sub(self, rhs: &'a mut Self) -> Self::Output { self.0.sub(&rhs.0).into() }
+    fn sub(self, rhs: &'a mut Self) -> Self::Output {
+        self.0.sub(rhs.0).into()
+    }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a mut Self, > for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
     fn mul(self, rhs: &'a mut Self) -> Self::Output {
@@ -195,36 +321,50 @@ impl<'a, BaseRing: ConvertibleField, const N: usize> Mul<&'a mut Self, > for Pow
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> AddAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> AddAssign<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0.add_assign(&rhs.0).into()
+        self.0.add_assign(rhs.0).into()
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> SubAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> SubAssign<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0.sub_assign(&rhs.0).into()
+        self.0.sub_assign(rhs.0).into()
     }
 }
 
-impl<'a, BaseRing: ConvertibleField, const N: usize> MulAssign<&'a mut Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> MulAssign<&'a mut Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn mul_assign(&mut self, rhs: &'a mut Self) {
         let out = self.mul(rhs);
         self.0 = out.0;
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Product<Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn product<I: Iterator<Item=Self>>(iter: I) -> Self { iter.fold(Self::one(), |a, b| a * b) }
-}
-
-impl<'a, BaseRing: ConvertibleField, const N: usize> Product<&'a Self> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn product<I: Iterator<Item=&'a Self>>(iter: I) -> Self {
+impl<BaseRing: ConvertibleField, const N: usize> Product<Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
+    fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::one(), |a, b| a * b)
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> Mul<BaseRing> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<'a, BaseRing: ConvertibleField, const N: usize> Product<&'a Self>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
+    fn product<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
+        iter.fold(Self::one(), |a, b| a * b)
+    }
+}
+
+impl<BaseRing: ConvertibleField, const N: usize> Mul<BaseRing>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     type Output = Self;
 
     fn mul(self, rhs: BaseRing) -> Self::Output {
@@ -235,46 +375,54 @@ impl<BaseRing: ConvertibleField, const N: usize> Mul<BaseRing> for Pow2Cyclotomi
 impl<BaseRing: ConvertibleField, const N: usize> PolyRing for Pow2CyclotomicPolyRing<BaseRing, N> {
     type BaseRing = BaseRing;
     fn coeffs(&self) -> Vec<Self::BaseRing> {
-        self.0.iter().map(|v_i| BaseRing::from(*v_i)).collect()
+        self.0.into_iter().map(|v_i| *v_i).collect()
     }
-    fn dimension() -> usize { N }
+    fn dimension() -> usize {
+        N
+    }
 
     fn from_scalar(v: Self::BaseRing) -> Self {
-        Self { 0: SVector::<BaseRing, N>::from_fn(|i, _| if i == 0 { v } else { BaseRing::zero() }) }
+        Self::from_fn(|i| if i == 0 { v } else { BaseRing::zero() })
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> From<Vec<BaseRing>> for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> From<Vec<BaseRing>>
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn from(value: Vec<BaseRing>) -> Self {
-        Self { 0: SVector::<BaseRing, N>::from_vec(value) }
+        Self::try_from(value).unwrap()
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> From<BaseRing> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn from(value: BaseRing) -> Self { Self::from_scalar(value) }
-}
-
-impl<BaseRing: ConvertibleField, const N: usize> From<u128> for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn from(value: u128) -> Self { Self::from_scalar(value.into()) }
-}
-
-impl<BaseRing: ConvertibleField, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> WithConjugationAutomorphism
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn sigma(&self) -> Self {
-        let coeffs = self.0.as_slice();
+        let coeffs = self.0 .0.as_slice();
         let mut new_coeffs = Vec::<BaseRing>::with_capacity(N);
         new_coeffs.push(coeffs[0]);
-        new_coeffs.extend(coeffs[1..].iter().rev().map(|v_i| -*v_i).collect::<Vec<BaseRing>>());
+        new_coeffs.extend(
+            coeffs[1..]
+                .iter()
+                .rev()
+                .map(|v_i| -*v_i)
+                .collect::<Vec<BaseRing>>(),
+        );
         Self::from(new_coeffs)
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> WithL2Norm for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> WithL2Norm
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn l2_norm_squared(&self) -> u128 {
         self.coeffs().l2_norm_squared()
     }
 }
 
-impl<BaseRing: ConvertibleField, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRing<BaseRing, N> {
+impl<BaseRing: ConvertibleField, const N: usize> WithLinfNorm
+    for Pow2CyclotomicPolyRing<BaseRing, N>
+{
     fn linf_norm(&self) -> u128 {
         self.coeffs().linf_norm()
     }

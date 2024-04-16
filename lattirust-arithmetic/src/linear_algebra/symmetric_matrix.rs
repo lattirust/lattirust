@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
 pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);
 
 impl<F: Clone> From<Vec<Vec<F>>> for SymmetricMatrix<F> {
@@ -19,15 +19,21 @@ impl<F: Clone> From<Vec<Vec<F>>> for SymmetricMatrix<F> {
     }
 }
 
-
 impl<F: Clone + Scalar> From<Matrix<F>> for SymmetricMatrix<F> {
     fn from(value: Matrix<F>) -> Self {
         assert_eq!(value.transpose(), value);
         Self(
-            value.row_iter().enumerate().map(
-                |(i, v_i)|
-                    v_i.iter().take(i + 1).into_iter().map(|v| v.clone()).collect()
-            ).collect()
+            value
+                .row_iter()
+                .enumerate()
+                .map(|(i, v_i)| {
+                    v_i.iter()
+                        .take(i + 1)
+                        .into_iter()
+                        .map(|v| v.clone())
+                        .collect()
+                })
+                .collect(),
         )
     }
 }
@@ -46,44 +52,80 @@ impl<F: Zero + Clone> SymmetricMatrix<F> {
 
 impl<F: Scalar> PartialEq<Matrix<F>> for SymmetricMatrix<F> {
     fn eq(&self, other: &Matrix<F>) -> bool {
-        self.0.iter().enumerate().all(
-            |(i, self_i)|
-                self_i.into_iter().enumerate().all(
-                    |(j, self_ij)| other[(i, j)] == *self_ij
-                )
-        )
+        self.0.iter().enumerate().all(|(i, self_i)| {
+            self_i
+                .into_iter()
+                .enumerate()
+                .all(|(j, self_ij)| other[(i, j)] == *self_ij)
+        })
     }
 }
 
 impl<F: Clone> SymmetricMatrix<F> {
     #[inline]
-    pub fn size(&self) -> usize { self.0.len() }
+    pub fn size(&self) -> usize {
+        self.0.len()
+    }
 
     #[inline]
     pub fn at(&self, i: usize, j: usize) -> &F {
         debug_assert!(i < self.0.len() && j < self.0.len());
-        if j <= i { &self.0[i][j] } else { &self.0[j][i] }
+        if j <= i {
+            &self.0[i][j]
+        } else {
+            &self.0[j][i]
+        }
     }
     #[inline]
     pub fn at_mut(&mut self, i: usize, j: usize) -> &mut F {
         debug_assert!(i < self.0.len() && j < self.0.len());
-        if j <= i { &mut self.0[i][j] } else { &mut self.0[j][i] }
+        if j <= i {
+            &mut self.0[i][j]
+        } else {
+            &mut self.0[j][i]
+        }
     }
 
     pub fn diag(&self) -> Vec<F> {
         (0..self.size()).map(|i| self.at(i, i).clone()).collect()
     }
 
-    pub fn rows(&self) -> &Vec<Vec<F>> { &self.0 }
+    pub fn rows(&self) -> &Vec<Vec<F>> {
+        &self.0
+    }
 
     pub fn map<T, M>(&self, func: M) -> SymmetricMatrix<T>
-        where T: Clone, M: Fn(&F) -> T
+    where
+        T: Clone,
+        M: Fn(&F) -> T,
     {
         SymmetricMatrix::<T>::from(
-            self.rows().into_iter().map(
-                |row| row.into_iter().map(&func).collect()
-            ).collect::<Vec<Vec<T>>>()
+            self.rows()
+                .into_iter()
+                .map(|row| row.into_iter().map(&func).collect())
+                .collect::<Vec<Vec<T>>>(),
         )
+    }
+}
+impl<F: Clone + Scalar> SymmetricMatrix<F> {
+    pub fn from_blocks(
+        top_left: SymmetricMatrix<F>,
+        bottom_left: Matrix<F>,
+        bottom_right: SymmetricMatrix<F>,
+    ) -> Self {
+        let n = top_left.size();
+        assert_eq!(bottom_left.nrows(), n);
+        assert_eq!(bottom_left.ncols(), n);
+        assert_eq!(bottom_right.size(), n);
+
+        let mut result = top_left.0;
+        result.extend(
+            bottom_left
+                .row_iter()
+                .zip(bottom_right.0.into_iter())
+                .map(|(bl_i, br_i)| [&bl_i.0.into_owned().as_slice(), br_i.as_slice()].concat()),
+        );
+        Self(result)
     }
 }
 
@@ -99,18 +141,14 @@ impl<F: Clone> IndexMut<(usize, usize)> for SymmetricMatrix<F> {
     fn index_mut(&mut self, index: (usize, usize)) -> &mut Self::Output {
         self.at_mut(index.0, index.1)
     }
-
 }
 
 impl<F: Clone + UniformRand> SymmetricMatrix<F> {
     pub fn rand<Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> SymmetricMatrix<F> {
         SymmetricMatrix::<F>(
-            (0..n).map(
-                |i| (0..i + 1).map(
-                    |_| F::rand(rng)
-                ).collect()
-            ).collect()
+            (0..n)
+                .map(|i| (0..i + 1).map(|_| F::rand(rng)).collect())
+                .collect(),
         )
     }
 }
-

@@ -62,11 +62,11 @@ pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
     inner_products2(s, s)
 }
 
-/// Compute $(\langle s_{:,i}, t_{:,j}\rangle)_{i, j \in \[n\]}$, where $s \in R^{m \times, n}$
-/// This is equivalent to the lower triangular part of the symmetric matrix s^T * s.
+/// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$, where $s \in R^{m \times, n}$
+/// This is equivalent to the lower triangular part of the symmetric matrix $s^T \cdot s$.
 pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send>(
     s: &Matrix<R>,
-) -> Vec<Vec<R>> {
+) -> SymmetricMatrix<R> {
     let ranges = lower_triang_indices(s.ncols());
 
     lowertriang_from_vec(
@@ -76,6 +76,7 @@ pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send
             .collect::<VecDeque<_>>(),
         s.ncols(),
     )
+    .into()
 }
 
 /// Compute $(\langle s_i, t_j\rangle)_{i, j \in \[n\]}$ for $s,t \in R^{n \times m}$
@@ -97,8 +98,10 @@ pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> S
 mod tests {
     use ark_std::test_rng;
 
+    use crate::linear_algebra::symmetric_matrix::SymmetricMatrix;
     use crate::ntt::ntt_modulus;
     use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+    use crate::ring::Fq;
 
     use super::*;
 
@@ -135,5 +138,14 @@ mod tests {
         // Test parallelized implementation against a straightforward serial implementation
         let v = vec![Vector::<PR>::rand(2, &mut test_rng()); 3];
         assert_eq!(inner_products_serial(&v), inner_products(&v));
+    }
+
+    #[test]
+    fn test_inner_products_mat() {
+        let rng = &mut test_rng();
+        let mat = Matrix::<Fq<Q>>::rand(101, 42, rng);
+        let inner_prods = inner_products_mat(&mat);
+        let inner_prods_expect: SymmetricMatrix<Fq<Q>> = (mat.transpose() * mat).into();
+        assert_eq!(inner_prods, inner_prods_expect);
     }
 }

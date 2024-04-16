@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
-use nalgebra::Dim;
+use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
 use serde::{Deserialize, Serialize};
 
@@ -57,11 +57,11 @@ impl<
         Rhs: Scalar,
         RRhs: Dim,
         CRhs: Dim,
-        SRhs,
+        SRhs: RawStorage<Rhs, RRhs, CRhs>,
         Out: Scalar,
         ROut: Dim,
         COut: Dim,
-        SOut,
+        SOut: RawStorage<Out, ROut, COut>,
     > Mul<&'b GenericMatrix<Rhs, RRhs, CRhs, SRhs>> for &'a SparseMatrix<Lhs>
 where
     &'a nalgebra_sparse::CscMatrix<Lhs>: Mul<
@@ -77,7 +77,7 @@ where
     }
 }
 
-impl<'a, Lhs: Scalar, Rhs: Scalar, Out: Scalar, ROut: Dim, COut: Dim, SOut> Mul<Rhs>
+impl<'a, Lhs: Scalar, Rhs: Scalar, Out: Scalar, ROut: Dim, COut: Dim, SOut: RawStorage<Out, ROut, COut>> Mul<Rhs>
     for &'a SparseMatrix<Lhs>
 where
     &'a nalgebra_sparse::CscMatrix<Lhs>: Mul<Rhs, Output = nalgebra::Matrix<Out, ROut, COut, SOut>>,

@@ -1,8 +1,9 @@
 use std::ops::Mul;
 
 use ark_ff::{BigInt, BigInteger, Field, Fp, Fp64, FpConfig, PrimeField};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use nalgebra::Scalar;
+use num_traits::Pow;
 use num_traits::Zero;
 use serde::{self, Deserialize, Serialize};
 
@@ -13,12 +14,14 @@ use crate::traits::{
 };
 
 pub trait ConvertibleField:
-    Field
+    Ring
     + Modulus
     + Into<UnsignedRepresentative>
     + Into<SignedRepresentative>
     + From<SignedRepresentative>
     + FromRandomBytes<Self>
+    + CanonicalSerialize
+    + CanonicalDeserialize
 {
 }
 
@@ -32,8 +35,6 @@ pub trait PolyRing:
     + FromRandomBytes<Self>
     + From<u128>
     + From<Self::BaseRing>
-    + Serialize
-    + for<'a> Deserialize<'a>
 {
     type BaseRing: ConvertibleField;
 
@@ -42,8 +43,7 @@ pub trait PolyRing:
         Self::flattened_coeffs(vec).into()
     }
     fn flattened_coeffs(vec: &Vector<Self>) -> Vec<Self::BaseRing> {
-        vec.as_slice()
-            .into_iter()
+        vec.into_iter()
             .flat_map(|x| x.coeffs())
             .collect::<Vec<Self::BaseRing>>()
     }
@@ -67,49 +67,13 @@ impl<const Q: u64> ConvertibleField for Fq<Q> {}
 // Norms
 impl<F: ConvertibleField> WithL2Norm for F {
     fn l2_norm_squared(&self) -> u128 {
-        Into::<SignedRepresentative>::into(*self).0.pow(2) as u128
-    }
-}
-
-impl<R: WithL2Norm> WithL2Norm for [R] {
-    fn l2_norm_squared(&self) -> u128 {
-        self.iter().map(|x| x.l2_norm_squared()).sum()
-    }
-}
-
-impl<R: WithL2Norm> WithL2Norm for Vec<R> {
-    fn l2_norm_squared(&self) -> u128 {
-        self.as_slice().l2_norm_squared()
-    }
-}
-
-impl<R: WithL2Norm + Scalar> WithL2Norm for Vector<R> {
-    fn l2_norm_squared(&self) -> u128 {
-        self.as_slice().l2_norm_squared()
+        Into::<SignedRepresentative>::into(self).0.pow(2) as u128
     }
 }
 
 impl<F: ConvertibleField> WithLinfNorm for F {
     fn linf_norm(&self) -> u128 {
-        Into::<SignedRepresentative>::into(*self).0.abs() as u128
-    }
-}
-
-impl<R: WithLinfNorm> WithLinfNorm for [R] {
-    fn linf_norm(&self) -> u128 {
-        self.iter().map(|x| x.linf_norm()).max().unwrap()
-    }
-}
-
-impl<R: WithLinfNorm> WithLinfNorm for Vec<R> {
-    fn linf_norm(&self) -> u128 {
-        self.as_slice().linf_norm()
-    }
-}
-
-impl<R: WithLinfNorm + Scalar> WithLinfNorm for Vector<R> {
-    fn linf_norm(&self) -> u128 {
-        self.as_slice().linf_norm()
+        Into::<SignedRepresentative>::into(self).0.abs() as u128
     }
 }
 
@@ -158,6 +122,12 @@ impl<C: FpConfig<1>> From<SignedRepresentative> for Fp64<C> {
         } else {
             Fp64::<C>::from(value.0 as u128)
         }
+    }
+}
+
+impl<T: Into<SignedRepresentative>> From<&T> for SignedRepresentative {
+    fn from(value: &T) -> Self {
+        value.into()
     }
 }
 

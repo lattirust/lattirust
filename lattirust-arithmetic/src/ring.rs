@@ -2,13 +2,16 @@
 
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::iter::Sum;
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{BigInt, BitIteratorBE, BitIteratorLE, Fp, Fp64, MontBackend, MontConfig};
+use ark_ff::{
+    BigInt, BitIteratorBE, BitIteratorLE, Field, Fp, Fp64, MontBackend, MontConfig, PrimeField,
+};
+use ark_serialize::{CanonicalSerialize, SerializationError};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
-use serde::{self, Deserialize, Serialize};
+use serde::{self};
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus};
@@ -54,9 +57,19 @@ pub trait Ring:
 + for<'a> SubAssign<&'a mut Self>
 + for<'a> MulAssign<&'a mut Self>
 + Sum<Self>
++ for<'a> Sum<&'a Self>
++ Product<Self>
++ for<'a> Product<&'a Self>
++ Sum<Self>
++ From<u128>
++ From<u64>
++ From<u32>
++ From<u16>
++ From<u8>
++ From<bool>
 // Differs from arkworks
-+ Serialize
-+ for<'a> Deserialize<'a>
+// + Serialize
+// + for<'a> Deserialize<'a>
 + FromRandomBytes<Self>
 + FromBytes
 + ToBytes
@@ -68,14 +81,14 @@ pub trait Ring:
     const ONE: Self;
 
     /// Returns `sum([a_i * b_i])`.
-    #[inline]
-    fn sum_of_products<const T: usize>(a: &[Self; T], b: &[Self; T]) -> Self {
-        let mut sum = Self::zero();
-        for i in 0..a.len() {
-            sum += a[i] * b[i];
-        }
-        sum
-    }
+    // #[inline]
+    // fn sum_of_products<const T: usize>(a: &[Self; T], b: &[Self; T]) -> Self {
+    //     let mut sum = Self::zero();
+    //     for i in 0..a.len() {
+    //         sum += a[i] * b[i];
+    //     }
+    //     sum
+    // }
 
     fn square_in_place(&mut self) -> &mut Self {
         *self *= *self;
@@ -138,4 +151,27 @@ impl<const Q: u64> const Modulus for Fq<Q> {
 
 pub const fn const_fq_from<const Q: u64>(val: u64) -> Fq<Q> {
     Fq::new(BigInt::<1> { 0: [val] })
+}
+
+impl<const Q: u64> FromBytes for Fq<Q> {
+    type FromBytesError = ();
+
+    fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
+        todo!()
+    }
+}
+
+impl<const Q: u64> ToBytes for Fq<Q> {
+    type ToBytesError = SerializationError;
+
+    fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
+        let mut bytes = vec![];
+        self.serialize_compressed(&mut bytes)?;
+        Ok(bytes)
+    }
+}
+
+impl<const Q: u64> Ring for Fq<Q> {
+    const ZERO: Self = <Fq<Q> as Field>::ZERO;
+    const ONE: Self = <Fq<Q> as Field>::ONE;
 }

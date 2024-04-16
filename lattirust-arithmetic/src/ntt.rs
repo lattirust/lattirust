@@ -104,7 +104,7 @@ pub trait NTT<const Q: u64, const N: usize> {
     const POWS_ROOT_OF_UNITY: [Fq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
     const NEG_POWS_ROOT_OF_UNITY: [Fq<Q>; N] = root_of_unity_neg_pows_bit_reversed(Self::ROOT_OF_UNITY);
 
-    fn ntt(a: &mut [Fq<Q>]) {
+    fn ntt(a: &mut [Fq<Q>; N]) {
         assert!(N.is_power_of_two());
         assert_eq!(Fq::<Q>::modulus() % (2 * N as u64), 1);
         let mut t = N;
@@ -129,7 +129,7 @@ pub trait NTT<const Q: u64, const N: usize> {
         }
     }
 
-    fn intt(a: &mut [Fq<Q>]) {
+    fn intt(a: &mut [Fq<Q>; N]) {
         assert!(N.is_power_of_two());
         assert_eq!(Fq::<Q>::modulus() % (2 * N as u64), 1);
         let mut t = 1;
