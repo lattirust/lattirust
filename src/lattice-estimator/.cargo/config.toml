@@ -1,2 +1,0 @@
-[env]
-PYO3_PYTHON = "" # TODO: set this to the sage python interpreter, which you can get using `$(sage -sh -c "echo $SAGE_ROOT")/venv/bin/python3`

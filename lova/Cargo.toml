@@ -1,0 +1,18 @@
+[package]
+name = "lova"
+version = "0.0.1-alpha"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+labrador = { version = "0.0.1-alpha", path = "../labrador" }
+lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
+lattice-estimator = {version = "0.0.1-alpha", path = "../lattice-estimator"}
+lattirust-util = {version = "0.0.1-alpha", path = "../lattirust-util"}
+relations = { version = "0.0.1-alpha", path = "../relations" }
+ark-std = "0.4.0"
+log = "0.4.21"
+nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="absorb_unchecked-non-recursive" }
+pretty_env_logger = "0.5.0"
+serde = { version = "1.0.197", features = ["derive"] }

@@ -1,0 +1,10 @@
+[package]
+name = "sumcheck"
+version = "0.0.1-alpha"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
+ark-ff = "0.4.2"

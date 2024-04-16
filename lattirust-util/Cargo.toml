@@ -1,0 +1,9 @@
+[package]
+name = "lattirust-util"
+version = "0.0.1-alpha"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="absorb_unchecked-non-recursive" }
