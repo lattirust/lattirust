@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use ark_std::{One, rand};
+use ark_std::rand::Rng;
+use ark_std::{rand, One, UniformRand};
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,8 @@ use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
-use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
@@ -270,3 +271,17 @@ where
 }
 
 impl<H: DuplexHash<u8>> LovaIOPattern for IOPattern<H> {}
+
+pub fn rand_matrix_with_bounded_column_norms<F: UniformRand + Scalar + From<SignedRepresentative>>(
+    nrows: usize,
+    ncols: usize,
+    rng: &mut impl Rng,
+    norm_bound: i128,
+) -> Matrix<F> {
+    Matrix::<F>::from_columns(
+        (0..ncols)
+            .map(|_| Vector::<F>::rand_vector_with_bounded_norm(nrows, norm_bound, rng))
+            .collect::<Vec<_>>()
+            .as_slice(),
+    )
+}

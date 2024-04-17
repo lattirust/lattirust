@@ -1,36 +1,20 @@
-use ark_std::rand::Rng;
 use ark_std::test_rng;
 use nimue::IOPattern;
 use pretty_env_logger::env_logger;
 
-use lattirust_arithmetic::linear_algebra::{Matrix, Vector};
 use lattirust_arithmetic::ring::Z2_64;
 use relations::traits::Relation;
 
 use crate::prover::Prover;
-use crate::util::{BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters};
+use crate::util::{BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters, rand_matrix_with_bounded_column_norms};
 use crate::verifier::Verifier;
 
 type F = Z2_64;
 
-const N: usize = 1 << 4;
+const N: usize = 1 << 1;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
-}
-
-fn rand_matrix_with_bounded_column_norms(
-    nrows: usize,
-    ncols: usize,
-    rng: &mut impl Rng,
-    norm_bound: i128,
-) -> Matrix<F> {
-    Matrix::<F>::from_columns(
-        (0..ncols)
-            .map(|_| Vector::<F>::rand_vector_with_bounded_norm(nrows, norm_bound, rng))
-            .collect::<Vec<_>>()
-            .as_slice(),
-    )
 }
 
 #[test]
@@ -38,7 +22,7 @@ fn test() {
     init();
 
     let rng = &mut test_rng();
-    let pp = PublicParameters::new(N, OptimizationMode::OptimizeForSpeed);
+    let pp = PublicParameters::<F>::new(N, OptimizationMode::OptimizeForSpeed);
 
     let witness_1 =
         rand_matrix_with_bounded_column_norms(N, pp.security_parameter, rng, pp.norm_bound as i128);

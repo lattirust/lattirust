@@ -62,7 +62,9 @@ impl<F: ConvertibleRing> Verifier<F> {
         merlin.ratchet().unwrap();
 
         let inner_products_decomp = merlin
-            .next_symmetric_matrix::<SignedRepresentative>(2 * pp.security_parameter * pp.decomposition_length)
+            .next_symmetric_matrix::<SignedRepresentative>(
+                2 * pp.security_parameter * pp.decomposition_length,
+            )
             .unwrap();
         merlin.ratchet().unwrap();
 
@@ -91,8 +93,6 @@ impl<F: ConvertibleRing> Verifier<F> {
             "inner products match"
         );
 
-        println!("cm_recomp: {}", recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice()).map(|x| Into::<SignedRepresentative>::into(x).0));
-        println!("cm:        {}", instance.commitment.map(|x| Into::<SignedRepresentative>::into(x).0));
         check_eq!(
             recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice()),
             instance.commitment,
