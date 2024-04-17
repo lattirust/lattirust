@@ -5,11 +5,10 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{BitIteratorBE, BitIteratorLE, Field, MontConfig, PrimeField};
+use ark_ff::{BitIteratorBE, BitIteratorLE};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
-use serde::{self};
 
 // Exports
 pub use poly_ring::{ConvertibleRing, PolyRing};

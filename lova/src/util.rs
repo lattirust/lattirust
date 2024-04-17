@@ -5,7 +5,7 @@ use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use serde::{Deserialize, Serialize};
 
-use labrador::common_reference_string::{floor_to_even, round_to_even};
+use labrador::common_reference_string::floor_to_even;
 use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;

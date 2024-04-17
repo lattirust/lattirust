@@ -6,7 +6,6 @@ use ark_std::rand;
 use num_traits::Zero;
 
 use lattice_estimator::msis::MSIS;
-use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;

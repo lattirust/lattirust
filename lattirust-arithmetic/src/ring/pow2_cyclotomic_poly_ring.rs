@@ -26,7 +26,7 @@ pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleRing, const N: usize>(SVe
 
 impl<BaseRing: ConvertibleRing, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
     pub(crate) type Inner = SVector<BaseRing, N>;
-    pub fn from_fn<F>(mut f: F) -> Self
+    pub fn from_fn<F>(f: F) -> Self
     where
         F: FnMut(usize) -> BaseRing,
     {
@@ -269,19 +269,6 @@ impl<'a, BaseRing: ConvertibleRing, const N: usize> Add<&'a Self>
     fn add(self, rhs: &'a Self) -> Self::Output {
         self.0.add(rhs.0).into()
     }
-}
-macro_rules! impl_binop {
-    ($op: ident, $OpTrait: ident) => {
-        impl<'a, BaseRing: ConvertibleRing, const N: usize> $OpTrait<&'a Self>
-            for Pow2CyclotomicPolyRing<BaseRing, N>
-        {
-            type Output = Self;
-
-            fn $op(self, rhs: &'a Self) -> Self::Output {
-                self.0.$op(&rhs.0).into()
-            }
-        }
-    };
 }
 
 impl<'a, BaseRing: ConvertibleRing, const N: usize> Sub<&'a Self>

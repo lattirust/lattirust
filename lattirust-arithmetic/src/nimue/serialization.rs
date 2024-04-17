@@ -5,7 +5,7 @@
 use std::fmt::Debug;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError};
-use serde::{self, Deserialize, Serialize};
+use serde;
 use serde_with::Bytes;
 
 pub mod ser {

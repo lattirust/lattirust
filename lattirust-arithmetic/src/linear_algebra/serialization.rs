@@ -3,14 +3,13 @@ use std::io::{Read, Write};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use nalgebra::allocator::Allocator;
 use nalgebra::{Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar, VecStorage};
+use nalgebra::allocator::Allocator;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::matrix::Matrix;
 use crate::linear_algebra::vector::GenericVector;
-use crate::nimue::serialization::{FromBytes, ToBytes};
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Serialize for GenericMatrix<T, R, C, S>
 where
@@ -131,7 +130,7 @@ where
             return Err(SerializationError::InvalidData);
         }
         // let vec_storage = VecStorage::new(Dyn::from_usize(nrows), Const::<1>, data);
-        Self::try_from(data).map_err(|e| SerializationError::InvalidData)
+        Self::try_from(data).map_err(|_| SerializationError::InvalidData)
     }
 }
 
@@ -140,20 +139,20 @@ where
 //     Self: CanonicalSerialize,
 // {
 //     type ToBytesError = SerializationError;
-// 
+//
 //     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
 //         let mut bytes = vec![];
 //         self.serialize_compressed(&mut bytes)?;
 //         Ok(bytes)
 //     }
 // }
-// 
+//
 // impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> FromBytes for GenericMatrix<T, R, C, S>
 // where
 //     Self: CanonicalDeserialize,
 // {
 //     type FromBytesError = SerializationError;
-// 
+//
 //     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
 //         Self::deserialize_compressed(bytes)
 //     }

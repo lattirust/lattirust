@@ -5,8 +5,8 @@ use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
 use rounded_div::RoundedDiv;
 
-use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::Matrix;
+use crate::linear_algebra::{RowVector, Vector};
 use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
@@ -97,11 +97,10 @@ pub fn decompose_balanced<R: ConvertibleRing>(
         }
     }
 
-    let mut decomp_bal = decomp_bal_signed
+    decomp_bal_signed
         .into_iter()
         .map(|x| Into::<R>::into(SignedRepresentative(x)))
-        .collect::<Vec<R>>();
-    decomp_bal
+        .collect::<Vec<R>>()
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -235,8 +234,8 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::ntt::ntt_modulus;
-    use crate::ring::Zq;
     use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+    use crate::ring::Zq;
 
     use super::*;
 

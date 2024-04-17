@@ -2,7 +2,6 @@ use ark_serialize::{CanonicalSerialize, Compress};
 use nalgebra::Scalar;
 use nimue::{ByteIOPattern, DuplexHash, IOPattern};
 use num_traits::Zero;
-use serde::Serialize;
 
 use crate::linear_algebra::{Matrix, SymmetricMatrix, Vector};
 use crate::nimue::serialization::ToBytes;

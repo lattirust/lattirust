@@ -1,16 +1,13 @@
 use std::ops::Mul;
 
-use ark_ff::{Field, Fp, FpConfig, PrimeField};
+use ark_ff::{Field, Fp, FpConfig};
 use ark_serialize::CanonicalSerialize;
-use num_traits::{Pow, Zero};
-use serde::{self};
+use num_traits::Zero;
 
 use crate::linear_algebra::Vector;
 use crate::ring::representatives::{SignedRepresentative, UnsignedRepresentative};
 use crate::ring::Ring;
-use crate::traits::{
-    FromRandomBytes, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
-};
+use crate::traits::{FromRandomBytes, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
 
 pub trait ConvertibleRing:
     Ring + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative>

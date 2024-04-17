@@ -1,8 +1,6 @@
 use ark_serialize::CanonicalSerialize;
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteWriter, DuplexHash, IOPatternError};
-use serde::Serialize;
-use std::fmt::format;
 
 use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
 use crate::nimue::serialization::ToBytes;

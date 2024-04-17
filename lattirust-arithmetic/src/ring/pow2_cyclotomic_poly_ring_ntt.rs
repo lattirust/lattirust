@@ -4,7 +4,6 @@ use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::PrimeField;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
@@ -14,11 +13,10 @@ use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
-use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::ntt::NTT;
-use crate::ring::PolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::ring::{Zq, Ring};
+use crate::ring::PolyRing;
+use crate::ring::{Ring, Zq};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
@@ -38,7 +36,7 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
     }
 
     /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
-    pub fn from_fn<F>(mut f: F) -> Self
+    pub fn from_fn<F>(f: F) -> Self
     where
         F: FnMut(usize) -> Zq<Q>,
     {
@@ -363,7 +361,7 @@ impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> 
 }
 
 impl<const Q: u64, const N: usize> From<Vec<Zq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(mut value: Vec<Zq<Q>>) -> Self {
+    fn from(value: Vec<Zq<Q>>) -> Self {
         let mut array = TryInto::<[Zq<Q>; N]>::try_into(value).unwrap();
         Self::ntt(&mut array);
         Self::from_array(array)

@@ -20,7 +20,7 @@ use crate::util::{ark_sparse_matrices, concat};
 pub fn prove_binary_r1cs<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
     arthur: &'a mut Arthur,
-    mut cs: &ConstraintSystem<Z2>,
+    cs: &ConstraintSystem<Z2>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,

@@ -1,12 +1,12 @@
-use ark_ff::{BigInt, BigInteger, Fp64, FpConfig, PrimeField};
-use ark_serialize::Validate::Yes;
+use std::io::{Read, Write};
+
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
+use ark_serialize::Validate::Yes;
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Sub, SubAssign};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
 
 // Work-around to allow us implementing From traits
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -54,7 +54,7 @@ impl CanonicalSerialize for SignedRepresentative {
     fn serialize_with_mode<W: Write>(
         &self,
         mut writer: W,
-        compress: Compress,
+        _compress: Compress,
     ) -> Result<(), SerializationError> {
         writer
             .write(&self.0.to_be_bytes())
@@ -62,7 +62,7 @@ impl CanonicalSerialize for SignedRepresentative {
             .map_err(SerializationError::IoError)
     }
 
-    fn serialized_size(&self, compress: Compress) -> usize {
+    fn serialized_size(&self, _compress: Compress) -> usize {
         16
     }
 }
@@ -76,7 +76,7 @@ impl Valid for SignedRepresentative {
 impl CanonicalDeserialize for SignedRepresentative {
     fn deserialize_with_mode<R: Read>(
         mut reader: R,
-        compress: Compress,
+        _compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
         let mut bytes = [0u8; 16];

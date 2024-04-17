@@ -1,4 +1,3 @@
-use ark_ff::{BigInt, Fp64};
 use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::num::Wrapping;
