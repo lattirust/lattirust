@@ -10,7 +10,7 @@ pub mod security_estimates;
 pub struct MSIS {
     pub h: usize,
     pub d: usize,
-    pub q: u64,
+    pub q: u128,
     pub length_bound: f64,
     pub w: usize,
     pub norm: Norm,

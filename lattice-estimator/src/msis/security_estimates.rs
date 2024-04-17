@@ -56,7 +56,7 @@ mod test {
 
     use super::*;
 
-    const Q: u64 = 2147483649;
+    const Q: u128 = 2147483649;
     const SQRT_Q: f64 = 46340.95;
     const TEST_L2: MSIS = MSIS {
         h: 5,

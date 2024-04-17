@@ -10,7 +10,7 @@ use crate::sage_util::sagemath_eval;
 pub struct SIS {
     h: usize,
     w: usize,
-    q: u64,
+    q: u128,
     length_bound: f64,
     norm: Norm,
 }
@@ -36,7 +36,7 @@ impl Debug for SIS {
 }
 
 impl SIS {
-    pub const fn new(h: usize, q: u64, length_bound: f64, w: usize, norm: Norm) -> Self {
+    pub const fn new(h: usize, q: u128, length_bound: f64, w: usize, norm: Norm) -> Self {
         SIS {
             h,
             w,
