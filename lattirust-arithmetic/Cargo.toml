@@ -22,3 +22,5 @@ rayon = "1.10.0"
 rounded-div = "0.1.2"
 serde = { version = "1.0.197", features = ["derive"] }
 serde_with = "3.7.0"
+zeroize = "1.7.0"
+num-bigint = "0.4.4"

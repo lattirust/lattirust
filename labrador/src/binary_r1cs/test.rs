@@ -5,7 +5,7 @@ use num_traits::One;
 use pretty_env_logger::env_logger;
 
 use lattirust_arithmetic::ntt::ntt_modulus;
-use lattirust_arithmetic::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
 
 use crate::binary_r1cs::prover::prove_binary_r1cs;
 use crate::binary_r1cs::util::{BinaryR1CSCRS, Z2};

@@ -1,7 +1,11 @@
 #![allow(non_snake_case)]
 
+use std::io::{Read, Write};
 use std::ops::{Index, IndexMut};
 
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use ark_std::{rand, UniformRand};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
@@ -152,3 +156,64 @@ impl<F: Clone + UniformRand> SymmetricMatrix<F> {
         )
     }
 }
+
+impl<F: Clone> CanonicalSerialize for SymmetricMatrix<F>
+where
+    Vec<Vec<F>>: CanonicalSerialize,
+{
+    fn serialize_with_mode<W: Write>(
+        &self,
+        writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        self.0.serialize_with_mode(writer, compress)
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        self.0.serialized_size(compress)
+    }
+}
+
+impl<F: Clone> Valid for SymmetricMatrix<F>
+where
+    Vec<Vec<F>>: CanonicalDeserialize,
+{
+    fn check(&self) -> Result<(), SerializationError> {
+        self.0.check()
+    }
+}
+
+impl<F: Clone> CanonicalDeserialize for SymmetricMatrix<F>
+where
+    Vec<Vec<F>>: CanonicalDeserialize,
+{
+    fn deserialize_with_mode<R: Read>(
+        reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        Vec::<Vec<F>>::deserialize_with_mode(reader, compress, validate).map(Self)
+    }
+}
+
+// impl<F: Clone> ToBytes for SymmetricMatrix<F>
+// where
+//     Vec<Vec<F>>: ToBytes,
+// {
+//     type ToBytesError = <Vec<Vec<F>> as ToBytes>::ToBytesError;
+//
+//     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
+//         self.0.to_bytes()
+//     }
+// }
+//
+// impl<F: Clone> FromBytes for SymmetricMatrix<F>
+// where
+//     Vec<Vec<F>>: FromBytes,
+// {
+//     type FromBytesError = <Vec<Vec<F>> as FromBytes>::FromBytesError;
+//
+//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
+//         Vec::<Vec<F>>::from_bytes(bytes).map(Self)
+//     }
+// }

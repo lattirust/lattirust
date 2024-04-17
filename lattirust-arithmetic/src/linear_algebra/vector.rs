@@ -11,6 +11,7 @@ use num_traits::Zero;
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Scalar;
+use crate::ring::SignedRepresentative;
 use crate::traits::{WithL2Norm, WithLinfNorm};
 
 pub type GenericVector<T, R, S> = GenericMatrix<T, R, Const<1>, S>;
@@ -102,7 +103,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
 
     pub fn rand_vector_with_bounded_norm(n: usize, norm_bound: i128, rng: &mut impl Rng) -> Self
     where
-        T: From<i128>,
+        T: From<SignedRepresentative>,
     {
         loop {
             let mut vec = Vector::<f64>::rand(n, rng);
@@ -112,7 +113,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
 
             vec = vec.map(|x| x.round());
             if vec.0.norm() <= norm_bound as f64 {
-                return vec.map(|x| T::from(x as i128));
+                return vec.map(|x| T::from(SignedRepresentative(x as i128)));
             }
         }
     }

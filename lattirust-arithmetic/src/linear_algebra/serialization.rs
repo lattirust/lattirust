@@ -135,29 +135,29 @@ where
     }
 }
 
-impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> ToBytes for GenericMatrix<T, R, C, S>
-where
-    Self: CanonicalSerialize,
-{
-    type ToBytesError = SerializationError;
-
-    fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
-        let mut bytes = vec![];
-        self.serialize_compressed(&mut bytes)?;
-        Ok(bytes)
-    }
-}
-
-impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> FromBytes for GenericMatrix<T, R, C, S>
-where
-    Self: CanonicalDeserialize,
-{
-    type FromBytesError = SerializationError;
-
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
-        Self::deserialize_compressed(bytes)
-    }
-}
+// impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> ToBytes for GenericMatrix<T, R, C, S>
+// where
+//     Self: CanonicalSerialize,
+// {
+//     type ToBytesError = SerializationError;
+// 
+//     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
+//         let mut bytes = vec![];
+//         self.serialize_compressed(&mut bytes)?;
+//         Ok(bytes)
+//     }
+// }
+// 
+// impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> FromBytes for GenericMatrix<T, R, C, S>
+// where
+//     Self: CanonicalDeserialize,
+// {
+//     type FromBytesError = SerializationError;
+// 
+//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
+//         Self::deserialize_compressed(bytes)
+//     }
+// }
 
 #[cfg(test)]
 mod test {

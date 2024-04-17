@@ -3,7 +3,7 @@
 use ark_relations::r1cs::ConstraintSystem;
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, SparseMatrix, SymmetricMatrix, Vector};
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::Ring;
 
 use crate::binary_r1cs::util::Z2;

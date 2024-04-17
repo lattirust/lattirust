@@ -1,5 +1,5 @@
 use crate::linear_algebra::Vector;
-use crate::poly_ring::PolyRing;
+use crate::ring::PolyRing;
 
 pub trait WithL2Norm {
     fn l2_norm(&self) -> f64 {
@@ -8,8 +8,32 @@ pub trait WithL2Norm {
     fn l2_norm_squared(&self) -> u128;
 }
 
+impl<R: WithL2Norm> WithL2Norm for [R] {
+    fn l2_norm_squared(&self) -> u128 {
+        self.iter().map(|x| x.l2_norm_squared()).sum()
+    }
+}
+
+impl<R: WithL2Norm> WithL2Norm for Vec<R> {
+    fn l2_norm_squared(&self) -> u128 {
+        self.as_slice().l2_norm_squared()
+    }
+}
+
 pub trait WithLinfNorm {
     fn linf_norm(&self) -> u128;
+}
+
+impl<R: WithLinfNorm> WithLinfNorm for [R] {
+    fn linf_norm(&self) -> u128 {
+        self.iter().map(|x| x.linf_norm()).max().unwrap()
+    }
+}
+
+impl<R: WithLinfNorm> WithLinfNorm for Vec<R> {
+    fn linf_norm(&self) -> u128 {
+        self.as_slice().linf_norm()
+    }
 }
 
 pub trait IntegerDiv<Rhs = Self> {
@@ -20,7 +44,7 @@ pub trait IntegerDiv<Rhs = Self> {
 }
 
 pub trait Modulus {
-    fn modulus() -> u64;
+    fn modulus() -> u128; // TODO: use a big-integer type instead
 }
 
 pub trait FromRandomBytes<T> {

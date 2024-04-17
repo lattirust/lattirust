@@ -4,7 +4,7 @@ use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
 use crate::linear_algebra::Vector;
-use crate::ring::Fq;
+use crate::ring::Zq;
 use crate::traits::FromRandomBytes;
 
 pub trait ChallengeFromRandomBytes
@@ -87,7 +87,7 @@ where
         &mut self,
         n_rows: usize,
         n_cols: usize,
-    ) -> Result<Matrix<Fq<2>>, IOPatternError> {
+    ) -> Result<Matrix<Zq<2>>, IOPatternError> {
         todo!()
     }
 }

@@ -1,12 +1,13 @@
 use std::iter::Sum;
 
 use ark_ff::Field;
+use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
 use rounded_div::RoundedDiv;
 
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::Matrix;
-use crate::poly_ring::{ConvertibleField, PolyRing, SignedRepresentative};
+use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
@@ -37,12 +38,12 @@ pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
 /// # Arguments
 /// * `v`: input element
 /// * `b`: basis for the decomposition, must be even
-/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None`
 ///
 /// # Output
 /// Returns `d`, the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
 /// $\texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced<R: ConvertibleField>(
+pub fn decompose_balanced<R: ConvertibleRing>(
     v: &R,
     b: u128,
     padding_size: Option<usize>,
@@ -81,25 +82,25 @@ pub fn decompose_balanced<R: ConvertibleField>(
         }
     }
 
-    // Strip last zero, if present
-    if decomp_bal_signed.last() == Some(&0) {
-        decomp_bal_signed.pop();
+    if let Some(padding_size) = padding_size {
+        assert!(
+            decomp_bal_signed.len() <= padding_size,
+            "padding_size = {} must be at least decomp_bal.len() = {}",
+            padding_size,
+            decomp_bal_signed.len(),
+        );
+        decomp_bal_signed.resize(padding_size, 0);
+    } else {
+        // Strip trailing zeros
+        while decomp_bal_signed.last() == Some(&0) {
+            decomp_bal_signed.pop();
+        }
     }
 
     let mut decomp_bal = decomp_bal_signed
         .into_iter()
         .map(|x| Into::<R>::into(SignedRepresentative(x)))
         .collect::<Vec<R>>();
-
-    if let Some(padding_size) = padding_size {
-        assert!(
-            decomp_bal.len() <= padding_size,
-            "padding_size = {} must be at least decomp_bal.len() = {}",
-            padding_size,
-            decomp_bal.len(),
-        );
-        decomp_bal.resize(padding_size, R::zero());
-    }
     decomp_bal
 }
 
@@ -108,12 +109,12 @@ pub fn decompose_balanced<R: ConvertibleField>(
 /// # Arguments
 /// * `v`: input slice, of length `l`
 /// * `b`: basis for the decomposition, must be even
-/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
-/// 
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None`
+///
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
 /// for all $i \in \[l\]: \texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[i\]\[j\]$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced_vec<F: ConvertibleField>(
+pub fn decompose_balanced_vec<F: ConvertibleRing>(
     v: &[F],
     b: u128,
     padding_size: Option<usize>,
@@ -130,7 +131,7 @@ pub fn decompose_balanced_vec<F: ConvertibleField>(
 /// # Arguments
 /// * `v`: `PolyRing` element to be decomposed
 /// * `b`: basis for the decomposition, must be even
-/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None`
 ///
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
@@ -151,7 +152,7 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
 /// # Arguments
 /// * `v`: input slice, of length `l`
 /// * `b`: basis for the decomposition, must be even
-/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None` 
+/// * `padding_size`: indicates whether the output should be padded with zeros to a specified length `k` if `padding_size` is `Some(k)`, or if it should be padded to the largest decomposition length required for `v` if `padding_size` is `None`
 ///
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
@@ -177,12 +178,12 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
 /// # Arguments
 /// * `mat`: input matrix of dimensions `m × n`
 /// * `b`: basis for the decomposition, must be even
-/// * `padding_size`: indicates whether the decomposition length is the specified `k` if `padding_size` is `Some(k)`, or if `k` is the largest decomposition length required for `mat` if `padding_size` is `None` 
+/// * `padding_size`: indicates whether the decomposition length is the specified `k` if `padding_size` is `Some(k)`, or if `k` is the largest decomposition length required for `mat` if `padding_size` is `None`
 ///
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Matrix of dimensions `m × (k * n)`, i.e.,
 /// $\texttt{mat} = \texttt{d} \times G_\texttt{n}$ where $G_\texttt{n} = I_\texttt{n} \otimes (1, \texttt{b}, \ldots, \texttt{b}^k) \in R^{\texttt{k}\texttt{n} \times \texttt{n}}$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_matrix<F: ConvertibleField>(
+pub fn decompose_matrix<F: ConvertibleRing>(
     mat: &Matrix<F>,
     decomposition_basis: u128,
     decomposition_length: usize,
@@ -215,10 +216,13 @@ where
 }
 
 /// Given a m x n*k matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the m x n recomposed matrix.
-pub fn recompose_matrix<F: Field>(mat: &Matrix<F>, powers_of_basis: &[F]) -> Matrix<F> {
+pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero>(
+    mat: &Matrix<F>,
+    powers_of_basis: &[F],
+) -> Matrix<F> {
     let (m, nk) = (mat.nrows(), mat.ncols());
     let k = powers_of_basis.len();
-    debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should be a m x nk entries, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
+    debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should have dimensions m x nk, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
     let n = nk / k;
     let pows = Vector::<F>::from_slice(powers_of_basis).transpose();
     Matrix::<F>::from_fn(m, n, |i, j| {
@@ -228,9 +232,11 @@ pub fn recompose_matrix<F: Field>(mat: &Matrix<F>, powers_of_basis: &[F]) -> Mat
 
 #[cfg(test)]
 mod tests {
+    use ark_std::test_rng;
+
     use crate::ntt::ntt_modulus;
-    use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-    use crate::ring::Fq;
+    use crate::ring::Zq;
+    use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 
     use super::*;
 
@@ -239,7 +245,7 @@ mod tests {
     const VEC_LENGTH: usize = 32;
     const BASIS_TEST_RANGE: [u128; 5] = [2, 4, 8, 16, 32];
 
-    type R = Fq<Q>;
+    type R = Zq<Q>;
     type PolyR = Pow2CyclotomicPolyRingNTT<Q, N>;
 
     #[test]
@@ -350,6 +356,46 @@ mod tests {
                 recomposed += v_i * PolyR::from_scalar(R::from(b).pow(&[i as u64]));
             }
             assert_eq!(v, recomposed);
+        }
+    }
+
+    #[test]
+    pub fn test_decompose_balanced_matrix() {
+        const NROWS: usize = 101;
+        const NCOLS: usize = 42;
+
+        let rng = &mut test_rng();
+        let mat = Matrix::<R>::rand(NROWS, NCOLS, rng);
+
+        for b in BASIS_TEST_RANGE {
+            let b_half = b.div_floor(2);
+
+            let decomp_size = balanced_decomposition_max_length(b, (Q - 1) as u128);
+            let decomp = decompose_matrix(&mat, b, decomp_size);
+            assert_eq!(decomp.nrows(), mat.nrows());
+            assert_eq!(decomp.ncols(), mat.ncols() * decomp_size);
+            for d_ij in decomp.iter() {
+                assert!(Into::<SignedRepresentative>::into(*d_ij).0.abs() <= b_half as i128);
+            }
+
+            let pows_b = (0..decomp_size)
+                .map(|i| R::from(b.pow(i as u32)))
+                .collect::<Vec<_>>();
+            let recomp = recompose_matrix(&decomp, &pows_b);
+
+            assert_eq!(mat, recomp);
+
+            // Check that recompose is equivalent to right-multiplication by the gadget matrix
+            let gadget_vector = Vector::<R>::from_slice(&pows_b);
+            let gadget_matrix = Matrix::<R>::identity(NCOLS, NCOLS).kronecker(&gadget_vector);
+            let mat_g = &decomp * &gadget_matrix;
+            assert_eq!(recomp, mat_g);
+
+            // Check that A * M == recompose(A * decompose(M))
+            let mat_l = Matrix::<R>::rand(64, NROWS, rng);
+            let lhs = &mat_l * &mat;
+            let rhs = recompose_matrix(&(&mat_l * &decomp), &pows_b);
+            assert_eq!(lhs, rhs);
         }
     }
 }

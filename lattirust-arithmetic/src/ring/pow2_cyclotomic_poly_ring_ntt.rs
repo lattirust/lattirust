@@ -1,9 +1,13 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
+use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_ff::PrimeField;
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
@@ -12,9 +16,9 @@ use num_traits::{One, Zero};
 use crate::linear_algebra::SVector;
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::ntt::NTT;
-use crate::poly_ring::{ConvertibleField, PolyRing};
-use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::ring::{Fq, Ring};
+use crate::ring::PolyRing;
+use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+use crate::ring::{Zq, Ring};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
@@ -22,21 +26,21 @@ use crate::traits::{
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
 )]
-pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Fq<Q>, N>);
+pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Zq<Q>, N>);
 
 impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
-    pub(crate) type Inner = SVector<Fq<Q>, N>;
+    pub(crate) type Inner = SVector<Zq<Q>, N>;
 
     /// Constructs a polynomial from an array of coefficients in NTT form.
     /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [Fq<Q>; N]) -> Self {
+    fn from_array(coeffs_ntt: [Zq<Q>; N]) -> Self {
         Self(Self::Inner::const_from_array(coeffs_ntt))
     }
 
     /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
     pub fn from_fn<F>(mut f: F) -> Self
     where
-        F: FnMut(usize) -> Fq<Q>,
+        F: FnMut(usize) -> Zq<Q>,
     {
         let mut coeffs = core::array::from_fn(f);
         Self::ntt(&mut coeffs);
@@ -45,66 +49,74 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
 }
 
 impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn ntt_coeffs(&self) -> Vec<Fq<Q>> {
+    fn ntt_coeffs(&self) -> Vec<Zq<Q>> {
         self.0.iter().cloned().collect()
     }
 }
 
 impl<const Q: u64, const N: usize> Modulus for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn modulus() -> u64 {
-        Fq::<Q>::MODULUS.0[0]
+    fn modulus() -> u128 {
+        Zq::<Q>::modulus()
     }
 }
 
-const fn vec_from_element<const Q: u64, const N: usize>(elem: Fq<Q>) -> SVector<Fq<Q>, N> {
-    SVector::<Fq<Q>, N>::const_from_array([elem; N])
+const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
+    SVector::<Zq<Q>, N>::const_from_array([elem; N])
+}
+
+impl<const Q: u64, const N: usize> CanonicalSerialize for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn serialize_with_mode<W: Write>(
+        &self,
+        writer: W,
+        compress: Compress,
+    ) -> Result<(), SerializationError> {
+        self.0.serialize_with_mode(writer, compress)
+    }
+
+    fn serialized_size(&self, compress: Compress) -> usize {
+        self.0.serialized_size(compress)
+    }
+}
+
+impl<const Q: u64, const N: usize> Valid for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn check(&self) -> Result<(), SerializationError> {
+        self.0.check()
+    }
+}
+
+impl<const Q: u64, const N: usize> CanonicalDeserialize for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn deserialize_with_mode<R: Read>(
+        reader: R,
+        compress: Compress,
+        validate: Validate,
+    ) -> Result<Self, SerializationError> {
+        Self::Inner::deserialize_with_mode(reader, compress, validate).map(Self)
+    }
 }
 
 impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
     const ZERO: Self = Self {
-        0: vec_from_element(<Fq<Q> as Ring>::ZERO),
+        0: vec_from_element(<Zq<Q> as Ring>::ZERO),
     };
     const ONE: Self = Self {
-        0: vec_from_element(<Fq<Q> as Ring>::ONE),
+        0: vec_from_element(<Zq<Q> as Ring>::ONE),
     };
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn byte_size() -> usize {
-        N * Fq::<Q>::byte_size()
+        N * Zq::<Q>::byte_size()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
         assert_eq!(bytes.len(), Self::byte_size());
         let coeffs = core::array::from_fn(|i| {
-            Fq::<Q>::try_from_random_bytes(
-                &bytes[i * Fq::<Q>::byte_size()..(i + 1) * Fq::<Q>::byte_size()],
+            Zq::<Q>::try_from_random_bytes(
+                &bytes[i * Zq::<Q>::byte_size()..(i + 1) * Zq::<Q>::byte_size()],
             )
             .unwrap()
         });
         Some(Self::from_array(coeffs))
-    }
-}
-
-impl<const Q: u64, const N: usize> ToBytes for Pow2CyclotomicPolyRingNTT<Q, N>
-where
-    SVector<Fq<Q>, N>: ToBytes,
-{
-    type ToBytesError = <SVector<Fq<Q>, N> as ToBytes>::ToBytesError;
-
-    fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
-        self.0.to_bytes()
-    }
-}
-
-impl<const Q: u64, const N: usize> FromBytes for Pow2CyclotomicPolyRingNTT<Q, N>
-where
-    SVector<Fq<Q>, N>: FromBytes,
-{
-    type FromBytesError = <SVector<Fq<Q>, N> as FromBytes>::FromBytesError;
-
-    fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
-        Self::Inner::from_bytes(bytes).map(Self)
     }
 }
 
@@ -176,7 +188,7 @@ impl<const Q: u64, const N: usize> Neg for Pow2CyclotomicPolyRingNTT<Q, N> {
 
 impl<const Q: u64, const N: usize> UniformRand for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| Fq::<Q>::rand(rng))
+        Self::from_fn(|_| Zq::<Q>::rand(rng))
     }
 }
 
@@ -270,28 +282,28 @@ impl<'a, const Q: u64, const N: usize> MulAssign<&'a mut Self> for Pow2Cyclotomi
     }
 }
 
-impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Fq<Q>, N>>
+impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     for Pow2CyclotomicPolyRingNTT<Q, N>
 {
-    fn from(value: Pow2CyclotomicPolyRing<Fq<Q>, N>) -> Self {
-        let mut coeffs: [Fq<Q>; N] = value.coeffs().try_into().unwrap();
+    fn from(value: Pow2CyclotomicPolyRing<Zq<Q>, N>) -> Self {
+        let mut coeffs: [Zq<Q>; N] = value.coeffs().try_into().unwrap();
         Self::ntt(&mut coeffs);
         Self::from_array(coeffs)
     }
 }
 
-impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Fq<Q>, N>>
+impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     for Pow2CyclotomicPolyRingNTT<Q, N>
 {
-    fn into(self) -> Pow2CyclotomicPolyRing<Fq<Q>, N> {
-        Pow2CyclotomicPolyRing::<Fq<Q>, N>::from(self.coeffs())
+    fn into(self) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
+        Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(self.coeffs())
     }
 }
 
-impl<const Q: u64, const N: usize> Mul<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+impl<const Q: u64, const N: usize> Mul<Zq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
     type Output = Self;
 
-    fn mul(self, rhs: Fq<Q>) -> Self::Output {
+    fn mul(self, rhs: Zq<Q>) -> Self::Output {
         self.mul(Self::from_scalar(rhs))
     }
 }
@@ -302,7 +314,7 @@ macro_rules! impl_from_primitive_type {
             for Pow2CyclotomicPolyRingNTT<Q, N>
         {
             fn from(value: $primitive_type) -> Self {
-                Self::from_scalar(Fq::<Q>::from(value))
+                Self::from_scalar(Zq::<Q>::from(value))
             }
         }
     };
@@ -334,8 +346,8 @@ impl<'a, const Q: u64, const N: usize> Product<&'a Self> for Pow2CyclotomicPolyR
 }
 
 impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> {
-    type BaseRing = Fq<Q>;
-    fn coeffs(&self) -> Vec<Fq<Q>> {
+    type BaseRing = Zq<Q>;
+    fn coeffs(&self) -> Vec<Zq<Q>> {
         let mut coeffs = self.ntt_coeffs().try_into().unwrap();
         Self::intt(&mut coeffs);
         coeffs.to_vec()
@@ -350,16 +362,16 @@ impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> 
     }
 }
 
-impl<const Q: u64, const N: usize> From<Vec<Fq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(mut value: Vec<Fq<Q>>) -> Self {
-        let mut array = TryInto::<[Fq<Q>; N]>::try_into(value).unwrap();
+impl<const Q: u64, const N: usize> From<Vec<Zq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(mut value: Vec<Zq<Q>>) -> Self {
+        let mut array = TryInto::<[Zq<Q>; N]>::try_into(value).unwrap();
         Self::ntt(&mut array);
         Self::from_array(array)
     }
 }
 
-impl<const Q: u64, const N: usize> From<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn from(value: Fq<Q>) -> Self {
+impl<const Q: u64, const N: usize> From<Zq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn from(value: Zq<Q>) -> Self {
         Self::from_scalar(value)
     }
 }
@@ -367,7 +379,7 @@ impl<const Q: u64, const N: usize> From<Fq<Q>> for Pow2CyclotomicPolyRingNTT<Q, 
 impl<const Q: u64, const N: usize> WithConjugationAutomorphism for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn sigma(&self) -> Self {
         // TODO: can we implement the automorphism directly in NTT form?
-        Into::<Pow2CyclotomicPolyRing<Fq<Q>, N>>::into(*self)
+        Into::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::into(*self)
             .sigma()
             .into()
     }

@@ -12,9 +12,9 @@ pub trait SerIOPattern
 where
     Self: ByteIOPattern + Sized,
 {
-    fn absorb_serializable_like<S: Serialize + Sized>(self, like: &S, label: &'static str) -> Self {
-        let s = bincode::serialized_size(&like).unwrap();
-        self.add_bytes(s as usize, label)
+    fn absorb_serializable_like<S: ToBytes + Sized>(self, like: &S, label: &'static str) -> Self {
+        let s = like.to_bytes().unwrap().len();
+        self.add_bytes(s, label)
     }
 
     fn absorb_canonical_serializable_like<S: CanonicalSerialize>(
@@ -37,7 +37,7 @@ where
 
     fn absorb_vector<S: Scalar + Clone + Zero>(self, size: usize, label: &'static str) -> Self
     where
-        Vector<S>: Serialize,
+        Vector<S>: ToBytes,
     {
         self.absorb_serializable_like(&Vector::<S>::zeros(size), label)
     }
@@ -49,7 +49,7 @@ where
         label: &'static str,
     ) -> Self
     where
-        Vec<Vector<S>>: Serialize,
+        Vec<Vector<S>>: ToBytes,
     {
         self.absorb_serializable_like(&vec![Vector::<S>::zeros(size); num_vectors], label)
     }
@@ -67,7 +67,7 @@ where
 
     fn absorb_symmetric_matrix<S: Clone + Zero>(self, size: usize, label: &'static str) -> Self
     where
-        SymmetricMatrix<S>: Serialize,
+        SymmetricMatrix<S>: ToBytes,
     {
         self.absorb_serializable_like(&SymmetricMatrix::<S>::zero(size), label)
     }
@@ -82,6 +82,18 @@ where
         Matrix<S>: CanonicalSerialize,
     {
         self.absorb_canonical_serializable_like(&Matrix::<S>::zeros(num_rows, num_cols), label)
+    }
+
+    fn absorb_matrix_ser<S: Scalar + Zero>(
+        self,
+        num_rows: usize,
+        num_cols: usize,
+        label: &'static str,
+    ) -> Self
+    where
+        Matrix<S>: ToBytes,
+    {
+        self.absorb_serializable_like(&Matrix::<S>::zeros(num_rows, num_cols), label)
     }
 }
 

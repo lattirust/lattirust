@@ -4,7 +4,7 @@ use ark_std::rand::thread_rng;
 use num_traits::{One, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar};
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::Ring;
 use lattirust_arithmetic::linear_algebra::Vector;
 

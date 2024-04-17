@@ -10,8 +10,8 @@ use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
-use lattirust_arithmetic::ring::Fq;
+use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::Zq;
 use relations::principal_relation::{
     ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction,
 };
@@ -26,7 +26,7 @@ const SECURITY_PARAMETER: usize = 128;
 #[generator = "1"]
 pub struct F2Config;
 
-pub type Z2 = Fq<2>;
+pub type Z2 = Zq<2>;
 
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,

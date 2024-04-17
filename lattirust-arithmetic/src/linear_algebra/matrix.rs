@@ -105,12 +105,12 @@ impl<T: Scalar + UniformRand + Zero + One + Neg<Output = T>> Matrix<T> {
 mod tests {
     use ark_std::test_rng;
 
-    use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::Fq;
+    use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::ring::Zq;
 
     use super::*;
 
-    type R = Pow2CyclotomicPolyRing<Fq<3>, 20>;
+    type R = Pow2CyclotomicPolyRing<Zq<3>, 20>;
 
     #[test]
     fn test_sample_uniform() {

@@ -2,8 +2,10 @@ use ark_serialize::CanonicalSerialize;
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteWriter, DuplexHash, IOPatternError};
 use serde::Serialize;
+use std::fmt::format;
 
 use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
+use crate::nimue::serialization::ToBytes;
 
 pub trait SerArthur<H, R>
 where
@@ -11,10 +13,10 @@ where
     R: RngCore + CryptoRng,
     Self: ByteWriter,
 {
-    fn absorb_serializable<S: serde::Serialize>(&mut self, msg: &S) -> Result<(), IOPatternError> {
-        match bincode::serialize(&msg) {
+    fn absorb_serializable<S: ToBytes>(&mut self, msg: &S) -> Result<(), IOPatternError> {
+        match &msg.to_bytes() {
             Ok(bytes) => self.add_bytes(bytes.as_slice()),
-            Err(e) => Err(IOPatternError::from(e.to_string())),
+            Err(e) => Err(IOPatternError::from(format! {"{:?}", e})),
         }
     }
 
@@ -31,14 +33,14 @@ where
 
     fn absorb_vector<F: Scalar>(&mut self, vec: &Vector<F>) -> Result<(), IOPatternError>
     where
-        Vector<F>: Serialize,
+        Vector<F>: ToBytes,
     {
         self.absorb_serializable(vec)
     }
 
     fn absorb_vec<F: Scalar>(&mut self, vec: &Vec<F>) -> Result<(), IOPatternError>
     where
-        Vec<F>: Serialize,
+        Vec<F>: ToBytes,
     {
         self.absorb_serializable(vec)
     }
@@ -52,7 +54,7 @@ where
 
     fn absorb_vectors<F: Scalar>(&mut self, vecs: &Vec<Vector<F>>) -> Result<(), IOPatternError>
     where
-        Vec<Vector<F>>: Serialize,
+        Vec<Vector<F>>: ToBytes,
     {
         self.absorb_serializable(vecs)
     }
@@ -62,9 +64,9 @@ where
         mat: &SymmetricMatrix<F>,
     ) -> Result<(), IOPatternError>
     where
-        SymmetricMatrix<F>: Serialize,
+        SymmetricMatrix<F>: ToBytes,
     {
-        self.absorb_serializable(&mat)
+        self.absorb_serializable(mat)
     }
 
     fn absorb_matrix<F: Scalar>(&mut self, mat: &Matrix<F>) -> Result<(), IOPatternError>
@@ -72,6 +74,13 @@ where
         Matrix<F>: CanonicalSerialize,
     {
         self.absorb_canonical_serializable(mat)
+    }
+
+    fn absorb_matrix_ser<F: Scalar>(&mut self, mat: &Matrix<F>) -> Result<(), IOPatternError>
+    where
+        Matrix<F>: ToBytes,
+    {
+        self.absorb_serializable(mat)
     }
 }
 

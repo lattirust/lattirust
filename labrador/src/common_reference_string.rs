@@ -14,7 +14,7 @@ use lattirust_arithmetic::balanced_decomposition::decompose_balanced_vec_polyrin
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::principal_relation::{
     ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction, Witness,
@@ -55,6 +55,14 @@ pub struct CommonReferenceString<R: PolyRing> {
     pub b1: u128,
     pub b2: u128,
     pub next_crs: Option<Box<CommonReferenceString<R>>>,
+}
+
+pub fn floor_to_even(x: f64) -> u128 {
+    if x.floor() as usize % 2 == 0 {
+        x.floor() as u128
+    } else {
+        x.floor() as u128 - 1
+    }
 }
 
 pub fn round_to_even(x: f64) -> u128 {

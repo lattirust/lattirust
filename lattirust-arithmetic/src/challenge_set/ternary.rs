@@ -4,7 +4,7 @@ use nalgebra::Scalar;
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::Matrix;
-use crate::poly_ring::{ConvertibleField, SignedRepresentative};
+use crate::ring::{ConvertibleRing, SignedRepresentative};
 use crate::linear_algebra::SymmetricMatrix;
 use crate::traits::FromRandomBytes;
 
@@ -14,7 +14,7 @@ pub struct TernaryChallengeSet<R> {
 
 const SEC_PARAM: usize = 128;
 
-impl<F: ConvertibleField> FromRandomBytes<F> for TernaryChallengeSet<F> {
+impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
     fn byte_size() -> usize {
         SEC_PARAM.next_power_of_two().ilog2() as usize + 2
     }
@@ -129,13 +129,13 @@ pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(
 mod tests {
     use ark_std::test_rng;
 
-    use crate::ring::Fq;
+    use crate::ring::Zq;
 
     use super::*;
 
     const Q: u64 = 65537;
 
-    type F = Fq<Q>;
+    type F = Zq<Q>;
 
     const M: usize = 64;
     const N: usize = 128;

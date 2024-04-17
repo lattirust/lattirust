@@ -5,7 +5,7 @@ use rayon::prelude::*;
 
 use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
 use crate::linear_algebra::generic_matrix::{ClosedAdd, ClosedMul};
-use crate::poly_ring::PolyRing;
+use crate::ring::PolyRing;
 
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
 #[inline(always)]
@@ -100,8 +100,8 @@ mod tests {
 
     use crate::linear_algebra::symmetric_matrix::SymmetricMatrix;
     use crate::ntt::ntt_modulus;
-    use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-    use crate::ring::Fq;
+    use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+    use crate::ring::Zq;
 
     use super::*;
 
@@ -143,9 +143,9 @@ mod tests {
     #[test]
     fn test_inner_products_mat() {
         let rng = &mut test_rng();
-        let mat = Matrix::<Fq<Q>>::rand(101, 42, rng);
+        let mat = Matrix::<Zq<Q>>::rand(101, 42, rng);
         let inner_prods = inner_products_mat(&mat);
-        let inner_prods_expect: SymmetricMatrix<Fq<Q>> = (mat.transpose() * mat).into();
+        let inner_prods_expect: SymmetricMatrix<Zq<Q>> = (mat.transpose() * mat).into();
         assert_eq!(inner_prods, inner_prods_expect);
     }
 }
