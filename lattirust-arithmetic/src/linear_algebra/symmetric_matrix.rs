@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
+use crate::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
 pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);

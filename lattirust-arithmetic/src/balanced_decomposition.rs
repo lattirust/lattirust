@@ -1,13 +1,14 @@
 use std::iter::Sum;
+use std::ops::Mul;
 
 use ark_ff::Field;
 use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
 use rounded_div::RoundedDiv;
 
-use crate::linear_algebra::Matrix;
+use crate::linear_algebra::{Matrix, SymmetricMatrix};
 use crate::linear_algebra::{RowVector, Vector};
-use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
+use crate::ring::{ConvertibleRing, PolyRing, Ring, SignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
@@ -214,7 +215,7 @@ where
         .sum()
 }
 
-/// Given a m x n*k matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the m x n recomposed matrix.
+/// Given a `m x n*k` matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the `m x n` recomposed matrix.
 pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero>(
     mat: &Matrix<F>,
     powers_of_basis: &[F],
@@ -229,11 +230,45 @@ pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero>(
     })
 }
 
+/// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
+pub fn recompose_left_right_symmetric_matrix<F: Clone + Sum>(
+    mat: &SymmetricMatrix<F>,
+    powers_of_basis: &[F],
+) -> SymmetricMatrix<F> 
+where for <'a> &'a F: Mul<&'a F, Output=F>
+{
+    let (nd, d) = (mat.size(), powers_of_basis.len());
+    assert_eq!(nd % d, 0);
+
+    let n = nd / d;
+    (0..n)
+        .map(|i| {
+            (0..=i)
+                .map(|j| {
+                    (0..nd)
+                        .filter(|k|k / d == i)
+                        .map(|k| {
+                            (0..nd)
+                                .filter(|l| l / d == j)
+                                .map(move |l| {
+                                    &mat[(k, l)] * &(&powers_of_basis[k % d] * &powers_of_basis[l % d])
+                                })
+                        })
+                        .flatten()
+                        .sum()
+                })
+                .collect()
+        })
+        .collect::<Vec<_>>()
+        .into()
+}
+
 #[cfg(test)]
 mod tests {
     use ark_std::test_rng;
 
     use crate::ntt::ntt_modulus;
+    use crate::ring;
     use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
     use crate::ring::Zq;
 
@@ -352,7 +387,7 @@ mod tests {
 
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
-                recomposed += v_i * PolyR::from_scalar(R::from(b).pow(&[i as u64]));
+                recomposed += v_i * PolyR::from_scalar(ring::Ring::pow(&R::from(b), &[i as u64]));
             }
             assert_eq!(v, recomposed);
         }
@@ -395,6 +430,30 @@ mod tests {
             let lhs = &mat_l * &mat;
             let rhs = recompose_matrix(&(&mat_l * &decomp), &pows_b);
             assert_eq!(lhs, rhs);
+        }
+    }
+
+    #[test]
+    fn test_left_right_decompose_symmetric_matrix() {
+        const SIZE: usize = 13;
+        let rng = &mut test_rng();
+
+        for b in BASIS_TEST_RANGE {
+            let decomp_size = balanced_decomposition_max_length(b, (Q - 1) as u128);
+
+            let pows_b = (0..decomp_size)
+                .map(|i| R::from(b.pow(i as u32)))
+                .collect::<Vec<_>>();
+            let mat = SymmetricMatrix::<R>::rand(SIZE * decomp_size, rng);
+
+            let expected: SymmetricMatrix<R> = recompose_matrix(
+                &recompose_matrix(&mat.clone().into(), &pows_b.as_slice()).transpose(),
+                &pows_b.as_slice(),
+            )
+            .into();
+
+            let actual = recompose_left_right_symmetric_matrix(&mat, &pows_b.as_slice());
+            assert_eq!(expected, actual);
         }
     }
 }
