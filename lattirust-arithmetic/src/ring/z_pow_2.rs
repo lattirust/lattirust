@@ -6,7 +6,7 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::rand::Rng;
+use ark_std::rand::{Rng, RngCore};
 use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
@@ -44,7 +44,7 @@ use crate::traits::{FromRandomBytes, Modulus};
 #[mul(forward)]
 #[mul_assign(forward)]
 #[repr(transparent)]
-pub struct Z2_64(Wrapping<u64>);
+pub struct Z2_64(Wrapping<i64>);
 
 impl Z2_64 {
     const MODULUS: u128 = 1 << 64;
@@ -71,7 +71,7 @@ macro_rules! from_primitive_type {
         $(
             impl From<$t> for Z2_64 {
                 fn from(x: $t) -> Self {
-                    Self(Wrapping(x as u64))
+                    Self(Wrapping(x as i64))
                 }
             }
         )*
@@ -86,32 +86,45 @@ impl Modulus for Z2_64 {
 }
 
 impl CanonicalSerialize for Z2_64 {
+    #[inline]
     fn serialize_with_mode<W: Write>(
         &self,
-        writer: W,
-        compress: Compress,
+        mut writer: W,
+        _compress: Compress,
     ) -> Result<(), SerializationError> {
-        self.0 .0.serialize_with_mode(writer, compress)
+        Ok(writer.write_all(&self.0 .0.to_le_bytes())?)
     }
 
-    fn serialized_size(&self, compress: Compress) -> usize {
-        self.0 .0.serialized_size(compress)
+    #[inline]
+    fn serialized_size(&self, _compress: Compress) -> usize {
+        core::mem::size_of::<i64>()
     }
 }
 
 impl Valid for Z2_64 {
+    #[inline]
     fn check(&self) -> Result<(), SerializationError> {
-        u64::check(&self.0 .0)
+        Ok(())
+    }
+
+    #[inline]
+    fn batch_check<'a>(_batch: impl Iterator<Item = &'a Self>) -> Result<(), SerializationError>
+    where
+        Self: 'a,
+    {
+        Ok(())
     }
 }
 
 impl CanonicalDeserialize for Z2_64 {
     fn deserialize_with_mode<R: Read>(
-        reader: R,
+        mut reader: R,
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-        u64::deserialize_with_mode(reader, compress, validate).map(|x| Self(Wrapping(x)))
+        let mut bytes = [0u8; core::mem::size_of::<i64>()];
+        reader.read_exact(&mut bytes)?;
+        Ok(Self(Wrapping(<i64>::from_le_bytes(bytes))))
     }
 }
 
@@ -121,7 +134,7 @@ impl FromRandomBytes<Self> for Z2_64 {
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        Some(Self(Wrapping(u64::from_be_bytes(bytes.try_into().ok()?))))
+        Some(Self(Wrapping(i64::from_be_bytes(bytes.try_into().ok()?))))
     }
 }
 
@@ -183,7 +196,9 @@ impl<'a> Product<&'a Self> for Z2_64 {
 
 impl UniformRand for Z2_64 {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self(Wrapping(rng.next_u64()))
+        let mut bytes = [0u8; core::mem::size_of::<i64>()];
+        rng.fill_bytes(&mut bytes);
+        Self(Wrapping(i64::from_le_bytes(bytes)))
     }
 }
 
@@ -195,29 +210,20 @@ impl Ring for Z2_64 {
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
 impl From<SignedRepresentative> for Z2_64 {
     fn from(value: SignedRepresentative) -> Self {
-        assert!(-(Self::MODULUS_HALF as i128) < value.0 && value.0 <= (Self::MODULUS_HALF as i128));
-        if value.0 < 0 {
-            Self(Wrapping((value.0 + Self::MODULUS as i128) as u64))
-        } else {
-            Self(Wrapping(value.0 as u64))
-        }
+        Self(Wrapping(value.0 as i64))
     }
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
 impl Into<SignedRepresentative> for Z2_64 {
     fn into(self) -> SignedRepresentative {
-        if self.0 .0 > Self::MODULUS_HALF as u64 {
-            SignedRepresentative(self.0 .0 as i128 - Self::MODULUS as i128)
-        } else {
-            SignedRepresentative(self.0 .0 as i128)
-        }
+        SignedRepresentative(self.0 .0 as i128)
     }
 }
 
 impl Into<UnsignedRepresentative> for Z2_64 {
     fn into(self) -> UnsignedRepresentative {
-        UnsignedRepresentative(self.0 .0 as u128)
+        unimplemented!()
     }
 }
 
