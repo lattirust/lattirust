@@ -17,6 +17,7 @@ type F = Z2_64;
 const WITNESS_SIZES: [usize; 5] = [1 << 4, 1 << 8, 1 << 12, 1 << 16, 1 << 20];
 
 pub fn criterion_benchmark(c: &mut Criterion) {
+    env_logger::builder().is_test(true).try_init().unwrap();
     let rng = &mut test_rng();
 
     let mut group = c.benchmark_group("lova");

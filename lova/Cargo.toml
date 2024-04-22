@@ -16,6 +16,7 @@ log = "0.4.21"
 nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="absorb_unchecked-non-recursive" }
 pretty_env_logger = "0.5.0"
 serde = { version = "1.0.197", features = ["derive"] }
+env_logger = "0.11.3"
 
 [dev-dependencies]
 criterion = { version = "0.5.1" , features = ["html_reports"] }
