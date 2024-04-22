@@ -121,37 +121,40 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         let decomposition_length: usize =
             balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
         info!(
-            "  decomposition_length = {}",
+            "    decomposition_length = {}",
             pretty_print(decomposition_length as f64)
         );
         log::logger().flush();
 
         let norm_decomp = Self::decomposed_norm_max(decomposition_basis, n);
         info!(
-            "  decomposed witnesses will have column norm <= {}",
+            "    decomposed witnesses will have column norm <= {}",
             pretty_print(norm_decomp)
         );
         log::logger().flush();
 
         let folded_norm = (2 * security_parameter * decomposition_length) as f64 * norm_decomp;
         info!(
-            "  folded witness will have column norm <= {}",
+            "    folded witness will have column norm <= {}",
             pretty_print(folded_norm)
         );
         log::logger().flush();
 
         debug_assert!(folded_norm <= norm_bound);
 
+        info!("  Setting SIS parameters for commitment...");
         let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
         let h = sis.find_optimal_h(security_parameter).unwrap();
         info!(
-            "  Using SIS parameters {} for commitment, achieving {} bits of security",
+            "    using SIS parameters {} for commitment, achieving {} bits of security",
             sis.with_h(h),
             sis.with_h(h).security_level()
         );
         log::logger().flush();
 
-        let commitment_mat = Matrix::<F>::rand(h, n, &mut rand::thread_rng());
+        info!("  Generating commitment matrix...");
+        let commitment_mat = Matrix::<F>::par_rand(h, n, &mut rand::thread_rng());
+        info!("    done");
 
         Self {
             commitment_mat,
@@ -337,7 +340,7 @@ pub fn lambert_w_min1(z: f64) -> f64 {
     assert!(-0.25 < z && z < 0.);
     let ln_min_z = (-z).ln();
     let mut w = ln_min_z - (-ln_min_z).ln();
-    const NUM_STEPS: usize = 1<<10;
+    const NUM_STEPS: usize = 1 << 10;
     for _ in 0..NUM_STEPS {
         let exp_w = w.exp();
         w = w - (w * exp_w - z) / (exp_w + w * exp_w);
