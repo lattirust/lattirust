@@ -2,15 +2,16 @@
 
 use std::ops::Neg;
 
-use ark_std::{rand, UniformRand};
 use ark_std::rand::prelude::SliceRandom;
+use ark_std::{rand, UniformRand};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
+use rayon::prelude::*;
 
+use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::{Scalar, SymmetricMatrix};
-use crate::linear_algebra::generic_matrix::GenericMatrix;
 
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
 

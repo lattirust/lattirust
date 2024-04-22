@@ -1,11 +1,12 @@
 use log::debug;
 use nimue::{Merlin, ProofError, ProofResult};
 
-use lattirust_arithmetic::balanced_decomposition::{recompose_left_right_symmetric_matrix, recompose_matrix};
+use lattirust_arithmetic::balanced_decomposition::{
+    recompose_left_right_symmetric_matrix, recompose_matrix,
+};
 use lattirust_arithmetic::challenge_set::ternary::{
     mul_f_trit, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit,
 };
-use lattirust_arithmetic::linear_algebra::inner_products::inner_products;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
@@ -78,13 +79,12 @@ impl<F: ConvertibleRing> Verifier<F> {
         merlin.ratchet().unwrap();
 
         // Check G^T * inner_products_decomp * G == instance.inner_products (over the integers)
-        // TODO: can we make this faster by using the structure of this computation.unwrap()
-        let inner_products_recomp: SymmetricMatrix<SignedRepresentative> = recompose_left_right_symmetric_matrix(
-            &inner_products_decomp, 
-            pp.powers_of_basis_int().as_slice(),
-        );
-            
-         
+        let inner_products_recomp: SymmetricMatrix<SignedRepresentative> =
+            recompose_left_right_symmetric_matrix(
+                &inner_products_decomp,
+                pp.powers_of_basis_int().as_slice(),
+            );
+
         check_eq!(
             inner_products_recomp,
             instance.inner_products,

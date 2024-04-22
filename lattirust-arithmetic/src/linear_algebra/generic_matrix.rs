@@ -13,8 +13,11 @@ use nalgebra::{
     Storage, StorageMut, ViewStorage,
 };
 use num_traits::{One, Zero};
+use rayon::iter::IterBridge;
+use rayon::iter::ParallelBridge;
+use rayon::prelude::*;
 
-use crate::linear_algebra::vector::GenericVector;
+use crate::linear_algebra::vector::{GenericRowVector, GenericVector};
 
 pub trait ClosedAdd: nalgebra::ClosedAdd {}
 impl<T> ClosedAdd for T where T: nalgebra::ClosedAdd {}
@@ -107,44 +110,38 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 }
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
+    pub type RowViewStorage<'b> = ViewStorage<'b, T, Const<1>, C, S::RStride, S::CStride>;
     pub fn row_iter<'a>(
         &'a self,
-    ) -> impl Iterator<
-        Item = GenericMatrix<
-            T,
-            Const<1>,
-            C,
-            ViewStorage<
-                'a,
-                T,
-                Const<1>,
-                C,
-                <S as RawStorage<T, R, C>>::RStride,
-                <S as RawStorage<T, R, C>>::CStride,
-            >,
-        >,
-    > + 'a {
+    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a {
         self.0.row_iter().map(|r| r.into())
     }
 
+    pub fn par_row_iter<'a>(
+        &'a self,
+    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a
+    where
+        T: Send + Sync,
+    {
+        // TODO: can we implement this without collecting into a vec first?
+        self.row_iter().collect::<Vec<_>>().into_par_iter()
+    }
+
+    pub type ColumnViewStorage<'b> = ViewStorage<'b, T, R, Const<1>, S::RStride, S::CStride>;
     pub fn column_iter<'a>(
         &'a self,
-    ) -> impl Iterator<
-        Item = GenericMatrix<
-            T,
-            R,
-            Const<1>,
-            ViewStorage<
-                'a,
-                T,
-                R,
-                Const<1>,
-                <S as RawStorage<T, R, C>>::RStride,
-                <S as RawStorage<T, R, C>>::CStride,
-            >,
-        >,
-    > + 'a {
+    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a {
         self.0.column_iter().map(|c| c.into())
+    }
+
+    pub fn par_column_iter<'a>(
+        &'a self,
+    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a
+    where
+        T: Send + Sync,
+        S: Sync,
+    {
+        self.0.par_column_iter().map(|c| c.into()).into_par_iter()
     }
 }
 

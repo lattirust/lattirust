@@ -8,11 +8,11 @@ use ark_serialize::{
 };
 use ark_std::{rand, UniformRand};
 use num_traits::Zero;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
-use crate::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
 pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);
@@ -109,6 +109,19 @@ impl<F: Clone> SymmetricMatrix<F> {
                 .into_iter()
                 .map(|row| row.into_iter().map(&func).collect())
                 .collect::<Vec<Vec<T>>>(),
+        )
+    }
+
+    pub fn from_par_fn<Func>(size: usize, func: Func) -> Self
+    where
+        F: Send + Sync,
+        Func: Send + Sync + Fn(usize, usize) -> F,
+    {
+        Self::from(
+            (0..size)
+                .into_par_iter()
+                .map(|i| (0..i + 1).into_par_iter().map(|j| func(i, j)).collect())
+                .collect::<Vec<Vec<F>>>(),
         )
     }
 }

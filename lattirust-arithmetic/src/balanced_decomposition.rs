@@ -4,6 +4,7 @@ use std::ops::Mul;
 use ark_ff::Field;
 use nalgebra::{ClosedAdd, ClosedMul, Scalar};
 use num_traits::{One, Zero};
+use rayon::prelude::*;
 use rounded_div::RoundedDiv;
 
 use crate::linear_algebra::{Matrix, SymmetricMatrix};
@@ -216,7 +217,7 @@ where
 }
 
 /// Given a `m x n*k` matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the `m x n` recomposed matrix.
-pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero>(
+pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero + Send + Sync>(
     mat: &Matrix<F>,
     powers_of_basis: &[F],
 ) -> Matrix<F> {
@@ -225,34 +226,44 @@ pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero>(
     debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should have dimensions m x nk, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
     let n = nk / k;
     let pows = Vector::<F>::from_slice(powers_of_basis).transpose();
-    Matrix::<F>::from_fn(m, n, |i, j| {
-        mat.row(i).columns_range(j * k..j * k + k).dot(&pows)
-    })
+    let rows = mat
+        .par_row_iter()
+        .map(|r_i| {
+            RowVector::from(
+                (0..n)
+                    .into_par_iter()
+                    .map(|j| r_i.columns_range(j * k..j * k + k).dot(&pows))
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<Vec<_>>();
+    Matrix::<F>::from_rows(rows.as_slice())
 }
 
 /// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
-pub fn recompose_left_right_symmetric_matrix<F: Clone + Sum>(
+pub fn recompose_left_right_symmetric_matrix<F: Clone + Sum + Send + Sync>(
     mat: &SymmetricMatrix<F>,
     powers_of_basis: &[F],
-) -> SymmetricMatrix<F> 
-where for <'a> &'a F: Mul<&'a F, Output=F>
+) -> SymmetricMatrix<F>
+where
+    for<'a> &'a F: Mul<&'a F, Output = F>,
 {
     let (nd, d) = (mat.size(), powers_of_basis.len());
     assert_eq!(nd % d, 0);
 
     let n = nd / d;
     (0..n)
+        .into_par_iter()
         .map(|i| {
             (0..=i)
+                .into_par_iter()
                 .map(|j| {
                     (0..nd)
-                        .filter(|k|k / d == i)
+                        .filter(|k| k / d == i)
                         .map(|k| {
-                            (0..nd)
-                                .filter(|l| l / d == j)
-                                .map(move |l| {
-                                    &mat[(k, l)] * &(&powers_of_basis[k % d] * &powers_of_basis[l % d])
-                                })
+                            (0..nd).filter(|l| l / d == j).map(move |l| {
+                                &mat[(k, l)] * &(&powers_of_basis[k % d] * &powers_of_basis[l % d])
+                            })
                         })
                         .flatten()
                         .sum()
