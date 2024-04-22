@@ -37,6 +37,9 @@ pub struct PublicParameters<F: ConvertibleRing> {
     pub security_parameter: usize,
 }
 
+fn pretty_print(param: f64) -> String {
+    format!("{param} = 2^{}", param.log2())
+}
 impl<F: ConvertibleRing> PublicParameters<F> {
     pub fn new(n: usize, mode: OptimizationMode) -> Self {
         /*
@@ -52,15 +55,42 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 let norm_bound = ((target_decomposition_length * security_parameter)
                     * (target_decomposition_length * security_parameter)
                     * n) as f64;
-                info!("  Setting norm_bound = ({target_decomposition_length} * security_parameter)^2 * n = {norm_bound}");
+                info!("  Setting norm_bound = ({target_decomposition_length} * security_parameter)^2 * n = {}", pretty_print(norm_bound));
                 norm_bound
             }
             OptimizationMode::OptimizeForSize => {
-                let norm_bound = (F::modulus() as f64).sqrt(); // TODO: is that required now that we work over the integers?
-                info!("  Setting norm_bound = sqrt(q) = {norm_bound}");
+                // beta >= 2 * security_parameter * k * norm_decomp = 2 * security_parameter * k * b/2 * sqrt(n)
+                // => beta >= security_parameter * (log_b(beta) + 2) * b * sqrt(n)
+                // => beta / log_b(beta) >= security_parameter * b * sqrt(n) + 2 * security_parameter * b * sqrt(n)
+                // => beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n) + 2 * security_parameter * b * sqrt(n)
+                // To enforce beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n), we set beta = e^-W_{-1}(-1 / (security_parameter * b/ln(b) * sqrt(n))),
+                // to which we then add 2 * security_parameter * b * sqrt(n).
+                let basis = 2;
+                let tmp = security_parameter as f64 * (n as f64).sqrt();
+                let threshold = tmp * (basis as f64) / (basis as f64).ln();
+                let lambert_val = lambert_w_min1(-1. / threshold);
+
+                let norm_bound = (-lambert_val).exp();
+                let norm_bound = norm_bound.ceil(); // Round up to remove any floating point errors from this numerical estimate.
+                info!("  Setting norm_bound = {}", pretty_print(norm_bound));
+
+                let ln_norm_bound = norm_bound.ln();
+                assert!(
+                    norm_bound / ln_norm_bound
+                        >= threshold,
+                    "norm_bound / ln(norm_bound) = {norm_bound}/{ln_norm_bound} = {}  must be at least security_parameter * sqrt(n) * b/ln(b) = {}",
+                    norm_bound / ln_norm_bound,
+                    threshold
+                );
                 norm_bound
+                    + 2. * basis as f64
+                        * security_parameter as f64
+                        * (basis as f64)
+                        * (n as f64).sqrt()
             }
         };
+        log::logger().flush();
+        assert!((norm_bound as u128) < F::modulus());
 
         let decomposition_basis: u128 = match mode {
             OptimizationMode::OptimizeForSpeed => {
@@ -90,13 +120,25 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         };
         let decomposition_length: usize =
             balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
-        info!("  decomposition_length = {decomposition_length}");
+        info!(
+            "  decomposition_length = {}",
+            pretty_print(decomposition_length as f64)
+        );
+        log::logger().flush();
 
         let norm_decomp = Self::decomposed_norm_max(decomposition_basis, n);
-        info!("  decomposed witnesses will have column norm <= {norm_decomp}");
+        info!(
+            "  decomposed witnesses will have column norm <= {}",
+            pretty_print(norm_decomp)
+        );
+        log::logger().flush();
 
         let folded_norm = (2 * security_parameter * decomposition_length) as f64 * norm_decomp;
-        info!("  folded witness will have column norm <= {folded_norm}");
+        info!(
+            "  folded witness will have column norm <= {}",
+            pretty_print(folded_norm)
+        );
+        log::logger().flush();
 
         debug_assert!(folded_norm <= norm_bound);
 
@@ -107,6 +149,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             sis.with_h(h),
             sis.with_h(h).security_level()
         );
+        log::logger().flush();
 
         let commitment_mat = Matrix::<F>::rand(h, n, &mut rand::thread_rng());
 
@@ -272,7 +315,9 @@ where
 
 impl<H: DuplexHash<u8>> LovaIOPattern for IOPattern<H> {}
 
-pub fn rand_matrix_with_bounded_column_norms<F: UniformRand + Scalar + From<SignedRepresentative>>(
+pub fn rand_matrix_with_bounded_column_norms<
+    F: UniformRand + Scalar + From<SignedRepresentative>,
+>(
     nrows: usize,
     ncols: usize,
     rng: &mut impl Rng,
@@ -284,4 +329,18 @@ pub fn rand_matrix_with_bounded_column_norms<F: UniformRand + Scalar + From<Sign
             .collect::<Vec<_>>()
             .as_slice(),
     )
+}
+
+/// For $z \in (-0.25, 0)$, computes an approximation of $W_{-1}(z)$.
+/// We use a Newton approximation with starting point as described in Lóczi, Lajos. (2022). Guaranteed- and high-precision evaluation of the Lambert W function. Applied Mathematics and Computation. 433. 10.1016/j.amc.2022.127406.
+pub fn lambert_w_min1(z: f64) -> f64 {
+    assert!(-0.25 < z && z < 0.);
+    let ln_min_z = (-z).ln();
+    let mut w = ln_min_z - (-ln_min_z).ln();
+    const NUM_STEPS: usize = 1<<10;
+    for _ in 0..NUM_STEPS {
+        let exp_w = w.exp();
+        w = w - (w * exp_w - z) / (exp_w + w * exp_w);
+    }
+    w
 }

@@ -93,7 +93,7 @@ impl SIS {
             Norm::L2 => (self.q as f64).log2(),
             Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.),
         };
-        (self.w as f64 / (2. * log_q)).ceil() as usize
+        (self.w as f64 / (2. * log_q)).floor() as usize
     }
 
     /// Return the smallest `h` such that `SIS\[h, w, q, length_bound\]` is $2^\lambda$-hard (for a given norm).

@@ -11,7 +11,7 @@ use crate::verifier::Verifier;
 
 type F = Z2_64;
 
-const N: usize = 1 << 1;
+const N: usize = 1 << 20;
 
 fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -22,7 +22,7 @@ fn test() {
     init();
 
     let rng = &mut test_rng();
-    let pp = PublicParameters::<F>::new(N, OptimizationMode::OptimizeForSpeed);
+    let pp = PublicParameters::<F>::new(N, OptimizationMode::OptimizeForSize );
 
     let witness_1 =
         rand_matrix_with_bounded_column_norms(N, pp.security_parameter, rng, pp.norm_bound as i128);
