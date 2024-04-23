@@ -19,7 +19,7 @@ serde = { version = "1.0.197", features = ["derive"] }
 env_logger = "0.11.3"
 
 [dev-dependencies]
-criterion = { version = "0.5.1" , features = ["html_reports"] }
+criterion = { version = "0.5.1", features = ["html_reports"], git = "https://github.com/vlovich/criterion.rs", branch = "fix-plotting-nan" }
 
 [[bench]]
 name = "lova"
