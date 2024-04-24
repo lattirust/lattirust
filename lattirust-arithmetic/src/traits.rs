@@ -1,3 +1,5 @@
+use ark_ff::BigInteger;
+use num_bigint::BigUint;
 use crate::linear_algebra::Vector;
 use crate::ring::PolyRing;
 
@@ -44,7 +46,7 @@ pub trait IntegerDiv<Rhs = Self> {
 }
 
 pub trait Modulus {
-    fn modulus() -> u128; // TODO: use a big-integer type instead
+    fn modulus() -> BigUint;
 }
 
 pub trait FromRandomBytes<T> {

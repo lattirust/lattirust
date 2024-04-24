@@ -1,4 +1,5 @@
 use ark_ff::{BigInt, BigInteger, Field, Fp, Fp64, FpConfig, MontBackend, MontConfig, PrimeField};
+use num_bigint::{BigUint, ToBigUint};
 
 use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};
 use crate::traits::Modulus;
@@ -16,8 +17,8 @@ pub type Zq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
 pub type Zq2<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 2>>;
 
 impl<const Q: u64> const Modulus for Zq<Q> {
-    fn modulus() -> u128 {
-        Q as u128
+    fn modulus() -> BigUint {
+        Q.to_biguint().unwrap()
     }
 }
 

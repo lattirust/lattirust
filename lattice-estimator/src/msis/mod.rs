@@ -1,5 +1,9 @@
 use std::fmt;
 use std::fmt::{Debug, Display};
+
+use num_bigint::BigUint;
+use num_traits::ToPrimitive;
+
 use crate::norms::Norm;
 use crate::sis::SIS;
 
@@ -10,7 +14,7 @@ pub mod security_estimates;
 pub struct MSIS {
     pub h: usize,
     pub d: usize,
-    pub q: u128,
+    pub q: BigUint,
     pub length_bound: f64,
     pub w: usize,
     pub norm: Norm,
@@ -42,27 +46,27 @@ impl MSIS {
             h,
             w: self.w,
             d: self.d,
-            q: self.q,
+            q: self.q.clone(),
             length_bound: self.length_bound,
             norm: self.norm,
         }
     }
 
-    pub const fn with_length_bound(&self, length_bound: f64) -> Self {
+    pub fn with_length_bound(&self, length_bound: f64) -> Self {
         MSIS {
             h: self.h,
             w: self.w,
             d: self.d,
-            q: self.q,
+            q: self.q.clone(),
             length_bound,
             norm: self.norm,
         }
     }
 
-    pub const fn to_sis(&self) -> SIS {
+    pub fn to_sis(&self) -> SIS {
         SIS::new(
             self.h * self.d,
-            self.q,
+            self.q.clone(),
             self.length_bound,
             self.w * self.d,
             self.norm,

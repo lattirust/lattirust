@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
+use num_bigint::BigUint;
 use ark_ff::MontConfig;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::rand;
-use num_traits::Zero;
+use num_traits::{ToPrimitive, Zero};
 
 use lattice_estimator::msis::MSIS;
 use lattice_estimator::norms::Norm;
@@ -72,24 +73,24 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         // TODO: fix lattice-estimator to not choke on inputs of this size
         // let m: usize = 1;
 
-        let q = R::modulus() as usize;
+        let q = R::modulus();
         assert!(
-            n + 3 * k < q,
+            BigUint::from(n + 3 * k) < q,
             "n + 3k = {} must be less than q = {} for soundness",
             n + 3 * k,
             q
         );
         assert!(
-            6 * k < q,
+            BigUint::from(6 * k) < q,
             "6k = {} must be less than q = {} for soundness",
             6 * k,
             q
         );
         assert!(
-            SECURITY_PARAMETER * (n + 3 * k) < 15 * q,
+            BigUint::from(SECURITY_PARAMETER * (n + 3 * k)) < BigUint::from(15u32) * q.clone(),
             "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core",
             n + 3 * k,
-            15 * q / 128,
+            (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
         );
 
         let rng = &mut rand::rngs::OsRng::default();
@@ -108,7 +109,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = num_variables.div_ceil(d);
-        let norm_bound = (R::modulus() as f64).sqrt();
+        let norm_bound = R::modulus().to_f64().unwrap().sqrt();
 
         let num_quad_constraints = m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;

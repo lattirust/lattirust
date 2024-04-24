@@ -1,7 +1,8 @@
 #![allow(non_snake_case)]
 
 use ark_std::rand::thread_rng;
-use num_traits::{One, Zero};
+use num_bigint::BigUint;
+use num_traits::{One, ToPrimitive, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar};
 use lattirust_arithmetic::ring::PolyRing;
@@ -43,24 +44,24 @@ impl<R: PolyRing> R1CSCRS<R> {
         );
         let m = 10usize; // TODO: choose such that MSIS_{m, 2n+6k} is hard with l_inf bound = 1
 
-        let q = R::modulus() as usize;
+        let q = R::modulus();
         assert!(
-            n + 3 * k < q,
+            BigUint::from(n + 3 * k) < q,
             "n + 3k = {} must be less than q = {} for soundness",
             n + 3 * k,
             q
         );
         assert!(
-            6 * k < q,
+            BigUint::from(6 * k) < q,
             "6k = {} must be less than q = {} for soundness",
             6 * k,
             q
         );
         assert!(
-            128 * (n + 3 * k) < 15 * q,
+            BigUint::from(SECURITY_PARAMETER * (n + 3 * k)) < BigUint::from(15u32) * q.clone(),
             "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core",
             n + 3 * k,
-            15 * q / 128
+            (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
         );
 
         let m_d = 10usize; // TODO: choose such that MSIS_{m_d, l*k} is hard with l_2 norm bound = beta
@@ -82,7 +83,7 @@ impl<R: PolyRing> R1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = self.num_variables.div_ceil(d);
-        let norm_bound = (R::modulus() as f64).sqrt();
+        let norm_bound = (R::modulus().to_f64().unwrap()).sqrt();
 
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;

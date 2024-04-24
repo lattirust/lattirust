@@ -3,6 +3,7 @@ use std::hash::Hash;
 use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use ark_ff::BigInteger;
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -10,6 +11,7 @@ use ark_serialize::{
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
+use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
@@ -49,7 +51,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> From<[BaseRing; N]>
 }
 
 impl<BaseRing: ConvertibleRing, const N: usize> Modulus for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn modulus() -> u128 {
+    fn modulus() -> BigUint {
         BaseRing::modulus()
     }
 }

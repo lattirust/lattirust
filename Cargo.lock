@@ -720,6 +720,7 @@ dependencies = [
  "lattirust-util",
  "log",
  "nimue",
+ "num-bigint",
  "num-traits",
  "pretty_env_logger",
  "rayon",
@@ -732,6 +733,8 @@ name = "lattice-estimator"
 version = "0.0.1-alpha"
 dependencies = [
  "log",
+ "num-bigint",
+ "num-traits",
 ]
 
 [[package]]
@@ -791,6 +794,8 @@ dependencies = [
  "lattirust-util",
  "log",
  "nimue",
+ "num-bigint",
+ "num-traits",
  "pretty_env_logger",
  "relations",
  "serde",

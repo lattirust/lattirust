@@ -17,6 +17,8 @@ nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="abso
 pretty_env_logger = "0.5.0"
 serde = { version = "1.0.197", features = ["derive"] }
 env_logger = "0.11.3"
+num-traits = "0.2.18"
+num-bigint = "0.4.4"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"], git = "https://github.com/vlovich/criterion.rs", branch = "fix-plotting-nan" }

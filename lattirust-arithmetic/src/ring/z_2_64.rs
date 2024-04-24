@@ -2,6 +2,7 @@ use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::num::Wrapping;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
+use ark_ff::BigInteger;
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -11,6 +12,7 @@ use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
+use num_bigint::BigUint;
 use num_traits::{One, Zero};
 use zeroize::Zeroize;
 
@@ -80,8 +82,8 @@ macro_rules! from_primitive_type {
 from_primitive_type!(u8, u16, u32, u64, u128, bool);
 
 impl Modulus for Z2_64 {
-    fn modulus() -> u128 {
-        1u128 << 64
+    fn modulus() -> BigUint {
+        BigUint::from(1u128 << 64)
     }
 }
 

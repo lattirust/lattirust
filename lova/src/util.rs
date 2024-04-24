@@ -1,9 +1,11 @@
 use std::marker::PhantomData;
 
+use ark_std::{One, rand, UniformRand};
 use ark_std::rand::Rng;
-use ark_std::{rand, One, UniformRand};
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
+use num_traits::cast::ToPrimitive;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 
 use labrador::common_reference_string::floor_to_even;
@@ -11,9 +13,9 @@ use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
@@ -82,15 +84,11 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                     norm_bound / ln_norm_bound,
                     threshold
                 );
-                norm_bound
-                    + 2. * basis as f64
-                        * security_parameter as f64
-                        * (basis as f64)
-                        * (n as f64).sqrt()
+                norm_bound + 2. * basis as f64 * security_parameter as f64 * (n as f64).sqrt()
             }
         };
         log::logger().flush();
-        assert!((norm_bound as u128) < F::modulus());
+        assert!(norm_bound < F::modulus().to_f64().unwrap());
 
         let decomposition_basis: u128 = match mode {
             OptimizationMode::OptimizeForSpeed => {
@@ -187,14 +185,9 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         let mut pows = Vec::<SignedRepresentative>::with_capacity(self.decomposition_length);
         pows.push(SignedRepresentative::one());
         let basis = SignedRepresentative(self.decomposition_basis as i128);
+        assert!(F::modulus().to_f64().unwrap().log(self.decomposition_basis as f64) > self.decomposition_length as f64, "ring must be large enough to support basis^i for i = 0..decomposition_length");
         for i in 1..self.decomposition_length {
             pows.push(pows[i - 1] * basis);
-            assert!(
-                pows[i].0 < F::modulus() as i128,
-                "basis^i = {basis}^{i} = {} must be less than modulus = {}",
-                pows[i],
-                F::modulus()
-            );
         }
         pows
     }

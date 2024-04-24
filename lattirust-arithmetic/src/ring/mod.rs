@@ -15,7 +15,7 @@ pub use poly_ring::{ConvertibleRing, PolyRing};
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 pub use representatives::{SignedRepresentative, UnsignedRepresentative};
-pub use z_pow_2::*;
+pub use z_2_64::*;
 pub use z_q::{const_fq_from, Zq};
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
@@ -25,7 +25,8 @@ mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
 mod representatives;
-mod z_pow_2;
+mod z_2_64;
+mod z_2_128;
 mod z_q;
 
 pub trait Ring:

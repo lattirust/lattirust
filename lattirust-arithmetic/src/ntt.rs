@@ -1,4 +1,7 @@
+use std::ops::Rem;
 use ark_ff::Field;
+use num_bigint::BigUint;
+use num_traits::One;
 
 use crate::ring::{const_fq_from, Zq};
 use crate::traits::Modulus;
@@ -106,7 +109,7 @@ pub trait NTT<const Q: u64, const N: usize> {
 
     fn ntt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert_eq!(Zq::<Q>::modulus() % (2 * N as u128), 1);
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
         let mut t = N;
         let mut m = 1;
         let mut j1: usize;
@@ -131,7 +134,7 @@ pub trait NTT<const Q: u64, const N: usize> {
 
     fn intt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert_eq!(Zq::<Q>::modulus() % (2 * N as u128), 1);
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
         let mut t = 1;
         let mut m = N;
         let mut j1: usize;

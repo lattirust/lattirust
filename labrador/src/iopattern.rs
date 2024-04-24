@@ -29,7 +29,7 @@ where
     // }
 
     fn labrador_io(self, crs: &CommonReferenceString<R>) -> Self {
-        let log_q = R::modulus().next_power_of_two().ilog2() as f64;
+        let log_q = R::modulus().bits() as f64;
         let num_aggregs = (128. / log_q).ceil() as usize;
         self.absorb_vector::<R>(crs.k1, "prover message 1")
             .squeeze_matrices::<R, WeightedTernaryChallengeSet<R>>(

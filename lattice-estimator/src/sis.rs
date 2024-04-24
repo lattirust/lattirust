@@ -1,7 +1,9 @@
+use num_bigint::BigUint;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
+use num_traits::ToPrimitive;
 
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
@@ -10,7 +12,7 @@ use crate::sage_util::sagemath_eval;
 pub struct SIS {
     h: usize,
     w: usize,
-    q: u128,
+    q: BigUint,
     length_bound: f64,
     norm: Norm,
 }
@@ -36,7 +38,7 @@ impl Debug for SIS {
 }
 
 impl SIS {
-    pub const fn new(h: usize, q: u128, length_bound: f64, w: usize, norm: Norm) -> Self {
+    pub const fn new(h: usize, q: BigUint, length_bound: f64, w: usize, norm: Norm) -> Self {
         SIS {
             h,
             w,
@@ -46,20 +48,20 @@ impl SIS {
         }
     }
 
-    pub const fn with_h(&self, h: usize) -> Self {
+    pub fn with_h(&self, h: usize) -> Self {
         SIS {
             h,
-            q: self.q,
+            q: self.q.clone(),
             length_bound: self.length_bound,
             w: self.w,
             norm: self.norm,
         }
     }
 
-    pub const fn with_length_bound(&self, length_bound: f64) -> Self {
+    pub fn with_length_bound(&self, length_bound: f64) -> Self {
         SIS {
             h: self.h,
-            q: self.q,
+            q: self.q.clone(),
             length_bound,
             w: self.w,
             norm: self.norm,
@@ -90,8 +92,8 @@ impl SIS {
 
     pub fn upper_bound_h(&self) -> usize {
         let log_q = match self.norm {
-            Norm::L2 => (self.q as f64).log2(),
-            Norm::Linf => (self.q as f64).log(2. * self.length_bound + 1.),
+            Norm::L2 => (self.q.to_f64().unwrap()).log2(),
+            Norm::Linf => (self.q.to_f64().unwrap()).log(2. * self.length_bound + 1.),
         };
         let mut h = (self.w as f64 / log_q).floor() as usize;
         // Deal with the case where e.g. w and q are powers of 2, to ensure that w > h * log_q still holds without having to set h = w / (2*log_q)
