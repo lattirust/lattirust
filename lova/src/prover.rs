@@ -1,4 +1,5 @@
-use log::debug;
+use log::Level::Debug;
+use log::{debug, log_enabled, Log};
 use nimue::{Arthur, ProofResult};
 
 use lattirust_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
@@ -9,7 +10,7 @@ use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 
-use crate::util::{norm_l2_columnwise, PublicParameters, to_integers, Witness};
+use crate::util::{norm_l2_columnwise, to_integers, PublicParameters, Witness};
 
 pub struct Prover<F: ConvertibleRing> {
     _marker: std::marker::PhantomData<F>,
@@ -22,6 +23,7 @@ impl<F: ConvertibleRing> Prover<F> {
         witness_1: Witness<F>,
         witness_2: Witness<F>,
     ) -> ProofResult<Witness<F>> {
+        debug!("┌ Prover::merge");
         debug_assert_eq!(witness_1.ncols(), pp.security_parameter);
         debug_assert_eq!(witness_2.ncols(), pp.security_parameter);
 
@@ -35,6 +37,7 @@ impl<F: ConvertibleRing> Prover<F> {
         let mut witness = witness_1;
         witness.extend(witness_2.column_iter());
 
+        debug!("└ Prover::merge");
         Ok(witness)
     }
 
@@ -43,6 +46,7 @@ impl<F: ConvertibleRing> Prover<F> {
         pp: &PublicParameters<F>,
         witness: Witness<F>,
     ) -> ProofResult<Witness<F>> {
+        debug!("┌ Prover::reduce");
         debug_assert_eq!(witness.ncols(), 2 * pp.security_parameter);
 
         // Decompose witness matrix into wider matrix with small (column-wise) norms
@@ -53,21 +57,24 @@ impl<F: ConvertibleRing> Prover<F> {
             decomp_witness.ncols(),
             witness.ncols() * pp.decomposition_length
         );
-        let decomp_norms = norm_l2_columnwise(&decomp_witness);
-        debug!(
-            "Columns of decomposed witness have norms (min, mean, max) = ({}, {}, {})",
-            decomp_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
-            decomp_norms.iter().sum::<f64>() as f64 / decomp_norms.len() as f64,
-            decomp_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
-        );
+        
         let norm_decomp =
             PublicParameters::<F>::decomposed_norm_max(pp.decomposition_basis, pp.witness_len());
         debug!(
-            "(Assuming uniform witness norms), expected norm should be should be at most max = {norm_decomp}"
+            "  (Assuming uniform witness norms), expected norm should be should be at most max = {norm_decomp}"
         );
-        debug_assert!(decomp_norms
-            .into_iter()
-            .all(|l2_norm| l2_norm <= norm_decomp));
+        if log_enabled!(Debug) {
+            let decomp_norms = norm_l2_columnwise(&decomp_witness);
+            debug!(
+                "  Columns of decomposed witness have norms (min, mean, max) = ({}, {}, {})",
+                decomp_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
+                decomp_norms.iter().sum::<f64>() as f64 / decomp_norms.len() as f64,
+                decomp_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
+            );
+            debug_assert!(decomp_norms
+                .into_iter()
+                .all(|l2_norm| l2_norm <= norm_decomp));
+        }
 
         // Commit to decomposed witness matrix (mod q)
         let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
@@ -121,6 +128,7 @@ impl<F: ConvertibleRing> Prover<F> {
             .into_iter()
             .all(|l2_norm| l2_norm <= pp.norm_bound));
 
+        debug!("└ Prover::reduce");
         Ok(new_witness)
     }
 
@@ -130,8 +138,10 @@ impl<F: ConvertibleRing> Prover<F> {
         witness_1: Witness<F>,
         witness_2: Witness<F>,
     ) -> ProofResult<Witness<F>> {
+        debug!("┌ Prover::fold");
         let merged_witness = Prover::merge(arthur, pp, witness_1, witness_2)?;
         let folded_witness = Prover::reduce(arthur, pp, merged_witness)?;
+        debug!("└ Stop  Prover::fold");
         Ok(folded_witness)
     }
 }
