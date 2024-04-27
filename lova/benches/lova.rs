@@ -1,6 +1,8 @@
 use ark_std::test_rng;
 use criterion::BatchSize::PerIteration;
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use humansize::DECIMAL;
+use log::info;
 use nimue::IOPattern;
 
 use lattirust_arithmetic::ring::Z2_64;
@@ -14,7 +16,7 @@ use relations::traits::Relation;
 
 type F = Z2_64;
 
-const WITNESS_SIZES: [usize; 5] = [1 << 4, 1 << 8, 1 << 12, 1 << 16, 1 << 20];
+const WITNESS_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     env_logger::builder().is_test(true).try_init().unwrap();
@@ -59,8 +61,9 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         // Prove folding
                         let new_witness =
                             Prover::fold(&mut arthur, &pp, witness_1, witness_2).unwrap();
+                        criterion::black_box(new_witness);
                         let folding_proof = arthur.transcript();
-                        
+
                         // Save proof globally for verifier
                         if proof.len() == 0 {
                             proof.extend_from_slice(folding_proof);
@@ -69,6 +72,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     PerIteration,
                 )
             },
+        );
+
+        info!(
+            "Proof size for N={}: {}",
+            witness_size,
+            humansize::format_size(proof.len(), DECIMAL)
         );
 
         group.bench_with_input(
@@ -87,24 +96,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         // Verify folding
                         let new_instance =
                             Verifier::fold(&mut merlin, &pp, instance_1, instance_2).unwrap();
+                        black_box(new_instance);
                     },
                     PerIteration,
                 )
             },
         );
     }
-
-    // let new_witness = Prover::fold(&mut arthur, &pp, witness_1.clone(), witness_2.clone()).unwrap();
-    // let folding_proof = arthur.transcript();
-    //
-    // c.bench_function("verifier", |b| {
-    //     b.iter(|| {
-    //         let instance_1 = instance_1.clone();
-    //         let instance_2 = instance_2.clone();
-    //
-    //
-    //     })
-    // });
 }
 
 criterion_group!(benches, criterion_benchmark);

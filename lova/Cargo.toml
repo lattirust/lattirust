@@ -12,11 +12,11 @@ lattice-estimator = {version = "0.0.1-alpha", path = "../lattice-estimator"}
 lattirust-util = {version = "0.0.1-alpha", path = "../lattirust-util"}
 relations = { version = "0.0.1-alpha", path = "../relations" }
 ark-std = "0.4.0"
+env_logger = "0.11.3"
+humansize = "2.0.0"
 log = "0.4.21"
 nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="absorb_unchecked-non-recursive" }
-pretty_env_logger = "0.5.0"
 serde = { version = "1.0.197", features = ["derive"] }
-env_logger = "0.11.3"
 num-traits = "0.2.18"
 num-bigint = "0.4.4"
 
