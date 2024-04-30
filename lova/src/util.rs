@@ -1,11 +1,12 @@
 use std::marker::PhantomData;
 
-use ark_std::{One, rand, UniformRand};
-use ark_std::rand::Rng;
+use ark_std::{One, UniformRand};
+use ark_std::rand::{Rng, thread_rng};
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
-use num_traits::cast::ToPrimitive;
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use labrador::common_reference_string::floor_to_even;
@@ -43,6 +44,31 @@ fn pretty_print(param: f64) -> String {
     format!("{param} = 2^{}", param.log2())
 }
 impl<F: ConvertibleRing> PublicParameters<F> {
+    /// Return the lowest norm bound such that folding is norm-preserving for a given `basis`, witness length `n`, and `security_parameter`.
+    fn norm_lower_bound(basis: u128, n: usize, security_parameter: usize) -> f64 {
+        // beta >= 2 * security_parameter * k * norm_decomp = 2 * security_parameter * k * b/2 * sqrt(n)
+        // => beta >= security_parameter * (log_b(beta) + 2) * b * sqrt(n)
+        // => beta / log_b(beta) >= security_parameter * b * sqrt(n) + 2 * security_parameter * b * sqrt(n)
+        // => beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n) + 2 * security_parameter * b * sqrt(n)
+        // To enforce beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n), we set beta = e^-W_{-1}(-1 / (security_parameter * b/ln(b) * sqrt(n))),
+        // to which we then add 2 * security_parameter * b * sqrt(n).
+        let tmp = security_parameter as f64 * (n as f64).sqrt();
+        let threshold = tmp * (basis as f64) / (basis as f64).ln();
+        let lambert_val = lambert_w_min1(-1. / threshold);
+
+        let norm_bound = (-lambert_val).exp();
+        let norm_bound = norm_bound.ceil(); // Round up to remove any floating point errors from this numerical estimate.
+        let ln_norm_bound = norm_bound.ln();
+        assert!(
+            norm_bound / ln_norm_bound
+                >= threshold,
+            "norm_bound / ln(norm_bound) = {norm_bound}/{ln_norm_bound} = {}  must be at least security_parameter * sqrt(n) * b/ln(b) = {}",
+            norm_bound / ln_norm_bound,
+            threshold
+        );
+        norm_bound + 2. * basis as f64 * security_parameter as f64 * (n as f64).sqrt()
+    }
+
     pub fn new(n: usize, mode: OptimizationMode) -> Self {
         /*
         For inputs of length n we need to fulfill two conditions:
@@ -53,40 +79,20 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         info!("Setting parameters for security parameter = {security_parameter}, witness size n = {n}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
         let norm_bound: f64 = match mode {
             OptimizationMode::OptimizeForSpeed => {
+                // Do binary search for basis in [2, sqrt(norm_bound)] to find the largest b such that there exists an h for which SIS[h, w=n, q, beta, l2] is security-parameter-hard.
                 let target_decomposition_length = 4;
-                let norm_bound = ((target_decomposition_length * security_parameter)
+                let norm_bound_hi = ((target_decomposition_length * security_parameter)
                     * (target_decomposition_length * security_parameter)
                     * n) as f64;
-                info!("  Setting norm_bound = ({target_decomposition_length} * security_parameter)^2 * n = {}", pretty_print(norm_bound));
-                norm_bound
-            }
-            OptimizationMode::OptimizeForSize => {
-                // beta >= 2 * security_parameter * k * norm_decomp = 2 * security_parameter * k * b/2 * sqrt(n)
-                // => beta >= security_parameter * (log_b(beta) + 2) * b * sqrt(n)
-                // => beta / log_b(beta) >= security_parameter * b * sqrt(n) + 2 * security_parameter * b * sqrt(n)
-                // => beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n) + 2 * security_parameter * b * sqrt(n)
-                // To enforce beta / ln(beta) >= security_parameter * b/ln(b) * sqrt(n), we set beta = e^-W_{-1}(-1 / (security_parameter * b/ln(b) * sqrt(n))),
-                // to which we then add 2 * security_parameter * b * sqrt(n).
-                let basis = 2;
-                let tmp = security_parameter as f64 * (n as f64).sqrt();
-                let threshold = tmp * (basis as f64) / (basis as f64).ln();
-                let lambert_val = lambert_w_min1(-1. / threshold);
+                let norm_bound_lo = Self::norm_lower_bound(2, n, security_parameter);
+                let basis_hi = floor_to_even(norm_bound_hi.sqrt());
+                let basis_lo = 2;
 
-                let norm_bound = (-lambert_val).exp();
-                let norm_bound = norm_bound.ceil(); // Round up to remove any floating point errors from this numerical estimate.
-                info!("  Setting norm_bound = {}", pretty_print(norm_bound));
-
-                let ln_norm_bound = norm_bound.ln();
-                assert!(
-                    norm_bound / ln_norm_bound
-                        >= threshold,
-                    "norm_bound / ln(norm_bound) = {norm_bound}/{ln_norm_bound} = {}  must be at least security_parameter * sqrt(n) * b/ln(b) = {}",
-                    norm_bound / ln_norm_bound,
-                    threshold
-                );
-                norm_bound + 2. * basis as f64 * security_parameter as f64 * (n as f64).sqrt()
+                norm_bound_hi
             }
+            OptimizationMode::OptimizeForSize => Self::norm_lower_bound(2, n, security_parameter),
         };
+        info!("  Setting norm_bound = {}", pretty_print(norm_bound));
         log::logger().flush();
         assert!(norm_bound < F::modulus().to_f64().unwrap());
 
@@ -100,7 +106,10 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                     4,
                     "assumption on decomposition length used to set norm_bound is violated"
                 );
-                info!("  Setting decomposition_basis = floor(sqrt(norm_bound) + 1) = {basis}");
+                info!(
+                    "  Setting decomposition_basis = floor_to_even(sqrt(norm_bound)) = {}",
+                    pretty_print(basis as f64)
+                );
                 basis
             }
             OptimizationMode::OptimizeForSize => {
@@ -151,7 +160,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         log::logger().flush();
 
         info!("  Generating commitment matrix...");
-        let commitment_mat = Matrix::<F>::par_rand(h, n, &mut rand::thread_rng());
+        let commitment_mat = Matrix::<F>::par_rand(h, n);
         info!("    done");
 
         Self {
@@ -171,6 +180,47 @@ impl<F: ConvertibleRing> PublicParameters<F> {
     pub fn decomposed_norm_max(decomposition_basis: u128, witness_len: usize) -> f64 {
         decomposition_basis.div_floor(2) as f64 * (witness_len as f64).sqrt()
     }
+
+    fn signed_bits(bound: usize) -> usize {
+        bound.ilog2() as usize + 1 + 1
+    }
+
+    pub fn proof_size_bytes(&self) -> usize {
+        let modulus_bits = (F::modulus() - BigUint::from(1u32)).bits() as usize;
+
+        // number of bits needed to represent integers in the range [-norm_bound, norm_bound]
+        let norm_bound_bits = Self::signed_bits(self.norm_bound.floor() as usize);
+        let norm_bound_sq_bits =
+            Self::signed_bits((self.norm_bound * self.norm_bound).floor() as usize);
+
+        // number of bits needed to represent integers in the range [-decomposition_basis/2, decomposition_basis/2]
+        let decomp_upper_bound = (self.decomposition_basis / 2) as usize;
+        let decomp_basis_sq_bits = Self::signed_bits(decomp_upper_bound * decomp_upper_bound);
+
+        // lambda * lambda matrix, with entries w_2,i^T * w_1,j in [-norm_bound^2, norm_bound^2]
+        let merge_proof_size =
+            self.security_parameter * self.security_parameter * norm_bound_sq_bits;
+
+        // 2 * k * lambda symmetric matrix, with signed entries in [-(b/2)^2, (b/2)^2]
+        let inner_prods_size = ((2 * self.decomposition_length * self.security_parameter)
+            * (2 * self.decomposition_length * self.security_parameter))
+            / 2
+            * decomp_basis_sq_bits;
+
+        // m x 2*k*lambda matrix, with entries <= F
+        let commitment_size = self.commitment_mat.nrows()
+            * (2 * self.decomposition_length * self.security_parameter)
+            * modulus_bits;
+
+        // 2*k*lambda x lambda with entries in {-1, 0, 1}
+        let challenge_size = (2 * self.decomposition_length * self.security_parameter)
+            * self.security_parameter
+            * Self::signed_bits(1);
+
+        let proof_size_bits =
+            merge_proof_size + inner_prods_size + commitment_size + challenge_size;
+        (proof_size_bits + 7) / 8
+    }
 }
 
 impl<F: ConvertibleRing> PublicParameters<F> {
@@ -185,7 +235,14 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         let mut pows = Vec::<SignedRepresentative>::with_capacity(self.decomposition_length);
         pows.push(SignedRepresentative::one());
         let basis = SignedRepresentative(self.decomposition_basis as i128);
-        assert!(F::modulus().to_f64().unwrap().log(self.decomposition_basis as f64) > self.decomposition_length as f64, "ring must be large enough to support basis^i for i = 0..decomposition_length");
+        assert!(
+            F::modulus()
+                .to_f64()
+                .unwrap()
+                .log(self.decomposition_basis as f64)
+                > (self.decomposition_length - 1) as f64,
+            "ring must be large enough to support basis^i for i = 0..decomposition_length"
+        );
         for i in 1..self.decomposition_length {
             pows.push(pows[i - 1] * basis);
         }
@@ -239,17 +296,16 @@ impl<F: ConvertibleRing> Relation for BaseRelation<F> {
         let w_int = to_integers(w);
 
         let commitments_match = &pp.commitment_mat * w == x.commitment; // mod q
-        let inner_products_match =
-            Into::<SymmetricMatrix<SignedRepresentative>>::into(w_int.transpose() * w_int)
-                == x.inner_products; // over the integers
+        debug!("  commitments match:      {commitments_match} (pp.commitment_mat * w == x.commitment (mod q))");
+
+        let inner_products_match = inner_products_mat(&w_int) == x.inner_products; // over the integers
+        debug!("  inner products match:   {inner_products_match} (w_int.transpose() * w_int == x.inner_products (over the integers))");
+
         let inner_products_are_small = x
             .inner_products
             .diag()
             .into_iter()
             .all(|inner_product_ii| inner_product_ii.0 as f64 <= norm_bound_sq);
-
-        debug!("  commitments match:      {commitments_match} (pp.commitment_mat * w == x.commitment (mod q))");
-        debug!("  inner products match:   {inner_products_match} (w_int.transpose() * w_int == x.inner_products (over the integers))");
         debug!("  inner products bounded: {inner_products_are_small} (x.inner_products()[i][i] <= norm_bound_sq)");
 
         Self::is_well_defined(pp, x, Some(w))
@@ -312,16 +368,18 @@ where
 impl<H: DuplexHash<u8>> LovaIOPattern for IOPattern<H> {}
 
 pub fn rand_matrix_with_bounded_column_norms<
-    F: UniformRand + Scalar + From<SignedRepresentative>,
+    F: UniformRand + Scalar + From<SignedRepresentative> + Send + Sync,
 >(
     nrows: usize,
     ncols: usize,
-    rng: &mut impl Rng,
     norm_bound: i128,
 ) -> Matrix<F> {
     Matrix::<F>::from_columns(
         (0..ncols)
-            .map(|_| Vector::<F>::rand_vector_with_bounded_norm(nrows, norm_bound, rng))
+            .into_par_iter()
+            .map(|_| {
+                Vector::<F>::rand_vector_with_bounded_norm(nrows, norm_bound, &mut thread_rng())
+            })
             .collect::<Vec<_>>()
             .as_slice(),
     )

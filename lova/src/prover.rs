@@ -1,5 +1,5 @@
+use log::{debug, log_enabled};
 use log::Level::Debug;
-use log::{debug, log_enabled, Log};
 use nimue::{Arthur, ProofResult};
 
 use lattirust_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
@@ -10,7 +10,7 @@ use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 
-use crate::util::{norm_l2_columnwise, to_integers, PublicParameters, Witness};
+use crate::util::{norm_l2_columnwise, PublicParameters, to_integers, Witness};
 
 pub struct Prover<F: ConvertibleRing> {
     _marker: std::marker::PhantomData<F>,
@@ -57,7 +57,7 @@ impl<F: ConvertibleRing> Prover<F> {
             decomp_witness.ncols(),
             witness.ncols() * pp.decomposition_length
         );
-        
+
         let norm_decomp =
             PublicParameters::<F>::decomposed_norm_max(pp.decomposition_basis, pp.witness_len());
         debug!(
@@ -68,7 +68,7 @@ impl<F: ConvertibleRing> Prover<F> {
             debug!(
                 "  Columns of decomposed witness have norms (min, mean, max) = ({}, {}, {})",
                 decomp_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
-                decomp_norms.iter().sum::<f64>() as f64 / decomp_norms.len() as f64,
+                decomp_norms.iter().sum::<f64>() / decomp_norms.len() as f64,
                 decomp_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
             );
             debug_assert!(decomp_norms
@@ -118,7 +118,7 @@ impl<F: ConvertibleRing> Prover<F> {
         debug!(
             "Columns of folded witness have norms (min, mean, max) = ({}, {}, {})",
             new_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
-            new_norms.iter().sum::<f64>() as f64 / new_norms.len() as f64,
+            new_norms.iter().sum::<f64>() / new_norms.len() as f64,
             new_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
         );
         debug!("(Assuming uniform witness norms), expected norm should be should give (mean, max) = ({}, {})",

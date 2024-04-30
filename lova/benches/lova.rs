@@ -29,7 +29,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let witness_1 = rand_matrix_with_bounded_column_norms(
             pp.witness_len(),
             pp.security_parameter,
-            rng,
             pp.norm_bound as i128,
         );
         let instance_1 = Instance::new(&pp, &witness_1);
@@ -38,7 +37,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let witness_2 = rand_matrix_with_bounded_column_norms(
             pp.witness_len(),
             pp.security_parameter,
-            rng,
             pp.norm_bound as i128,
         );
         let instance_2 = Instance::new(&pp, &witness_2);
@@ -75,7 +73,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         );
 
         info!(
-            "Proof size for N={}: {}",
+            "Theoretical proof size for N={}: {}",
+            witness_size,
+            humansize::format_size(pp.proof_size_bytes(), DECIMAL)
+        );
+        info!(
+            "Actual proof size for N={}:      {}",
             witness_size,
             humansize::format_size(proof.len(), DECIMAL)
         );
