@@ -88,7 +88,7 @@ where
         n_rows: usize,
         n_cols: usize,
     ) -> Result<Matrix<Zq<2>>, IOPatternError> {
-        todo!()
+        todo!("{} {}", n_rows, n_cols)
     }
 }
 

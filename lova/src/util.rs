@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ark_std::{One, UniformRand};
-use ark_std::rand::{Rng, thread_rng};
+use ark_std::rand::thread_rng;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use num_bigint::BigUint;
@@ -79,14 +79,14 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         info!("Setting parameters for security parameter = {security_parameter}, witness size n = {n}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
         let norm_bound: f64 = match mode {
             OptimizationMode::OptimizeForSpeed => {
-                // Do binary search for basis in [2, sqrt(norm_bound)] to find the largest b such that there exists an h for which SIS[h, w=n, q, beta, l2] is security-parameter-hard.
+                // TODO: Do binary search for basis in [2, sqrt(norm_bound)] to find the largest b such that there exists an h for which SIS[h, w=n, q, beta, l2] is security-parameter-hard.
                 let target_decomposition_length = 4;
                 let norm_bound_hi = ((target_decomposition_length * security_parameter)
                     * (target_decomposition_length * security_parameter)
                     * n) as f64;
-                let norm_bound_lo = Self::norm_lower_bound(2, n, security_parameter);
-                let basis_hi = floor_to_even(norm_bound_hi.sqrt());
-                let basis_lo = 2;
+                let _norm_bound_lo = Self::norm_lower_bound(2, n, security_parameter);
+                let _basis_hi = floor_to_even(norm_bound_hi.sqrt());
+                let _basis_lo = 2;
 
                 norm_bound_hi
             }
@@ -189,7 +189,6 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         let modulus_bits = (F::modulus() - BigUint::from(1u32)).bits() as usize;
 
         // number of bits needed to represent integers in the range [-norm_bound, norm_bound]
-        let norm_bound_bits = Self::signed_bits(self.norm_bound.floor() as usize);
         let norm_bound_sq_bits =
             Self::signed_bits((self.norm_bound * self.norm_bound).floor() as usize);
 

@@ -2,11 +2,11 @@ use ark_ff::UniformRand;
 use ark_std::rand;
 use ark_std::rand::Rng;
 use delegate::delegate;
-use nalgebra::allocator::Allocator;
 use nalgebra::{
     self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
     ViewStorage,
 };
+use nalgebra::allocator::Allocator;
 use num_traits::Zero;
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
@@ -109,7 +109,6 @@ impl<T: UniformRand + Scalar> Vector<T> {
             let mut vec = Vector::<f64>::rand(n, rng);
             let scale = rng.gen_range(0f64..(norm_bound as f64 / vec.0.norm()));
             vec *= scale;
-            // debug_assert!(vec.l2_norm() <= norm_bound as f64);
 
             vec = vec.map(|x| x.round());
             if vec.0.norm() <= norm_bound as f64 {

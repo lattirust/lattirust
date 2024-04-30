@@ -2,12 +2,11 @@ use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::num::Wrapping;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
-use ark_ff::BigInteger;
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::rand::{Rng, RngCore};
+use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
@@ -46,12 +45,9 @@ use crate::traits::{FromRandomBytes, Modulus};
 #[mul(forward)]
 #[mul_assign(forward)]
 #[repr(transparent)]
-pub struct Z2_64(Wrapping<i64>);
+pub struct Z2_64(pub(crate) Wrapping<i64>);
 
-impl Z2_64 {
-    const MODULUS: u128 = 1 << 64;
-    const MODULUS_HALF: u128 = Self::MODULUS / 2;
-}
+impl Z2_64 {}
 
 impl Zero for Z2_64 {
     fn zero() -> Self {
@@ -121,8 +117,8 @@ impl Valid for Z2_64 {
 impl CanonicalDeserialize for Z2_64 {
     fn deserialize_with_mode<R: Read>(
         mut reader: R,
-        compress: Compress,
-        validate: Validate,
+        _compress: Compress,
+        _validate: Validate,
     ) -> Result<Self, SerializationError> {
         let mut bytes = [0u8; core::mem::size_of::<i64>()];
         reader.read_exact(&mut bytes)?;

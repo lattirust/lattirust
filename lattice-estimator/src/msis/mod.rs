@@ -2,7 +2,6 @@ use std::fmt;
 use std::fmt::{Debug, Display};
 
 use num_bigint::BigUint;
-use num_traits::ToPrimitive;
 
 use crate::norms::Norm;
 use crate::sis::SIS;

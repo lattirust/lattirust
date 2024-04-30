@@ -2,9 +2,8 @@
 
 use std::ops::Neg;
 
-use ark_std::rand::prelude::{SliceRandom, ThreadRng};
+use ark_std::rand::prelude::SliceRandom;
 use ark_std::{rand, UniformRand};
-use ark_std::rand::thread_rng;
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
@@ -86,13 +85,14 @@ impl<T: Scalar + UniformRand> Matrix<T> {
         Self::from_fn(m, n, |_, _| T::rand(rng))
     }
 
-    pub fn par_rand<Rng: rand::Rng + ?Sized>(m: usize, n: usize, rng: &mut Rng) -> Self
+    pub fn par_rand(m: usize, n: usize) -> Self
     where
         T: Send + Sync,
     {
-        let data = (0..m * n).into_par_iter().map_init(
-            || rand::thread_rng(),
-            |mut rng, _| T::rand(&mut rng)).collect();
+        let data = (0..m * n)
+            .into_par_iter()
+            .map_init(|| rand::thread_rng(), |mut rng, _| T::rand(&mut rng))
+            .collect();
         Self::from_vec(m, n, data)
     }
 

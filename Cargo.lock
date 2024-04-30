@@ -821,6 +821,7 @@ dependencies = [
  "nimue",
  "num-bigint",
  "num-traits",
+ "rayon",
  "relations",
  "serde",
 ]

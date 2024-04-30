@@ -63,50 +63,66 @@ mod test {
 
     const Q: u128 = 2147483649;
     const SQRT_Q: f64 = 46340.95;
-    const TEST_L2: MSIS = MSIS {
-        h: 5,
-        d: 64,
-        q: Q,
-        length_bound: SQRT_Q,
-        w: 512,
-        norm: Norm::L2,
-    };
-    const TEST_LINF: MSIS = MSIS {
-        h: 2,
-        d: 64,
-        q: Q,
-        length_bound: 1.,
-        w: 512,
-        norm: Norm::Linf,
-    };
 
     #[test]
     fn test_msis_security_level_l2() {
-        let lambda = TEST_L2.security_level();
-        println!("{TEST_L2} -> lambda: {lambda}");
+        let test_l2: MSIS = MSIS {
+            h: 5,
+            d: 64,
+            q: Q.into(),
+            length_bound: SQRT_Q,
+            w: 512,
+            norm: Norm::L2,
+        };
+        let lambda = test_l2.security_level();
+        println!("{test_l2} -> lambda: {lambda}");
     }
 
     #[test]
     fn test_msis_security_level_linf() {
-        let lambda = TEST_LINF.security_level();
-        println!("{TEST_LINF} -> lambda: {lambda}");
+        let test_linf: MSIS = MSIS {
+            h: 2,
+            d: 64,
+            q: Q.into(),
+            length_bound: 1.,
+            w: 512,
+            norm: Norm::Linf,
+        };
+        let lambda = test_linf.security_level();
+        println!("{test_linf} -> lambda: {lambda}");
     }
 
     #[test]
-    fn test_find_optimal_n_l2() {
+    fn test_find_optimal_h_l2() {
+        let test_l2: MSIS = MSIS {
+            h: 5,
+            d: 64,
+            q: Q.into(),
+            length_bound: SQRT_Q,
+            w: 512,
+            norm: Norm::L2,
+        };
         let h_opt =
-            crate::msis::security_estimates::find_optimal_h(&TEST_L2.with_h(0), 128).unwrap();
-        let msis = TEST_L2.with_h(h_opt);
-        println!("{TEST_L2} -> lambda: {}", TEST_L2.security_level());
+            crate::msis::security_estimates::find_optimal_h(&test_l2.with_h(0), 128).unwrap();
+        let msis = test_l2.with_h(h_opt);
+        println!("{test_l2} -> lambda: {}", test_l2.security_level());
         println!("{msis} -> lambda: {}", msis.security_level());
     }
 
     #[test]
-    fn test_find_optimal_n_linf() {
+    fn test_find_optimal_h_linf() {
+        let test_linf: MSIS = MSIS {
+            h: 2,
+            d: 64,
+            q: Q.into(),
+            length_bound: 1.,
+            w: 512,
+            norm: Norm::Linf,
+        };
         let h_opt =
-            crate::msis::security_estimates::find_optimal_h(&TEST_LINF.with_h(0), 128).unwrap();
-        let msis = TEST_LINF.with_h(h_opt);
-        println!("{TEST_L2} -> lambda: {}", TEST_LINF.security_level());
+            crate::msis::security_estimates::find_optimal_h(&test_linf.with_h(0), 128).unwrap();
+        let msis = test_linf.with_h(h_opt);
+        println!("{test_linf} -> lambda: {}", test_linf.security_level());
         println!("{msis} -> lambda: {}", msis.security_level());
     }
 }

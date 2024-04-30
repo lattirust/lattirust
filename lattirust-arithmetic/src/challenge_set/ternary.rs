@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
-use ark_std::iterable::Iterable;
 use nalgebra::{ClosedAdd, ClosedSub, Scalar};
 use num_traits::{One, Zero};
 use rayon::prelude::*;

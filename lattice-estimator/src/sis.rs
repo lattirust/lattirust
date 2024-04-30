@@ -1,8 +1,9 @@
-use num_bigint::BigUint;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
+
+use num_bigint::BigUint;
 use num_traits::ToPrimitive;
 
 use crate::errors::LatticeEstimatorError;
@@ -161,46 +162,50 @@ mod test {
     use crate::norms::Norm;
     use crate::sis::SIS;
 
-    // from lattice-estimator/schemes
-    const FALCON512_UNF: SIS = SIS::new(512, 12289, 5833.9072, 1024, Norm::L2);
-    const DILITHIUM2_MSIS_WK_UNF: SIS = SIS::new(1024, 8380417, 350209., 2304, Norm::Linf);
-
     #[test]
     fn test_sis_security_level_l2() {
-        let lambda = FALCON512_UNF.security_level();
+        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        let lambda = falcon512_unf.security_level();
         assert!(lambda >= 128.);
-        println!("{FALCON512_UNF} -> lambda: {lambda}");
+        println!("{falcon512_unf} -> lambda: {lambda}");
     }
 
     #[test]
     fn test_sis_security_level_linf() {
-        let lambda = DILITHIUM2_MSIS_WK_UNF.security_level();
+        let dilithium2_msis_wk_unf: SIS =
+            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+
+        let lambda = dilithium2_msis_wk_unf.security_level();
         assert!(lambda >= 128.);
-        println!("{DILITHIUM2_MSIS_WK_UNF} -> lambda: {lambda}");
+        println!("{dilithium2_msis_wk_unf} -> lambda: {lambda}");
     }
 
     #[test]
-    fn test_find_optimal_n_l2() {
-        let h_opt = FALCON512_UNF.find_optimal_h(128).unwrap();
-        let sis = FALCON512_UNF.with_h(h_opt);
+    fn test_find_optimal_h_l2() {
+        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        let h_opt = falcon512_unf.find_optimal_h(128).unwrap();
+        let sis = falcon512_unf.with_h(h_opt);
         let lambda = sis.security_level();
         assert!(lambda >= 128.0);
         println!(
-            "{FALCON512_UNF} -> lambda: {}",
-            FALCON512_UNF.security_level()
+            "{falcon512_unf} -> lambda: {}",
+            falcon512_unf.security_level()
         );
         println!("{sis} -> lambda: {lambda}");
     }
 
     #[test]
-    fn test_find_optimal_n_linf() {
-        let h_opt = DILITHIUM2_MSIS_WK_UNF.find_optimal_h(128).unwrap();
-        let sis = DILITHIUM2_MSIS_WK_UNF.with_h(h_opt);
+    fn test_find_optimal_h_linf() {
+        let dilithium2_msis_wk_unf: SIS =
+            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+
+        let h_opt = dilithium2_msis_wk_unf.find_optimal_h(128).unwrap();
+        let sis = dilithium2_msis_wk_unf.with_h(h_opt);
         let lambda = sis.security_level();
         assert!(lambda >= 128.0);
         println!(
-            "{DILITHIUM2_MSIS_WK_UNF} -> lambda: {}",
-            DILITHIUM2_MSIS_WK_UNF.security_level()
+            "{dilithium2_msis_wk_unf} -> lambda: {}",
+            dilithium2_msis_wk_unf.security_level()
         );
         println!("{sis} -> lambda: {lambda}");
     }

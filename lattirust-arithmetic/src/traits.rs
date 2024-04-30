@@ -1,5 +1,5 @@
-use ark_ff::BigInteger;
 use num_bigint::BigUint;
+
 use crate::linear_algebra::Vector;
 use crate::ring::PolyRing;
 

@@ -9,7 +9,7 @@ use rounded_div::RoundedDiv;
 
 use crate::linear_algebra::{Matrix, SymmetricMatrix};
 use crate::linear_algebra::{RowVector, Vector};
-use crate::ring::{ConvertibleRing, PolyRing, Ring, SignedRepresentative};
+use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
@@ -221,7 +221,7 @@ pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero + Send + Sync>(
     mat: &Matrix<F>,
     powers_of_basis: &[F],
 ) -> Matrix<F> {
-    let (m, nk) = (mat.nrows(), mat.ncols());
+    let nk = mat.ncols();
     let k = powers_of_basis.len();
     debug_assert!(nk % k == 0, "matrix `mat` to be recomposed should have dimensions m x nk, where k is the length of `powers_of_basis`, but its number of columns is not a multiple of k");
     let n = nk / k;

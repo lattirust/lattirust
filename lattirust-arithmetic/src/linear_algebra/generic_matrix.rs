@@ -6,21 +6,20 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use delegate::delegate;
 use derive_more;
 use derive_more::{Display, From, Index, IndexMut, Into};
-use nalgebra::allocator::Allocator;
-use nalgebra::constraint::{DimEq, ShapeConstraint};
 use nalgebra::{
     self, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar,
     Storage, StorageMut, ViewStorage,
 };
+use nalgebra::allocator::Allocator;
+use nalgebra::constraint::{DimEq, ShapeConstraint};
 use num_traits::{One, Zero};
-use rayon::iter::IterBridge;
-use rayon::iter::ParallelBridge;
 use rayon::prelude::*;
 
 use crate::linear_algebra::vector::{GenericRowVector, GenericVector};
 
 pub trait ClosedAdd: nalgebra::ClosedAdd {}
 impl<T> ClosedAdd for T where T: nalgebra::ClosedAdd {}
+#[allow(dead_code)]
 pub trait ClosedSub: nalgebra::ClosedSub {}
 impl<T> ClosedSub for T where T: nalgebra::ClosedSub {}
 pub trait ClosedMul: nalgebra::ClosedMul {}
@@ -32,6 +31,7 @@ pub struct GenericMatrix<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>>(
 );
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
+    #[allow(dead_code)]
     pub(crate) type Inner = nalgebra::Matrix<T, R, C, S>;
 }
 

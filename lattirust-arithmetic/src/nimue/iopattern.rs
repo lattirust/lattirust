@@ -143,7 +143,7 @@ where
     }
 
     fn squeeze_binary_matrix(self, nrows: usize, ncols: usize, label: &'static str) -> Self {
-        todo!()
+        todo!("{} {} {}", nrows, ncols, label)
     }
 }
 

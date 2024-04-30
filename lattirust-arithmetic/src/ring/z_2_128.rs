@@ -2,12 +2,11 @@ use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::num::Wrapping;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
-use ark_ff::BigInteger;
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::rand::{Rng, RngCore};
+use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
@@ -118,8 +117,8 @@ impl Valid for Z2_128 {
 impl CanonicalDeserialize for Z2_128 {
     fn deserialize_with_mode<R: Read>(
         mut reader: R,
-        compress: Compress,
-        validate: Validate,
+        _compress: Compress,
+        _validate: Validate,
     ) -> Result<Self, SerializationError> {
         let mut bytes = [0u8; core::mem::size_of::<i128>()];
         reader.read_exact(&mut bytes)?;
@@ -209,14 +208,14 @@ impl Ring for Z2_128 {
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
 impl From<SignedRepresentative> for Z2_128 {
     fn from(value: SignedRepresentative) -> Self {
-        Self(Wrapping(value.0 as i128))
+        Self(Wrapping(value.0))
     }
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
 impl Into<SignedRepresentative> for Z2_128 {
     fn into(self) -> SignedRepresentative {
-        SignedRepresentative(self.0 .0 as i128)
+        SignedRepresentative(self.0 .0)
     }
 }
 

@@ -12,10 +12,9 @@ use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::principal_relation::Witness;
 
-use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript, Z2};
+use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::prover::prove_principal_relation;
-use crate::r1cs::util::{embed, lift};
-use crate::util::{ark_sparse_matrices, concat};
+use crate::util::{ark_sparse_matrices, concat, embed, lift};
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,

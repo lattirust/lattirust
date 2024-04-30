@@ -1,12 +1,13 @@
 #![allow(non_snake_case)]
 
-use num_bigint::BigUint;
 use ark_ff::MontConfig;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::rand;
+use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 
 use lattice_estimator::msis::MSIS;
+use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
@@ -17,7 +18,7 @@ use relations::principal_relation::{
 };
 
 use crate::common_reference_string::CommonReferenceString;
-use crate::r1cs::util::{basis_vector, embed};
+use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
 
@@ -67,11 +68,15 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        // let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
-        let m: usize = 163;
-        // debug_assert!(msis.with_n(m).security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+        let m = find_optimal_h(&msis, SECURITY_PARAMETER)
+            .expect("failed to find optimal n for MSIS");
+        debug_assert!(
+            msis.with_h(m).security_level() >= SECURITY_PARAMETER as f64,
+            "MSIS security level {} must be at least {} for soundness",
+            msis.security_level(),
+            SECURITY_PARAMETER
+        );
         // TODO: fix lattice-estimator to not choke on inputs of this size
-        // let m: usize = 1;
 
         let q = R::modulus();
         assert!(

@@ -167,7 +167,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             norm: Norm::L2,
         };
         let k = msis_1.upper_bound_h();
-        // let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
+        // let k = msis_1.find_optimal_h_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         msis_1 = msis_1.with_h(k).with_length_bound(norm_bound_1(k));
         //info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
         info!("  Chose largest k={k} for the MSIS instance {msis_1}");

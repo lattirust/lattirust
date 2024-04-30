@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-use ark_ff::BigInteger;
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -16,9 +15,9 @@ use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
 use crate::ntt::NTT;
-use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::ring::PolyRing;
 use crate::ring::{Ring, Zq};
+use crate::ring::PolyRing;
+use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
@@ -29,6 +28,7 @@ use crate::traits::{
 pub struct Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize>(SVector<Zq<Q>, N>);
 
 impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
+    #[allow(dead_code)]
     pub(crate) type Inner = SVector<Zq<Q>, N>;
 
     /// Constructs a polynomial from an array of coefficients in NTT form.
