@@ -811,6 +811,7 @@ version = "0.0.1-alpha"
 dependencies = [
  "ark-std",
  "criterion",
+ "derive_more",
  "env_logger 0.11.3",
  "humansize",
  "labrador",

@@ -25,7 +25,6 @@ fn init() {
 fn test() {
     init();
 
-    let rng = &mut test_rng();
     let pp = PublicParameters::<F>::new(N, OptimizationMode::OptimizeForSpeed);
 
     let witness_1 =
@@ -46,11 +45,7 @@ fn test() {
     let mut arthur = io.to_arthur();
     let new_witness = Prover::fold(&mut arthur, &pp, witness_1.clone(), witness_2.clone()).unwrap();
     let folding_proof = arthur.transcript();
-
-    info!(
-        "Theoretical proof size: {}",
-        humansize::format_size(pp.proof_size_bytes(), DECIMAL)
-    );
+    
     info!(
         "Actual proof size:      {}",
         humansize::format_size(folding_proof.len(), DECIMAL)

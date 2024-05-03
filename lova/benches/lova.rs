@@ -1,6 +1,5 @@
-use ark_std::test_rng;
+use criterion::{BenchmarkId, black_box, Criterion, criterion_group, criterion_main};
 use criterion::BatchSize::PerIteration;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use humansize::DECIMAL;
 use log::info;
 use nimue::IOPattern;
@@ -8,8 +7,8 @@ use nimue::IOPattern;
 use lattirust_arithmetic::ring::Z2_64;
 use lova::prover::Prover;
 use lova::util::{
-    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern, OptimizationMode,
-    PublicParameters,
+    BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters,
+    rand_matrix_with_bounded_column_norms,
 };
 use lova::verifier::Verifier;
 use relations::traits::Relation;
@@ -20,10 +19,22 @@ const WITNESS_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
 
 pub fn criterion_benchmark(c: &mut Criterion) {
     env_logger::builder().is_test(true).try_init().unwrap();
-    let rng = &mut test_rng();
 
     let mut group = c.benchmark_group("lova");
     for witness_size in WITNESS_SIZES {
+        for opt_mode in [
+            OptimizationMode::OptimizeForSpeed,
+            OptimizationMode::OptimizeForSize,
+        ] {
+            info!(
+                "Theoretical proof size for N={}, mode={opt_mode}: {}",
+                witness_size,
+                humansize::format_size(
+                    PublicParameters::<F>::proof_size_bytes_with_mode(witness_size, opt_mode),
+                    DECIMAL
+                )
+            );
+        }
         let pp = PublicParameters::<F>::new(witness_size, OptimizationMode::OptimizeForSpeed);
 
         let witness_1 = rand_matrix_with_bounded_column_norms(
@@ -59,7 +70,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         // Prove folding
                         let new_witness =
                             Prover::fold(&mut arthur, &pp, witness_1, witness_2).unwrap();
-                        criterion::black_box(new_witness);
+                        black_box(new_witness);
                         let folding_proof = arthur.transcript();
 
                         // Save proof globally for verifier

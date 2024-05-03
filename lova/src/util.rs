@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 
 use ark_std::{One, UniformRand};
 use ark_std::rand::thread_rng;
+use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use num_bigint::BigUint;
@@ -24,7 +25,7 @@ use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::traits::Relation;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Display, Debug, Serialize, Deserialize)]
 pub enum OptimizationMode {
     OptimizeForSpeed,
     OptimizeForSize,
@@ -38,6 +39,7 @@ pub struct PublicParameters<F: ConvertibleRing> {
     pub decomposition_length: usize,
     pub mode: OptimizationMode,
     pub security_parameter: usize,
+    pub commitment_length: usize,
 }
 
 fn pretty_print(param: f64) -> String {
@@ -69,7 +71,8 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         norm_bound + 2. * basis as f64 * security_parameter as f64 * (n as f64).sqrt()
     }
 
-    pub fn new(n: usize, mode: OptimizationMode) -> Self {
+    /// Set all parameters for a given witness length `n`and optimization mode `mode`, but do not generate expensive values (e.g., the commitment matrix).
+    fn set_parameters(n: usize, mode: OptimizationMode) -> Self {
         /*
         For inputs of length n we need to fulfill two conditions:
         1. The commitment must be binding, i.e., SIS[h, w=n, q, beta, l2] is hard
@@ -151,26 +154,34 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
         info!("  Setting SIS parameters for commitment...");
         let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
-        let h = sis.find_optimal_h(security_parameter).unwrap();
+        let commitment_length = sis.find_optimal_h(security_parameter).unwrap();
         info!(
             "    using SIS parameters {} for commitment, achieving {} bits of security",
-            sis.with_h(h),
-            sis.with_h(h).security_level()
+            sis.with_h(commitment_length),
+            sis.with_h(commitment_length).security_level()
         );
         log::logger().flush();
 
-        info!("  Generating commitment matrix...");
-        let commitment_mat = Matrix::<F>::par_rand(h, n);
-        info!("    done");
-
         Self {
-            commitment_mat,
+            commitment_mat: Matrix::<F>::zeros(0, 0),
             norm_bound,
             decomposition_basis,
             decomposition_length,
             mode,
             security_parameter,
+            commitment_length,
         }
+    }
+
+    pub fn new(n: usize, mode: OptimizationMode) -> Self {
+        let mut pp = Self::set_parameters(n, mode);
+
+        info!("  Generating commitment matrix...");
+        let commitment_mat = Matrix::<F>::par_rand(pp.commitment_length, n);
+        info!("    done");
+
+        pp.commitment_mat = commitment_mat;
+        pp
     }
 
     pub fn witness_len(&self) -> usize {
@@ -183,6 +194,10 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
     fn signed_bits(bound: usize) -> usize {
         bound.ilog2() as usize + 1 + 1
+    }
+
+    pub fn proof_size_bytes_with_mode(n: usize, mode: OptimizationMode) -> usize {
+        Self::set_parameters(n, mode).proof_size_bytes()
     }
 
     pub fn proof_size_bytes(&self) -> usize {
