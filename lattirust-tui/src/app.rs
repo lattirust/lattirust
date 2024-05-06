@@ -25,7 +25,7 @@ pub struct App {
 
 impl App {
   pub fn new(tick_rate: f64, frame_rate: f64) -> Result<Self> {
-    let home = Home::<(), (), usize, ()>::new();
+    let home = Home::<(), (), usize, ()>::new("\n LO \nGO\n ".to_string());
     let fps = FpsCounter::default();
     let config = Config::new()?;
     let mode = Mode::Home;

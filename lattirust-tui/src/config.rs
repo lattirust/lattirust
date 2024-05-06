@@ -4,6 +4,7 @@ use color_eyre::eyre::Result;
 use config::Value;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use derive_deref::{Deref, DerefMut};
+use log::{debug, error};
 use ratatui::style::{Color, Modifier, Style};
 use serde::{
   de::{self, Deserializer, MapAccess, Visitor},
@@ -57,7 +58,7 @@ impl Config {
       }
     }
     if !found_config {
-      log::error!("No configuration file found. Application may not behave as expected");
+      log::warn!("No configuration file found. Application may not behave as expected");
     }
 
     let mut cfg: Self = builder.build()?.try_deserialize()?;

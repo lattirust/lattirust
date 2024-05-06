@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "lattirust-arithmetic",
+    "lattirust-tui",
     "lattice-estimator",
     "relations",
     "sumcheck",
