@@ -1,6 +1,5 @@
-use ark_std::test_rng;
 use humansize::DECIMAL;
-use log::{debug, info};
+use log::{debug, info, LevelFilter};
 use nimue::IOPattern;
 
 use lattirust_arithmetic::ring::Z2_64;
@@ -18,7 +17,7 @@ type F = Z2_64;
 const N: usize = 1 << 16;
 
 fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    tui_logger::init_logger(LevelFilter::Debug).unwrap();
 }
 
 #[test]
@@ -45,7 +44,7 @@ fn test() {
     let mut arthur = io.to_arthur();
     let new_witness = Prover::fold(&mut arthur, &pp, witness_1.clone(), witness_2.clone()).unwrap();
     let folding_proof = arthur.transcript();
-    
+
     info!(
         "Actual proof size:      {}",
         humansize::format_size(folding_proof.len(), DECIMAL)

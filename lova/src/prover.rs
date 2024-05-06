@@ -1,6 +1,7 @@
-use log::{debug, log_enabled};
 use log::Level::Debug;
+use log::log_enabled;
 use nimue::{Arthur, ProofResult};
+use tracing::debug;
 
 use lattirust_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
@@ -17,13 +18,13 @@ pub struct Prover<F: ConvertibleRing> {
 }
 
 impl<F: ConvertibleRing> Prover<F> {
+    #[tracing::instrument]
     pub fn merge(
         arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         witness_1: Witness<F>,
         witness_2: Witness<F>,
     ) -> ProofResult<Witness<F>> {
-        debug!("┌ Prover::merge");
         debug_assert_eq!(witness_1.ncols(), pp.security_parameter);
         debug_assert_eq!(witness_2.ncols(), pp.security_parameter);
 
@@ -37,16 +38,15 @@ impl<F: ConvertibleRing> Prover<F> {
         let mut witness = witness_1;
         witness.extend(witness_2.column_iter());
 
-        debug!("└ Prover::merge");
         Ok(witness)
     }
 
+    #[tracing::instrument]
     pub fn reduce(
         arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         witness: Witness<F>,
     ) -> ProofResult<Witness<F>> {
-        debug!("┌ Prover::reduce");
         debug_assert_eq!(witness.ncols(), 2 * pp.security_parameter);
 
         // Decompose witness matrix into wider matrix with small (column-wise) norms
@@ -128,10 +128,10 @@ impl<F: ConvertibleRing> Prover<F> {
             .into_iter()
             .all(|l2_norm| l2_norm <= pp.norm_bound));
 
-        debug!("└ Prover::reduce");
         Ok(new_witness)
     }
 
+    #[tracing::instrument]
     pub fn fold(
         arthur: &mut Arthur,
         pp: &PublicParameters<F>,

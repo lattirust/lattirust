@@ -8,19 +8,21 @@ edition = "2021"
 [dependencies]
 labrador = { version = "0.0.1-alpha", path = "../labrador" }
 lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
-lattice-estimator = {version = "0.0.1-alpha", path = "../lattice-estimator"}
-lattirust-util = {version = "0.0.1-alpha", path = "../lattirust-util"}
+lattice-estimator = { version = "0.0.1-alpha", path = "../lattice-estimator" }
+lattirust-util = { version = "0.0.1-alpha", path = "../lattirust-util" }
 relations = { version = "0.0.1-alpha", path = "../relations" }
 ark-std = "0.4.0"
 derive_more = "0.99.17"
 env_logger = "0.11.3"
 humansize = "2.0.0"
 log = "0.4.21"
-nimue = { version = "0.0.1", git="https://github.com/cknabs/nimue", branch="absorb_unchecked-non-recursive" }
+nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
 serde = { version = "1.0.197", features = ["derive"] }
 num-traits = "0.2.18"
 num-bigint = "0.4.4"
 rayon = "1.10.0"
+tracing = { version = "0.1.40", features = ["tracing-attributes"] }
+tui-logger = "0.11.1"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports"], git = "https://github.com/vlovich/criterion.rs", branch = "fix-plotting-nan" }

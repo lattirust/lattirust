@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use ark_std::{One, UniformRand};
 use ark_std::rand::thread_rng;
+use ark_std::{One, UniformRand};
 use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
@@ -15,9 +15,9 @@ use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
@@ -411,4 +411,19 @@ pub fn lambert_w_min1(z: f64) -> f64 {
         w = w - (w * exp_w - z) / (exp_w + w * exp_w);
     }
     w
+}
+
+pub fn header() -> String {
+r" 
+ █████                                   
+░░███                                    
+ ░███         ██████  █████ ███████████  
+ ░███        ███░░███░░███ ░░███░░░░░███ 
+ ░███       ░███ ░███ ░███  ░███ ███████ 
+ ░███      █░███ ░███ ░░███ ███ ███░░███ 
+ ███████████░░██████   ░░█████ ░░████████
+░░░░░░░░░░░  ░░░░░░     ░░░░░   ░░░░░░░░ 
+
+                                         "
+    .to_string()
 }

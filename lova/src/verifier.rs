@@ -20,13 +20,13 @@ pub struct Verifier<F: ConvertibleRing> {
 }
 
 impl<F: ConvertibleRing> Verifier<F> {
+    #[tracing::instrument]
     pub fn merge(
         merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
     ) -> ProofResult<Instance<F>> {
-        debug!("┌ Verifier::merge");
         debug_assert_eq!(instance_1.commitment.ncols(), pp.security_parameter);
         debug_assert_eq!(instance_2.commitment.ncols(), pp.security_parameter);
 
@@ -44,19 +44,18 @@ impl<F: ConvertibleRing> Verifier<F> {
             instance_2.inner_products,
         );
 
-        debug!("└ Verifier::merge");
         Ok(Instance {
             commitment,
             inner_products,
         })
     }
 
+    #[tracing::instrument]
     pub fn reduce(
         merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         instance: Instance<F>,
     ) -> Result<Instance<F>, ProofError> {
-        debug!("┌ Verifier::reduce");
         debug_assert_eq!(instance.commitment.ncols(), 2 * pp.security_parameter);
         let committed_decomp_witness = merlin
             .next_matrix(
@@ -65,7 +64,7 @@ impl<F: ConvertibleRing> Verifier<F> {
             )
             .unwrap();
         merlin.ratchet().unwrap();
-        
+
         let inner_products_decomp = merlin
             .next_symmetric_matrix::<SignedRepresentative>(
                 2 * pp.security_parameter * pp.decomposition_length,
@@ -103,23 +102,21 @@ impl<F: ConvertibleRing> Verifier<F> {
         // Compute new instance (commitment and inner products)
         let commitment_new = mul_f_trit(&committed_decomp_witness, &challenge);
         let inner_products_new = mul_trit_transpose_sym_trit(&inner_products_decomp, &challenge);
-        debug!("└ Verifier::reduce");
         Ok(Instance {
             commitment: commitment_new,
             inner_products: inner_products_new,
         })
     }
 
+    #[tracing::instrument]
     pub fn fold(
         merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
     ) -> ProofResult<Instance<F>> {
-        debug!("┌ Verifier::fold");
         let merged_instance = Self::merge(merlin, pp, instance_1, instance_2).unwrap();
         let folded_instance = Self::reduce(merlin, pp, merged_instance).unwrap();
-        debug!("└ Verifier::fold");
         Ok(folded_instance)
     }
 }
