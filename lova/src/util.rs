@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use ark_std::rand::thread_rng;
 use ark_std::{One, UniformRand};
+use ark_std::rand::thread_rng;
 use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
@@ -15,15 +15,17 @@ use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::traits::Relation;
+
+const COMPLETENESS_ERROR: usize = 128;
 
 #[derive(Clone, Copy, Display, Debug, Serialize, Deserialize)]
 pub enum OptimizationMode {
@@ -73,7 +75,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
     /// Set all parameters for a given witness length `n`and optimization mode `mode`, but do not generate expensive values (e.g., the commitment matrix).
     fn set_parameters(
-        n: usize,
+        instance_length: usize,
         mode: OptimizationMode,
         security_parameter: usize,
         log_fiat_shamir: usize,
@@ -87,7 +89,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             + f64::log2(5.))
             / (f64::log2(3.) - 1.))
             .ceil() as usize;
-        info!("Setting parameters for security parameter = {security_parameter}, Fiat-Shamir log loss = {log_fiat_shamir}, witness size n = {n}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
+        info!("Setting parameters for security parameter = {security_parameter}, Fiat-Shamir log loss = {log_fiat_shamir}, witness size n = {instance_length}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
         info!(" Inner security parameter = {inner_security_parameter}");
         assert!(
             5f64 * (2f64 / 3f64).powf(inner_security_parameter as f64)
@@ -102,18 +104,25 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 let target_decomposition_length = 4;
                 let norm_bound_hi = ((target_decomposition_length * inner_security_parameter)
                     * (target_decomposition_length * inner_security_parameter)
-                    * n) as f64;
-                let _norm_bound_lo = Self::norm_lower_bound(2, n, inner_security_parameter);
+                    * instance_length) as f64;
+                let _norm_bound_lo =
+                    Self::norm_lower_bound(2, instance_length, inner_security_parameter);
                 let _basis_hi = floor_to_even(norm_bound_hi.sqrt());
                 let _basis_lo = 2;
 
                 norm_bound_hi
             }
             OptimizationMode::OptimizeForSize => {
-                Self::norm_lower_bound(2, n, inner_security_parameter)
+                Self::norm_lower_bound(2, instance_length, inner_security_parameter)
             }
         };
         info!("  Setting norm_bound = {}", pretty_print(norm_bound));
+
+        let better_norm_bound = (instance_length as f64)
+            * ((8f64 * inner_security_parameter as f64) / 3f64
+                + f64::sqrt(COMPLETENESS_ERROR as f64 * f64::ln(2.)) / 2f64)
+                .powf(2.);
+        info!("==Better norm bound = {}", pretty_print(better_norm_bound));
         log::logger().flush();
         assert!(norm_bound < F::modulus().to_f64().unwrap());
 
@@ -145,6 +154,12 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 basis
             }
         };
+
+        info!(
+            "==Better decomposition basis = {}",
+            pretty_print(floor_to_even(better_norm_bound.sqrt()) as f64)
+        );
+
         let decomposition_length: usize =
             balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
         info!(
@@ -153,7 +168,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         );
         log::logger().flush();
 
-        let norm_decomp = Self::decomposed_norm_max(decomposition_basis, n);
+        let norm_decomp = Self::decomposed_norm_max(decomposition_basis, instance_length);
         info!(
             "    decomposed witnesses will have column norm <= {}",
             pretty_print(norm_decomp)
@@ -170,7 +185,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         debug_assert!(folded_norm <= norm_bound);
 
         info!("  Setting SIS parameters for commitment...");
-        let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
+        let sis = SIS::new(0, F::modulus(), norm_bound, instance_length, L2);
         let commitment_length = sis.find_optimal_h(sis_security_parameter).unwrap();
 
         info!(
