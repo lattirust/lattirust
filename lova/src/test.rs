@@ -7,8 +7,8 @@ use relations::traits::Relation;
 
 use crate::prover::Prover;
 use crate::util::{
-    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern, OptimizationMode,
-    PublicParameters,
+    BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters,
+    rand_matrix_with_bounded_column_norms,
 };
 use crate::verifier::Verifier;
 
@@ -23,17 +23,30 @@ fn init() {
 #[test]
 fn test() {
     init();
+    const SECURITY_PARAMETER: usize = 128;
+    const LOG_FIAT_SHAMIR: usize = 64;
 
-    let pp = PublicParameters::<F>::new(N, OptimizationMode::OptimizeForSpeed);
+    let pp = PublicParameters::<F>::new(
+        N,
+        OptimizationMode::OptimizeForSpeed,
+        SECURITY_PARAMETER,
+        LOG_FIAT_SHAMIR,
+    );
 
-    let witness_1 =
-        rand_matrix_with_bounded_column_norms(N, pp.security_parameter, pp.norm_bound as i128);
+    let witness_1 = rand_matrix_with_bounded_column_norms(
+        N,
+        pp.inner_security_parameter,
+        pp.norm_bound as i128,
+    );
     let instance_1 = Instance::new(&pp, &witness_1);
     debug!("1. generated, checking relation");
     debug_assert!(BaseRelation::is_satisfied(&pp, &instance_1, &witness_1));
 
-    let witness_2 =
-        rand_matrix_with_bounded_column_norms(N, pp.security_parameter, pp.norm_bound as i128);
+    let witness_2 = rand_matrix_with_bounded_column_norms(
+        N,
+        pp.inner_security_parameter,
+        pp.norm_bound as i128,
+    );
     let instance_2 = Instance::new(&pp, &witness_2);
     debug!("2. generated, checking relation");
     debug_assert!(BaseRelation::is_satisfied(&pp, &instance_2, &witness_2));

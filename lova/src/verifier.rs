@@ -27,11 +27,15 @@ impl<F: ConvertibleRing> Verifier<F> {
         instance_1: Instance<F>,
         instance_2: Instance<F>,
     ) -> ProofResult<Instance<F>> {
-        debug_assert_eq!(instance_1.commitment.ncols(), pp.security_parameter);
-        debug_assert_eq!(instance_2.commitment.ncols(), pp.security_parameter);
+        debug!("┌ Verifier::merge");
+        debug_assert_eq!(instance_1.commitment.ncols(), pp.inner_security_parameter);
+        debug_assert_eq!(instance_2.commitment.ncols(), pp.inner_security_parameter);
 
         let cross_terms = merlin
-            .next_matrix::<SignedRepresentative>(pp.security_parameter, pp.security_parameter)
+            .next_matrix::<SignedRepresentative>(
+                pp.inner_security_parameter,
+                pp.inner_security_parameter,
+            )
             .unwrap();
         merlin.ratchet().unwrap();
 
@@ -56,26 +60,27 @@ impl<F: ConvertibleRing> Verifier<F> {
         pp: &PublicParameters<F>,
         instance: Instance<F>,
     ) -> Result<Instance<F>, ProofError> {
-        debug_assert_eq!(instance.commitment.ncols(), 2 * pp.security_parameter);
+        debug!("┌ Verifier::reduce");
+        debug_assert_eq!(instance.commitment.ncols(), 2 * pp.inner_security_parameter);
         let committed_decomp_witness = merlin
             .next_matrix(
                 pp.commitment_mat.nrows(),
-                2 * pp.security_parameter * pp.decomposition_length,
+                2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
         merlin.ratchet().unwrap();
 
         let inner_products_decomp = merlin
             .next_symmetric_matrix::<SignedRepresentative>(
-                2 * pp.security_parameter * pp.decomposition_length,
+                2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
         merlin.ratchet().unwrap();
 
         let challenge = merlin
             .challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
-                2 * pp.security_parameter * pp.decomposition_length,
-                pp.security_parameter,
+                2 * pp.inner_security_parameter * pp.decomposition_length,
+                pp.inner_security_parameter,
             )
             .unwrap();
         merlin.ratchet().unwrap();

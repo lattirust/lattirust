@@ -38,7 +38,7 @@ pub struct PublicParameters<F: ConvertibleRing> {
     pub decomposition_basis: u128,
     pub decomposition_length: usize,
     pub mode: OptimizationMode,
-    pub security_parameter: usize,
+    pub inner_security_parameter: usize,
     pub commitment_length: usize,
 }
 
@@ -46,7 +46,7 @@ fn pretty_print(param: f64) -> String {
     format!("{param} = 2^{}", param.log2())
 }
 impl<F: ConvertibleRing> PublicParameters<F> {
-    /// Return the lowest norm bound such that folding is norm-preserving for a given `basis`, witness length `n`, and `security_parameter`.
+    /// Return the lowest norm bound such that folding is norm-preserving for a given `basis`, witness length `n`, and inner security parameter `security_parameter` (t in the paper).
     fn norm_lower_bound(basis: u128, n: usize, security_parameter: usize) -> f64 {
         // beta >= 2 * security_parameter * k * norm_decomp = 2 * security_parameter * k * b/2 * sqrt(n)
         // => beta >= security_parameter * (log_b(beta) + 2) * b * sqrt(n)
@@ -72,28 +72,46 @@ impl<F: ConvertibleRing> PublicParameters<F> {
     }
 
     /// Set all parameters for a given witness length `n`and optimization mode `mode`, but do not generate expensive values (e.g., the commitment matrix).
-    fn set_parameters(n: usize, mode: OptimizationMode) -> Self {
+    fn set_parameters(
+        n: usize,
+        mode: OptimizationMode,
+        security_parameter: usize,
+        log_fiat_shamir: usize,
+    ) -> Self {
         /*
         For inputs of length n we need to fulfill two conditions:
         1. The commitment must be binding, i.e., SIS[h, w=n, q, beta, l2] is hard
         2. For perfect completeness, the columns of the folded witness must have norm at most norm_bound, i.e., 2 * security_parameter * decomposition_length * norm_decomp <= norm_bound, where norm_decomp = floor(decomposition_basis/2) * sqrt(n)
          */
-        let security_parameter = 128;
-        info!("Setting parameters for security parameter = {security_parameter}, witness size n = {n}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
+        let inner_security_parameter = (((security_parameter + 1 + log_fiat_shamir) as f64
+            + f64::log2(5.))
+            / (f64::log2(3.) - 1.))
+            .ceil() as usize;
+        info!("Setting parameters for security parameter = {security_parameter}, Fiat-Shamir log loss = {log_fiat_shamir}, witness size n = {n}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
+        info!(" Inner security parameter = {inner_security_parameter}");
+        assert!(
+            5f64 * (2f64 / 3f64).powf(inner_security_parameter as f64)
+                <= 2f64.powf(-((security_parameter + 1) as f64))
+        );
+        let sis_security_parameter = security_parameter + 1 + log_fiat_shamir;
+        info!(" SIS security parameter   = {sis_security_parameter}");
+
         let norm_bound: f64 = match mode {
             OptimizationMode::OptimizeForSpeed => {
                 // TODO: Do binary search for basis in [2, sqrt(norm_bound)] to find the largest b such that there exists an h for which SIS[h, w=n, q, beta, l2] is security-parameter-hard.
                 let target_decomposition_length = 4;
-                let norm_bound_hi = ((target_decomposition_length * security_parameter)
-                    * (target_decomposition_length * security_parameter)
+                let norm_bound_hi = ((target_decomposition_length * inner_security_parameter)
+                    * (target_decomposition_length * inner_security_parameter)
                     * n) as f64;
-                let _norm_bound_lo = Self::norm_lower_bound(2, n, security_parameter);
+                let _norm_bound_lo = Self::norm_lower_bound(2, n, inner_security_parameter);
                 let _basis_hi = floor_to_even(norm_bound_hi.sqrt());
                 let _basis_lo = 2;
 
                 norm_bound_hi
             }
-            OptimizationMode::OptimizeForSize => Self::norm_lower_bound(2, n, security_parameter),
+            OptimizationMode::OptimizeForSize => {
+                Self::norm_lower_bound(2, n, inner_security_parameter)
+            }
         };
         info!("  Setting norm_bound = {}", pretty_print(norm_bound));
         log::logger().flush();
@@ -103,7 +121,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             OptimizationMode::OptimizeForSpeed => {
                 // For speed, we want to set decomposition_basis to be as large as possible while ensuring perfect completeness.
                 let basis = floor_to_even(norm_bound.sqrt());
-                // Ensure that the constant 3 used to choose norm_bound above is correct.
+                // Ensure that the constant 4 used to choose norm_bound above is correct.
                 debug_assert_eq!(
                     balanced_decomposition_max_length(basis, norm_bound.floor() as u128),
                     4,
@@ -120,7 +138,6 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 The proof size is composed as follows
                     commitment: h * 2*decomposition_length*security_parameter * log2(q) bits
                     inner products: (2*decomposition_length*security_parameter)^2 * floor(decomposition_basis/2)^2 bits
-                    challenge: 2*decomposition_length*security_parameter^2 * 2 bits
                 The minimum of the sum of these (for decomposition_basis >= 2) is attained for decomposition_basis ≈ e, which we round down to 2.
                 */
                 let basis = 2;
@@ -154,7 +171,8 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
         info!("  Setting SIS parameters for commitment...");
         let sis = SIS::new(0, F::modulus(), norm_bound, n, L2);
-        let commitment_length = sis.find_optimal_h(security_parameter).unwrap();
+        let commitment_length = sis.find_optimal_h(sis_security_parameter).unwrap();
+
         info!(
             "    using SIS parameters {} for commitment, achieving {} bits of security",
             sis.with_h(commitment_length),
@@ -168,13 +186,18 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             decomposition_basis,
             decomposition_length,
             mode,
-            security_parameter,
+            inner_security_parameter,
             commitment_length,
         }
     }
 
-    pub fn new(n: usize, mode: OptimizationMode) -> Self {
-        let mut pp = Self::set_parameters(n, mode);
+    pub fn new(
+        n: usize,
+        mode: OptimizationMode,
+        security_parameter: usize,
+        log_fiat_shamir: usize,
+    ) -> Self {
+        let mut pp = Self::set_parameters(n, mode, security_parameter, log_fiat_shamir);
 
         info!("  Generating commitment matrix...");
         let commitment_mat = Matrix::<F>::par_rand(pp.commitment_length, n);
@@ -196,8 +219,13 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         bound.ilog2() as usize + 1 + 1
     }
 
-    pub fn proof_size_bytes_with_mode(n: usize, mode: OptimizationMode) -> usize {
-        Self::set_parameters(n, mode).proof_size_bytes()
+    pub fn proof_size_bytes_with_mode(
+        n: usize,
+        mode: OptimizationMode,
+        security_parameter: usize,
+        log_fiat_shamir: usize,
+    ) -> usize {
+        Self::set_parameters(n, mode, security_parameter, log_fiat_shamir).proof_size_bytes()
     }
 
     pub fn proof_size_bytes(&self) -> usize {
@@ -213,22 +241,22 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
         // lambda * lambda matrix, with entries w_2,i^T * w_1,j in [-norm_bound^2, norm_bound^2]
         let merge_proof_size =
-            self.security_parameter * self.security_parameter * norm_bound_sq_bits;
+            self.inner_security_parameter * self.inner_security_parameter * norm_bound_sq_bits;
 
         // 2 * k * lambda symmetric matrix, with signed entries in [-(b/2)^2, (b/2)^2]
-        let inner_prods_size = ((2 * self.decomposition_length * self.security_parameter)
-            * (2 * self.decomposition_length * self.security_parameter))
+        let inner_prods_size = ((2 * self.decomposition_length * self.inner_security_parameter)
+            * (2 * self.decomposition_length * self.inner_security_parameter))
             / 2
             * decomp_basis_sq_bits;
 
         // m x 2*k*lambda matrix, with entries <= F
         let commitment_size = self.commitment_mat.nrows()
-            * (2 * self.decomposition_length * self.security_parameter)
+            * (2 * self.decomposition_length * self.inner_security_parameter)
             * modulus_bits;
 
         // 2*k*lambda x lambda with entries in {-1, 0, 1}
-        let challenge_size = (2 * self.decomposition_length * self.security_parameter)
-            * self.security_parameter
+        let challenge_size = (2 * self.decomposition_length * self.inner_security_parameter)
+            * self.inner_security_parameter
             * Self::signed_bits(1);
 
         let proof_size_bits =
@@ -347,8 +375,8 @@ where
 {
     fn merge<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
         self.absorb_matrix::<SignedRepresentative>(
-            pp.security_parameter,
-            pp.security_parameter,
+            pp.inner_security_parameter,
+            pp.inner_security_parameter,
             "cross inner products",
         )
         .ratchet()
@@ -357,18 +385,18 @@ where
     fn reduce<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
         self.absorb_matrix::<F>(
             pp.commitment_mat.nrows(),
-            2 * pp.security_parameter * pp.decomposition_length,
+            2 * pp.inner_security_parameter * pp.decomposition_length,
             "commitment",
         )
         .ratchet()
         .absorb_symmetric_matrix::<SignedRepresentative>(
-            2 * pp.security_parameter * pp.decomposition_length,
+            2 * pp.inner_security_parameter * pp.decomposition_length,
             "inner products",
         )
         .ratchet()
         .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(
-            2 * pp.security_parameter * pp.decomposition_length,
-            pp.security_parameter,
+            2 * pp.inner_security_parameter * pp.decomposition_length,
+            pp.inner_security_parameter,
             "challenge",
         )
         .ratchet()
@@ -414,7 +442,7 @@ pub fn lambert_w_min1(z: f64) -> f64 {
 }
 
 pub fn header() -> String {
-r" 
+    r" 
  █████                                   
 ░░███                                    
  ░███         ██████  █████ ███████████  

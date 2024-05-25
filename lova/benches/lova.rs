@@ -14,6 +14,8 @@ use lova::verifier::Verifier;
 use relations::traits::Relation;
 
 type F = Z2_64;
+const SECURITY_PARAMETER: usize = 128;
+const LOG_FIAT_SHAMIR: usize = 64;
 
 const WITNESS_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
 
@@ -30,16 +32,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 "Theoretical proof size for N={}, mode={opt_mode}: {}",
                 witness_size,
                 humansize::format_size(
-                    PublicParameters::<F>::proof_size_bytes_with_mode(witness_size, opt_mode),
+                    PublicParameters::<F>::proof_size_bytes_with_mode(witness_size, opt_mode, SECURITY_PARAMETER, LOG_FIAT_SHAMIR),
                     DECIMAL
                 )
             );
         }
-        let pp = PublicParameters::<F>::new(witness_size, OptimizationMode::OptimizeForSpeed);
+        let pp = PublicParameters::<F>::new(witness_size, OptimizationMode::OptimizeForSpeed, SECURITY_PARAMETER, LOG_FIAT_SHAMIR);
 
         let witness_1 = rand_matrix_with_bounded_column_norms(
             pp.witness_len(),
-            pp.security_parameter,
+            pp.inner_security_parameter,
             pp.norm_bound as i128,
         );
         let instance_1 = Instance::new(&pp, &witness_1);
@@ -47,7 +49,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         let witness_2 = rand_matrix_with_bounded_column_norms(
             pp.witness_len(),
-            pp.security_parameter,
+            pp.inner_security_parameter,
             pp.norm_bound as i128,
         );
         let instance_2 = Instance::new(&pp, &witness_2);

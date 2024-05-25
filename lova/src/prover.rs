@@ -25,8 +25,9 @@ impl<F: ConvertibleRing> Prover<F> {
         witness_1: Witness<F>,
         witness_2: Witness<F>,
     ) -> ProofResult<Witness<F>> {
-        debug_assert_eq!(witness_1.ncols(), pp.security_parameter);
-        debug_assert_eq!(witness_2.ncols(), pp.security_parameter);
+        debug!("┌ Prover::merge");
+        debug_assert_eq!(witness_1.ncols(), pp.inner_security_parameter);
+        debug_assert_eq!(witness_2.ncols(), pp.inner_security_parameter);
 
         // Compute cross inner products witness_2^T * witness_1 (over the integers)
         let witness_2_int = witness_2.map(|x| Into::<SignedRepresentative>::into(x));
@@ -47,7 +48,8 @@ impl<F: ConvertibleRing> Prover<F> {
         pp: &PublicParameters<F>,
         witness: Witness<F>,
     ) -> ProofResult<Witness<F>> {
-        debug_assert_eq!(witness.ncols(), 2 * pp.security_parameter);
+        debug!("┌ Prover::reduce");
+        debug_assert_eq!(witness.ncols(), 2 * pp.inner_security_parameter);
 
         // Decompose witness matrix into wider matrix with small (column-wise) norms
         let decomp_witness =
@@ -104,8 +106,8 @@ impl<F: ConvertibleRing> Prover<F> {
 
         // Get challenge
         let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
-            2 * pp.security_parameter * pp.decomposition_length,
-            pp.security_parameter,
+            2 * pp.inner_security_parameter * pp.decomposition_length,
+            pp.inner_security_parameter,
         )?;
         arthur.ratchet()?;
 
@@ -122,8 +124,8 @@ impl<F: ConvertibleRing> Prover<F> {
             new_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
         );
         debug!("(Assuming uniform witness norms), expected norm should be should give (mean, max) = ({}, {})",
-        (2 * pp.decomposition_length * pp.security_parameter * pp.decomposition_basis as usize) as f64 / 3.,
-        (2 * pp.decomposition_length * pp.security_parameter * pp.decomposition_basis as usize) as f64);
+        (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64 / 3.,
+        (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64);
         debug_assert!(new_norms
             .into_iter()
             .all(|l2_norm| l2_norm <= pp.norm_bound));
