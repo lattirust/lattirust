@@ -24,20 +24,17 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("lova");
     for witness_size in WITNESS_SIZES {
-        for opt_mode in [
+        let pp = PublicParameters::<F>::new(
+            witness_size,
             OptimizationMode::OptimizeForSpeed,
-            OptimizationMode::OptimizeForSize,
-        ] {
-            info!(
-                "Theoretical proof size for N={}, mode={opt_mode}: {}",
-                witness_size,
-                humansize::format_size(
-                    PublicParameters::<F>::proof_size_bytes_with_mode(witness_size, opt_mode, SECURITY_PARAMETER, LOG_FIAT_SHAMIR),
-                    DECIMAL
-                )
-            );
-        }
-        let pp = PublicParameters::<F>::new(witness_size, OptimizationMode::OptimizeForSpeed, SECURITY_PARAMETER, LOG_FIAT_SHAMIR);
+            SECURITY_PARAMETER,
+            LOG_FIAT_SHAMIR,
+        );
+        info!(
+            "Theoretical proof size for N={}: {}",
+            witness_size,
+            humansize::format_size(pp.proof_size_bytes(), DECIMAL)
+        );
 
         let witness_1 = rand_matrix_with_bounded_column_norms(
             pp.witness_len(),
@@ -85,11 +82,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             },
         );
 
-        info!(
-            "Theoretical proof size for N={}: {}",
-            witness_size,
-            humansize::format_size(pp.proof_size_bytes(), DECIMAL)
-        );
         info!(
             "Actual proof size for N={}:      {}",
             witness_size,
