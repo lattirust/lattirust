@@ -60,12 +60,14 @@ impl<F: ConvertibleRing> Prover<F> {
             witness.ncols() * pp.decomposition_length
         );
 
-        let norm_decomp =
-            PublicParameters::<F>::decomposed_norm_max(pp.decomposition_basis, pp.witness_len());
-        debug!(
-            "  (Assuming uniform witness norms), expected norm should be should be at most max = {norm_decomp}"
-        );
         if log_enabled!(Debug) {
+            let norm_decomp = PublicParameters::<F>::decomposed_norm_max(
+                pp.decomposition_basis,
+                pp.witness_len(),
+            );
+            debug!(
+            "  (Assuming uniform witness norms), expected norm should be should be at most max = {norm_decomp}"
+            );
             let decomp_norms = norm_l2_columnwise(&decomp_witness);
             debug!(
                 "  Columns of decomposed witness have norms (min, mean, max) = ({}, {}, {})",
@@ -115,21 +117,24 @@ impl<F: ConvertibleRing> Prover<F> {
         // TODO: We don't actually have to do this mod q, but with the current implementation we're barely doing modular arithmetic, not sure if it makes sense to work over the integers instead here.
         let new_witness = mul_f_trit(&decomp_witness, &challenge);
 
-        // Check that the new witness does not grow in norm
-        let new_norms = norm_l2_columnwise(&new_witness);
-        debug!(
-            "Columns of folded witness have norms (min, mean, max) = ({}, {}, {})",
-            new_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
-            new_norms.iter().sum::<f64>() / new_norms.len() as f64,
-            new_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
-        );
-        debug!("(Assuming uniform witness norms), expected norm should be should give (mean, max) = ({}, {})",
-        (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64 / 3.,
-        (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64);
-        debug_assert!(new_norms
-            .into_iter()
-            .all(|l2_norm| l2_norm <= pp.norm_bound));
-
+        if log_enabled!(Debug) {
+            // Check that the new witness does not grow in norm
+            let new_norms = norm_l2_columnwise(&new_witness);
+            debug!(
+                "Columns of folded witness have norms (min, mean, max) = ({}, {}, {})",
+                new_norms.iter().min_by(|a, b| a.total_cmp(b)).unwrap(),
+                new_norms.iter().sum::<f64>() / new_norms.len() as f64,
+                new_norms.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
+            );
+            debug!(
+                "(Assuming uniform witness norms), expected norm should be should give (mean, max) = ({}, {})",
+                (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64 / 3.,
+                (2 * pp.decomposition_length * pp.inner_security_parameter * pp.decomposition_basis as usize) as f64
+            );
+            debug_assert!(new_norms
+                .into_iter()
+                .all(|l2_norm| l2_norm <= pp.norm_bound));
+        }
         Ok(new_witness)
     }
 
