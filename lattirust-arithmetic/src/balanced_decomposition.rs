@@ -100,7 +100,7 @@ pub fn decompose_balanced<R: ConvertibleRing>(
     }
 
     decomp_bal_signed
-        .into_iter()
+        .into_par_iter()
         .map(|x| Into::<R>::into(SignedRepresentative(x)))
         .collect::<Vec<R>>()
 }
@@ -121,7 +121,7 @@ pub fn decompose_balanced_vec<F: ConvertibleRing>(
     padding_size: Option<usize>,
 ) -> Vec<Vec<F>> {
     let decomp: Vec<Vec<F>> = v
-        .iter()
+        .par_iter()
         .map(|v_i| decompose_balanced(v_i, b, padding_size))
         .collect(); // v.len() x decomp_size
     pad_and_transpose(decomp) // decomp_size x v.len()
@@ -143,7 +143,7 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
     padding_size: Option<usize>,
 ) -> Vec<R> {
     decompose_balanced_vec::<R::BaseRing>(v.coeffs().as_slice(), b, padding_size)
-        .into_iter()
+        .into_par_iter()
         .map(|v_i| R::from(v_i))
         .collect()
 }
@@ -165,11 +165,11 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
 ) -> Vec<Vector<R>> {
     let decomp: Vec<Vec<R>> = v
         .as_slice()
-        .iter()
+        .par_iter()
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
         .collect(); // v.len() x decomp_size
     pad_and_transpose(decomp)
-        .into_iter()
+        .into_par_iter()
         .map(|v_i| Vector::from(v_i))
         .collect() // decomp_size x v.len()
 }
@@ -190,7 +190,7 @@ pub fn decompose_matrix<F: ConvertibleRing>(
     decomposition_length: usize,
 ) -> Matrix<F> {
     Matrix::<F>::from_rows(
-        mat.row_iter()
+        mat.par_row_iter()
             .map(|s_i| {
                 RowVector::<F>::from(
                     s_i.map(|s_ij| {
@@ -207,10 +207,10 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 
 pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
 where
-    A: std::ops::Mul<B, Output = A> + Copy + Sum,
+    A: std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
     B: Field,
 {
-    v.iter()
+    v.par_iter()
         .enumerate()
         .map(|(i, v_i)| *v_i * b.pow([i as u64]))
         .sum()
