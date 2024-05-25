@@ -31,6 +31,7 @@ const COMPLETENESS_ERROR: usize = 128;
 pub enum OptimizationMode {
     OptimizeForSpeed,
     OptimizeForSize,
+    OptimizeForSpeedWithCompletenessError,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -112,21 +113,38 @@ impl<F: ConvertibleRing> PublicParameters<F> {
 
                 norm_bound_hi
             }
+            OptimizationMode::OptimizeForSpeedWithCompletenessError => {
+                let norm_bound = (instance_length as f64)
+                    * ((8f64 * inner_security_parameter as f64) / 3f64
+                        + f64::sqrt(COMPLETENESS_ERROR as f64 * f64::ln(2.)) / 2f64)
+                        .powf(2.);
+                assert!(norm_bound < F::modulus().to_f64().unwrap());
+                norm_bound
+            }
             OptimizationMode::OptimizeForSize => {
                 Self::norm_lower_bound(2, instance_length, inner_security_parameter)
             }
         };
         info!("  Setting norm_bound = {}", pretty_print(norm_bound));
-
-        let better_norm_bound = (instance_length as f64)
-            * ((8f64 * inner_security_parameter as f64) / 3f64
-                + f64::sqrt(COMPLETENESS_ERROR as f64 * f64::ln(2.)) / 2f64)
-                .powf(2.);
-        info!("==Better norm bound = {}", pretty_print(better_norm_bound));
+        
         log::logger().flush();
         assert!(norm_bound < F::modulus().to_f64().unwrap());
 
         let decomposition_basis: u128 = match mode {
+            OptimizationMode::OptimizeForSpeedWithCompletenessError => {
+                let basis = floor_to_even(norm_bound.sqrt());
+                // Ensure that the constant 4 used to choose norm_bound above is correct.
+                debug_assert_eq!(
+                    balanced_decomposition_max_length(basis, norm_bound.floor() as u128),
+                    4,
+                    "assumption on decomposition length used to set norm_bound is violated"
+                );
+                info!(
+                    "  Setting decomposition_basis = floor_to_even(sqrt(norm_bound)) = {}",
+                    pretty_print(basis as f64)
+                );
+                basis
+            }
             OptimizationMode::OptimizeForSpeed => {
                 // For speed, we want to set decomposition_basis to be as large as possible while ensuring perfect completeness.
                 let basis = floor_to_even(norm_bound.sqrt());
@@ -154,12 +172,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 basis
             }
         };
-
-        info!(
-            "==Better decomposition basis = {}",
-            pretty_print(floor_to_even(better_norm_bound.sqrt()) as f64)
-        );
-
+        
         let decomposition_length: usize =
             balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
         info!(
@@ -246,11 +259,11 @@ impl<F: ConvertibleRing> PublicParameters<F> {
     pub fn proof_size_bytes(&self) -> usize {
         let modulus_bits = (F::modulus() - BigUint::from(1u32)).bits() as usize;
 
-        // number of bits needed to represent integers in the range [-norm_bound, norm_bound]
+        // number of bits needed to represent integers in the range [-norm_bound^2, norm_bound^2]
         let norm_bound_sq_bits =
             Self::signed_bits((self.norm_bound * self.norm_bound).floor() as usize);
 
-        // number of bits needed to represent integers in the range [-decomposition_basis/2, decomposition_basis/2]
+        // number of bits needed to represent integers in the range [-(decomposition_basis/2)^2, (decomposition_basis/2)^2]
         let decomp_upper_bound = (self.decomposition_basis / 2) as usize;
         let decomp_basis_sq_bits = Self::signed_bits(decomp_upper_bound * decomp_upper_bound);
 
