@@ -18,7 +18,7 @@ type F = Z2_64;
 const SECURITY_PARAMETER: usize = 128;
 const LOG_FIAT_SHAMIR: usize = 64;
 
-const WITNESS_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
+const WITNESS_SIZES: [usize; 3] = [1 << 17, 1 << 18, 1 << 19];
 
 fn pretty_print(param: f64) -> String {
     format!("{param} = 2^{}", param.log2())
