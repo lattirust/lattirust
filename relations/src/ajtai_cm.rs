@@ -1,7 +1,7 @@
 use ark_std::rand;
 use lattirust_arithmetic::linear_algebra::{Matrix};
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 
 pub struct Crs<R: PolyRing> {
     pub n: usize,

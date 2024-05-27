@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
-use nalgebra::Dim;
+use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
 use serde::{Deserialize, Serialize};
 
@@ -12,10 +12,6 @@ use crate::linear_algebra::Scalar;
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.
-
-impl<R> SparseMatrix<R> {
-    type Inner = nalgebra_sparse::CscMatrix<R>;
-}
 
 impl<R: Scalar> SparseMatrix<R> {
     delegate! {
@@ -46,27 +42,26 @@ where
     where
         D: serde::Deserializer<'de>,
     {
-        Self::Inner::deserialize(deserializer).map(|x| x.into())
+        nalgebra_sparse::CscMatrix::<R>::deserialize(deserializer).map(|x| x.into())
     }
 }
 
 impl<
         'a,
-    'b,
+        'b,
         Lhs: Scalar,
         Rhs: Scalar,
         RRhs: Dim,
         CRhs: Dim,
-        SRhs,
+        SRhs: RawStorage<Rhs, RRhs, CRhs>,
         Out: Scalar,
         ROut: Dim,
         COut: Dim,
-        SOut,
+        SOut: RawStorage<Out, ROut, COut>,
     > Mul<&'b GenericMatrix<Rhs, RRhs, CRhs, SRhs>> for &'a SparseMatrix<Lhs>
 where
     &'a nalgebra_sparse::CscMatrix<Lhs>: Mul<
-        &'b
-        nalgebra::Matrix<Rhs, RRhs, CRhs, SRhs>,
+        &'b nalgebra::Matrix<Rhs, RRhs, CRhs, SRhs>,
         Output = nalgebra::Matrix<Out, ROut, COut, SOut>,
     >,
 {
@@ -77,8 +72,15 @@ where
     }
 }
 
-impl<'a, Lhs: Scalar, Rhs: Scalar, Out: Scalar, ROut: Dim, COut: Dim, SOut> Mul<Rhs>
-    for &'a SparseMatrix<Lhs>
+impl<
+        'a,
+        Lhs: Scalar,
+        Rhs: Scalar,
+        Out: Scalar,
+        ROut: Dim,
+        COut: Dim,
+        SOut: RawStorage<Out, ROut, COut>,
+    > Mul<Rhs> for &'a SparseMatrix<Lhs>
 where
     &'a nalgebra_sparse::CscMatrix<Lhs>: Mul<Rhs, Output = nalgebra::Matrix<Out, ROut, COut, SOut>>,
 {

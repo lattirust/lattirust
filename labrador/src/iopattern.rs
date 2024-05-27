@@ -6,9 +6,8 @@ use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChalle
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use relations::principal_relation::PrincipalRelation;
 
 use crate::binary_r1cs::util::{BinaryR1CSCRS, Z2};
 use crate::common_reference_string::CommonReferenceString;
@@ -21,14 +20,16 @@ where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
-    fn labrador_crs(self, crs: &CommonReferenceString<R>) -> Self {
-        self.absorb_serializable_like(crs, "labrador_principalrelation_crs")
-    }
-    fn labrador_instance(self, instance: &PrincipalRelation<R>) -> Self {
-        self.absorb_serializable_like(instance, "labrador_principalrelation_crs")
-    }
+    // fn labrador_crs(self, crs: &CommonReferenceString<R>) -> Self {
+    //     self.absorb_serializable_like(crs, "labrador_principalrelation_crs")
+    // }
+
+    // fn labrador_instance(self, instance: &PrincipalRelation<R>) -> Self {
+    //     self.absorb_serializable_like(instance, "labrador_principalrelation_crs")
+    // }
+
     fn labrador_io(self, crs: &CommonReferenceString<R>) -> Self {
-        let log_q = R::modulus().next_power_of_two().ilog2() as f64;
+        let log_q = R::modulus().bits() as f64;
         let num_aggregs = (128. / log_q).ceil() as usize;
         self.absorb_vector::<R>(crs.k1, "prover message 1")
             .squeeze_matrices::<R, WeightedTernaryChallengeSet<R>>(

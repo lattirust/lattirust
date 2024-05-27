@@ -2,16 +2,33 @@
 
 use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::iter::Sum;
+use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{BigInt, BitIteratorBE, BitIteratorLE, Fp, Fp64, MontBackend, MontConfig};
+use ark_ff::{BitIteratorBE, BitIteratorLE};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
-use serde::{self, Deserialize, Serialize};
+
+// Exports
+pub use poly_ring::{ConvertibleRing, PolyRing};
+pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+pub use representatives::{SignedRepresentative, UnsignedRepresentative};
+pub use z_2_128::*;
+pub use z_2_64::*;
+pub use z_q::{const_fq_from, Zq};
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus};
+
+mod poly_ring;
+pub(crate) mod pow2_cyclotomic_poly_ring;
+pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
+mod representatives;
+mod z_2_128;
+mod z_2_64;
+mod z_q;
 
 pub trait Ring:
 'static
@@ -31,9 +48,9 @@ pub trait Ring:
 //+ Zeroize
 + Sized
 + Hash
-// + CanonicalSerialize
++ CanonicalSerialize
 // + CanonicalSerializeWithFlags
-// + CanonicalDeserialize
++ CanonicalDeserialize
 // + CanonicalDeserializeWithFlags
 + Add<Self, Output=Self>
 + Sub<Self, Output=Self>
@@ -54,13 +71,23 @@ pub trait Ring:
 + for<'a> SubAssign<&'a mut Self>
 + for<'a> MulAssign<&'a mut Self>
 + Sum<Self>
++ for<'a> Sum<&'a Self>
++ Product<Self>
++ for<'a> Product<&'a Self>
++ Sum<Self>
++ From<u128>
++ From<u64>
++ From<u32>
++ From<u16>
++ From<u8>
++ From<bool>
 // Differs from arkworks
-+ Serialize
-+ for<'a> Deserialize<'a>
 + FromRandomBytes<Self>
 + FromBytes
 + ToBytes
 + Modulus
++ CanonicalSerialize
++ CanonicalDeserialize
 {
     /// The additive identity of the ring.
     const ZERO: Self;
@@ -116,26 +143,4 @@ pub trait Ring:
         }
         Some(res)
     }
-}
-
-pub struct FqConfig<const Q: u64> {}
-
-impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
-    const MODULUS: BigInt<1> = BigInt::<1> { 0: [Q] };
-    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1> { 0: [2u64] });
-    // TODO: check if this needed/makes sense
-    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1> { 0: [0u64] }); // TODO: implement this? Not using todo!() here to generate the docs
-}
-
-pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
-pub type Fq2<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 2>>;
-
-impl<const Q: u64> const Modulus for Fq<Q> {
-    fn modulus() -> u64 {
-        Q
-    }
-}
-
-pub const fn const_fq_from<const Q: u64>(val: u64) -> Fq<Q> {
-    Fq::new(BigInt::<1> { 0: [val] })
 }

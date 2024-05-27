@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use log::debug;
 use ark_relations::r1cs::ConstraintSystem;
 use nimue::{Merlin, ProofError};
 
@@ -7,7 +8,7 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::poly_ring::{PolyRing, UnsignedRepresentative};
+use lattirust_arithmetic::ring::{PolyRing, UnsignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
 use lattirust_util::{check, check_eq};
 
@@ -47,7 +48,7 @@ where
 
     for i in 0..g.len() {
         // Check that all g_i's are even
-        check_eq!(Into::<UnsignedRepresentative>::into(g[i]).0 % 2, 0)
+        check_eq!(Into::<UnsignedRepresentative>::into(g[i]).0 % 2, 0);
     }
 
     let transcript = BinaryR1CSTranscript {

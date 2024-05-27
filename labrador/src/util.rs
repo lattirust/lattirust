@@ -1,9 +1,10 @@
 #![allow(non_snake_case)]
 
 use ark_relations::r1cs::ConstraintSystem;
+use num_traits::{One, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, SparseMatrix, SymmetricMatrix, Vector};
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::Ring;
 
 use crate::binary_r1cs::util::Z2;
@@ -86,8 +87,43 @@ pub fn linear_combination_symmetric_matrix<R: Ring>(A: &SymmetricMatrix<R>, c: &
     lc
 }
 
+/// Reinterprets a vector of k = k' * d binary coefficients as k' vectors of d binary coefficients, represented as a vector of k' elements of the polynomial ring R with dimension d.
+pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
+    let d = R::dimension();
+    assert_eq!(
+        vec.len() % d,
+        0,
+        "vector length {} must be multiple of dimension {}",
+        vec.len(),
+        d
+    );
+    let coeffs = vec
+        .as_slice()
+        .chunks(d)
+        .map(|chunk| R::from(chunk.to_vec().into_iter().map(embed).collect::<Vec<_>>()))
+        .collect();
+    Vector::<R>::from_vec(coeffs)
+}
+
+/// Upcast an element in Z2 to an element in R
+pub fn embed<R: Zero + One>(x: Z2) -> R {
+    if x.is_zero() {
+        R::zero()
+    } else {
+        debug_assert!(x.is_one());
+        R::one()
+    }
+}
+
+pub fn basis_vector<R: PolyRing>(i: usize, n: usize) -> Vector<R> {
+    assert!(i < n, "i = {} must be less than n = {}", i, n);
+    let mut coeffs = vec![R::zero(); n];
+    coeffs[i] = R::one();
+    Vector::<R>::from_vec(coeffs)
+}
+
 pub fn ark_sparse_matrices(
     cs: &ConstraintSystem<Z2>,
 ) -> (SparseMatrix<Z2>, SparseMatrix<Z2>, SparseMatrix<Z2>) {
-    todo!()
+    todo!("{:?}", cs)
 }

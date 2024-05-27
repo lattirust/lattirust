@@ -10,14 +10,23 @@ where
     H: DuplexHash<u8>,
     Self: ByteReader,
 {
+    fn err_to_io_pattern_error<E>(e: E) -> IOPatternError
+    where
+        E: std::fmt::Debug,
+    {
+        IOPatternError::from(format!("{:?}", e))
+    }
     fn next_with_size<S: FromBytes>(&mut self, size: usize) -> Result<S, IOPatternError> {
         let mut buf = vec![0u8; size];
         self.fill_next_bytes(&mut buf)?;
-        Ok(S::from_bytes(buf.as_slice()).unwrap()) // TODO: Remove unwrap
+        Ok(S::from_bytes(buf.as_slice()).map_err(Self::err_to_io_pattern_error)?)
     }
 
     fn next_like<S: FromBytes + ToBytes>(&mut self, like: &S) -> Result<S, IOPatternError> {
-        let size = like.to_bytes().unwrap().len(); // TODO: Remove unwrap
+        let size = like
+            .to_bytes()
+            .map_err(Self::err_to_io_pattern_error)?
+            .len();
         self.next_with_size(size)
     }
 
@@ -27,8 +36,7 @@ where
     ) -> Result<S, IOPatternError> {
         let mut buf = vec![0u8; size];
         self.fill_next_bytes(&mut buf)?;
-        let res = S::deserialize_compressed(buf.as_slice());
-        Ok(res.expect("Invalid"))
+        S::deserialize_compressed(buf.as_slice()).map_err(Self::err_to_io_pattern_error)
     }
 
     fn next_like_canonical_serializable<S: CanonicalSerialize + CanonicalDeserialize>(
@@ -91,6 +99,17 @@ where
         Matrix<F>: CanonicalSerialize + CanonicalDeserialize,
     {
         self.next_like_canonical_serializable(&Matrix::<F>::zeros(m, n))
+    }
+
+    fn next_matrix_ser<F: Scalar + Zero>(
+        &mut self,
+        m: usize,
+        n: usize,
+    ) -> Result<Matrix<F>, IOPatternError>
+    where
+        Matrix<F>: FromBytes + ToBytes,
+    {
+        self.next_like(&Matrix::<F>::zeros(m, n))
     }
 }
 

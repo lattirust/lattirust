@@ -1,7 +1,9 @@
 #![feature(int_roundings)]
 
-pub mod util;
+extern crate core;
+
 pub mod prover;
-pub mod verifier;
 #[cfg(test)]
 pub mod test;
+pub mod util;
+pub mod verifier;

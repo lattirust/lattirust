@@ -41,9 +41,9 @@ impl<F: Field> Iterator for BooleanHypercube<F> {
 mod tests {
     use ark_ff::{One, Zero};
     use super::BooleanHypercube;
-    use lattirust_arithmetic::ring::Fq;
+    use lattirust_arithmetic::ring::Zq;
 
-    type F = Fq<655357>;
+    type F = Zq<655357>;
 
     #[test]
     pub fn test_boolean_hypercube() {

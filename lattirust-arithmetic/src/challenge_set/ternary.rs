@@ -1,11 +1,13 @@
-use std::ops::{AddAssign, Neg, SubAssign};
+use std::fmt::Debug;
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
-use nalgebra::Scalar;
+use nalgebra::{ClosedAdd, ClosedSub, Scalar};
 use num_traits::{One, Zero};
+use rayon::prelude::*;
 
 use crate::linear_algebra::Matrix;
-use crate::poly_ring::{ConvertibleField, SignedRepresentative};
 use crate::linear_algebra::SymmetricMatrix;
+use crate::ring::{ConvertibleRing, SignedRepresentative};
 use crate::traits::FromRandomBytes;
 
 pub struct TernaryChallengeSet<R> {
@@ -14,7 +16,7 @@ pub struct TernaryChallengeSet<R> {
 
 const SEC_PARAM: usize = 128;
 
-impl<F: ConvertibleField> FromRandomBytes<F> for TernaryChallengeSet<F> {
+impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
     fn byte_size() -> usize {
         SEC_PARAM.next_power_of_two().ilog2() as usize + 2
     }
@@ -72,7 +74,7 @@ impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
     }
 }
 
-pub fn mul_f_trit<F: Scalar + Zero + SubAssign + AddAssign>(
+pub fn mul_f_trit_sequential<F: Scalar + Zero + SubAssign + AddAssign>(
     a: &Matrix<F>,
     b: &Matrix<Trit>,
 ) -> Matrix<F> {
@@ -91,8 +93,27 @@ pub fn mul_f_trit<F: Scalar + Zero + SubAssign + AddAssign>(
     c
 }
 
+pub fn mul_f_trit<F: Scalar + Zero + Sub<Output = F> + Add<Output = F> + Send + Sync>(
+    a: &Matrix<F>,
+    b: &Matrix<Trit>,
+) -> Matrix<F> {
+    let vec = b.par_column_iter().map(|b_j| {
+        a.par_row_iter().map(move |a_i| {
+            a_i.iter()
+                .zip(b_j.iter())
+                .filter(|(_, b_ij)| **b_ij != Trit::Zero)
+                .fold(F::zero(), |acc, (a_ij, b_ij)| match b_ij {
+                    Trit::MinusOne => acc - a_ij.clone(),
+                    Trit::One => acc + a_ij.clone(),
+                    Trit::Zero => unreachable!(),
+                })
+        })
+    });
+    Matrix::from_vec(a.nrows(), b.ncols(), vec.flatten().collect()) // column-major
+}
+
 /// Returns the symmetric matrix equal to c.transpose() * a * c
-pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(
+pub fn mul_trit_transpose_sym_trit_sequential<F: Clone + Zero + AddAssign + SubAssign>(
     a: &SymmetricMatrix<F>,
     c: &Matrix<Trit>,
 ) -> SymmetricMatrix<F> {
@@ -105,7 +126,7 @@ pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(
                 .enumerate()
                 .filter(|(_, c_li)| **c_li != Trit::Zero)
             {
-                // We only need to set entries for j <= i (otherwise we'll have update off-diagonal entries twice), hence the .take(i+1)
+                // We only need to set entries for j <= i (otherwise we'll have updated off-diagonal entries twice), hence the .take(i+1)
                 for (j, c_kj) in c_k
                     .into_iter()
                     .enumerate()
@@ -125,21 +146,77 @@ pub fn mul_trit_transpose_sym_trit<F: Clone + Zero + AddAssign + SubAssign>(
     res
 }
 
+/// Returns the symmetric matrix equal to c.transpose() * a * c
+pub fn mul_trit_transpose_sym_trit<F>(
+    a: &SymmetricMatrix<F>,
+    c: &Matrix<Trit>,
+) -> SymmetricMatrix<F>
+where
+    F: Clone + Zero + PartialEq + Debug + Send + Sync + ClosedAdd + ClosedSub + 'static,
+{
+    assert_eq!(a.size(), c.nrows());
+
+    let mat = a.to_owned().into();
+    let a_c = mul_f_trit(&mat, c);
+    let ct_a_c = mul_f_trit(&a_c.transpose(), c);
+    ct_a_c.into()
+
+    // let mat: Matrix<F> = (*a).into();
+    //
+    // SymmetricMatrix::from_par_fn(c.ncols(), |i, j| {
+    //     let c_col_i = c.column(i);
+    //     let c_col_j = c.column(j);
+    //     c_col_i
+    //         .into_iter()
+    //         .zip(mat.row_iter())
+    //         .map(|(c_ki, a_k)| {
+    //             c_col_j
+    //                 .into_iter()
+    //                 .zip(a_k.iter())
+    //                 .filter(|(c_lj, _)| **c_lj != Trit::Zero && *c_ki != Trit::Zero)
+    //                 .fold(F::zero(), |acc, (c_lj, a_kj)| {
+    //                     let positive = c_ki == c_lj;
+    //                     if positive {
+    //                         acc + a_kj.clone()
+    //                     } else {
+    //                         acc - a_kj.clone()
+    //                     }
+    //                 })
+    //         })
+    //         .fold(F::zero(), |acc, x| acc + x)
+    // })
+}
+
 #[cfg(test)]
 mod tests {
     use ark_std::test_rng;
 
-    use crate::ring::Fq;
+    use crate::ring::Zq;
 
     use super::*;
 
     const Q: u64 = 65537;
 
-    type F = Fq<Q>;
+    type F = Zq<Q>;
 
     const M: usize = 64;
     const N: usize = 128;
     const K: usize = 256;
+
+    #[test]
+    fn test_mul_f_trit_sequential() {
+        let rng = &mut test_rng();
+        let mat: Matrix<F> = Matrix::<F>::rand(M, N, rng);
+        let trits_field: Matrix<F> = Matrix::<F>::rand_ternary(N, K, rng);
+        let trits = trits_field.map(|f| field_to_trit(f).unwrap());
+
+        let mat_trits = mul_f_trit_sequential(&mat, &trits);
+        let mat_trits_field = mat * trits_field;
+
+        println!("is:     {:?}", mat_trits);
+        println!("should: {:?}", mat_trits_field);
+        assert_eq!(mat_trits_field, mat_trits);
+    }
 
     #[test]
     fn test_mul_f_trit() {

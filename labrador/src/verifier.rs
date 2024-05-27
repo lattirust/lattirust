@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use log::debug;
 use nimue::{Merlin, ProofError, ProofResult};
 use rayon::prelude::*;
 
@@ -12,7 +13,7 @@ use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use lattirust_util::{check, check_eq};
 use relations::principal_relation::PrincipalRelation;
@@ -86,7 +87,8 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
     }
 
     let H_decomp: Vec<Vec<Vec<R>>> = H
-        .rows().par_iter()
+        .rows()
+        .par_iter()
         .map(|H_i| {
             H_i.par_iter()
                 .map(|H_ij| decompose_balanced_polyring(H_ij, crs.b1, Some(crs.t1)))
@@ -243,9 +245,10 @@ where
     let p_norm_bound_sq = 128f64 * crs.norm_bound_squared;
     check!(
         norm_p_sq <= p_norm_bound_sq.floor() as u128,
-        "||p||_2^2 = {} is not <= 128*beta^2 = {}",
-        norm_p_sq,
-        p_norm_bound_sq
+        format!(
+            "||p||_2^2 = {} is not <= 128*beta^2 = {}",
+            norm_p_sq, p_norm_bound_sq
+        )
     );
 
     let psi = merlin
@@ -264,13 +267,7 @@ where
         for l in 0..num_ct_constraints {
             rhs_k += psi[k][l] * instance.ct_quad_dot_prod_funcs[l].b;
         }
-        check_eq!(
-            b__[k].coeffs()[0],
-            rhs_k,
-            "constant coeff of b''^(k) = {:?} is not equal to rhs = {:?}",
-            b__[k].coeffs()[0],
-            rhs_k
-        );
+        check_eq!(b__[k].coeffs()[0], rhs_k);
     }
 
     let alpha = merlin

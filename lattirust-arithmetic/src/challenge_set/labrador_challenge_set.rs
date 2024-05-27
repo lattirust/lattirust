@@ -1,10 +1,10 @@
 use bitter::BitReader;
 
 use crate::linear_algebra::Matrix;
-use crate::poly_ring::PolyRing;
-use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use crate::ring::Fq;
+use crate::ring::PolyRing;
+use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::ring::Zq;
 use crate::traits::FromRandomBytes;
 
 pub struct LabradorChallengeSet<R: PolyRing> {
@@ -34,7 +34,7 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     pub const VARIANCE_SUM_COEFFS: f64 = (Self::NUM_PM_ONES + 2 * Self::NUM_PM_TWOS) as f64; // 51
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
+impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
     // TODO: is there a way to sample vectors with bounded operator norm without rejection sampling?
@@ -55,7 +55,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
         }
     }
 
-    fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
+    fn unchecked_coeffs_from_random_bytes(bytes: &[u8]) -> [i8; N] {
         assert!(bytes.len() >= Self::sample_byte_size());
         assert_eq!(N, 64); // The current implementation can easily be generalized to powers of 2, but this is not implemented yet
 
@@ -97,17 +97,17 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
         assert_eq!(bytes[0..sign_bits_bytesize].len(), sign_bits_bytesize);
         let b_ = sign_bits.bits_remaining().unwrap();
         debug_assert_eq!(b_, sign_bits_bytesize * 8 - 8 * (num_sign_bits / 8) - 1);
-        coeffs
+        coeffs.try_into().unwrap()
     }
 
-    fn checked_coeffs_from_random_bytes(bytes: &[u8]) -> Vec<i8> {
+    fn checked_coeffs_from_random_bytes(bytes: &[u8]) -> [i8; N] {
         let mut i = 0;
         let sample_bytesize = Self::sample_byte_size();
         loop {
             let coeffs = Self::unchecked_coeffs_from_random_bytes(
                 &bytes[i * sample_bytesize..(i + 1) * sample_bytesize],
             );
-            if Self::operator_norm(&coeffs) < Self::OPERATOR_NORM_THRESHOLD {
+            if Self::operator_norm(&coeffs.to_vec()) < Self::OPERATOR_NORM_THRESHOLD {
                 return coeffs;
             }
             i += 1;
@@ -148,32 +148,28 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<F
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Fq<Q>, N>>
-    for LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>>
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>>
+    for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>
 {
     fn byte_size() -> usize {
         Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
         Some(Self::Field::from(
-            Self::checked_coeffs_from_random_bytes(bytes)
-                .iter()
-                .cloned()
-                .map(|c| {
-                    if c >= 0 {
-                        Self::BaseRing::from(c as u32)
-                    } else {
-                        -Self::BaseRing::from(-c as u32)
-                    }
-                })
-                .collect::<Vec<Self::BaseRing>>(),
+            Self::checked_coeffs_from_random_bytes(bytes).map(|c| {
+                if c >= 0 {
+                    Self::BaseRing::from(c as u32)
+                } else {
+                    -Self::BaseRing::from(-c as u32)
+                }
+            }),
         ))
     }
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Fq<Q>, N>> {
+impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
     fn challenge_to_matrix(c: &Vec<i8>) -> Matrix<f64> {
         assert_eq!(c.len(), N);
 
@@ -206,11 +202,11 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, 
     for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>>
 {
     fn byte_size() -> usize {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Fq<Q>, N>>::byte_size()
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::byte_size()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Fq<Q>, N>>::try_from_random_bytes(bytes)
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(bytes)
             .map(|x| x.into())
     }
 }
@@ -221,19 +217,19 @@ mod tests {
     use ark_std::{test_rng, UniformRand};
 
     use crate::linear_algebra::Matrix;
-    use crate::ntt::ntt_modulus;
-    use crate::poly_ring::PolyRing;
-    use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::Fq;
-    use crate::traits::{FromRandomBytes, WithL2Norm};
     use crate::linear_algebra::Vector;
+    use crate::ntt::ntt_modulus;
+    use crate::ring::PolyRing;
+    use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::ring::Zq;
+    use crate::traits::{FromRandomBytes, WithL2Norm};
 
     use super::LabradorChallengeSet;
 
     const Q: u64 = ntt_modulus::<64>(32);
     const D: usize = 64;
 
-    type R = Fq<Q>;
+    type R = Zq<Q>;
 
     type PolyR = Pow2CyclotomicPolyRing<R, 64>;
     type LabCS = LabradorChallengeSet<PolyR>;
@@ -247,7 +243,7 @@ mod tests {
         test_rng().fill(bytes.as_mut_slice());
 
         let c = LabCS::checked_coeffs_from_random_bytes(&bytes.as_slice());
-        let op_norm = LabCS::operator_norm(&c);
+        let op_norm = LabCS::operator_norm(&c.to_vec());
         assert!(
             op_norm <= LabCS::OPERATOR_NORM_THRESHOLD,
             "||c||_op = {} is not < {}",
@@ -263,7 +259,7 @@ mod tests {
             }
         });
 
-        let c_mat_int = LabCS::challenge_to_matrix(&c);
+        let c_mat_int = LabCS::challenge_to_matrix(&c.to_vec());
         let c_mat = Matrix::<R>::from_fn(D, D, |i, j| {
             if c_mat_int[(i, j)] >= 0. {
                 R::from(c_mat_int[(i, j)] as u32)
@@ -294,7 +290,7 @@ mod tests {
         let c = LabCS::checked_coeffs_from_random_bytes(&bytes.as_slice());
 
         // Check that the operator norm is less than the threshold
-        let op_norm = LabCS::operator_norm(&c);
+        let op_norm = LabCS::operator_norm(&c.to_vec());
         assert!(
             op_norm <= LabCS::OPERATOR_NORM_THRESHOLD,
             "||c||_op = {} is not < {}",

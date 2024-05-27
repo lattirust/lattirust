@@ -8,19 +8,18 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::principal_relation::Witness;
 
-use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript, Z2};
+use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::prover::prove_principal_relation;
-use crate::r1cs::util::{embed, lift};
-use crate::util::{ark_sparse_matrices, concat};
+use crate::util::{ark_sparse_matrices, concat, embed, lift};
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
     arthur: &'a mut Arthur,
-    mut cs: &ConstraintSystem<Z2>,
+    cs: &ConstraintSystem<Z2>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,

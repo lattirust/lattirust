@@ -5,16 +5,17 @@ use std::cmp::{max, max_by};
 use ark_std::rand;
 use ark_std::rand::thread_rng;
 use log::info;
+use num_traits::ToPrimitive;
 use serde::Serialize;
 
-use lattice_estimator::msis::MSIS;
 use lattice_estimator::msis::security_estimates::*;
+use lattice_estimator::msis::MSIS;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::balanced_decomposition::decompose_balanced_vec_polyring;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::principal_relation::{
     ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction, Witness,
@@ -57,6 +58,14 @@ pub struct CommonReferenceString<R: PolyRing> {
     pub next_crs: Option<Box<CommonReferenceString<R>>>,
 }
 
+pub fn floor_to_even(x: f64) -> u128 {
+    if x.floor() as usize % 2 == 0 {
+        x.floor() as u128
+    } else {
+        x.floor() as u128 - 1
+    }
+}
+
 pub fn round_to_even(x: f64) -> u128 {
     if x.floor() as usize % 2 == 0 {
         x.floor() as u128
@@ -67,10 +76,10 @@ pub fn round_to_even(x: f64) -> u128 {
 
 impl<R: PolyRing> CommonReferenceString<R> {
     fn t1_b1(decomposition_basis: u128) -> (usize, u128) {
-        let log2_q: f64 = R::modulus().next_power_of_two().ilog2() as f64;
+        let log2_q: f64 = R::modulus().bits() as f64;
         let log2_b = (decomposition_basis as f64).log2();
         let t1 = (log2_q / log2_b).round() as usize;
-        let b1 = round_to_even((R::modulus() as f64).powf(1. / t1 as f64));
+        let b1 = round_to_even(R::modulus().nth_root(t1 as u32).to_f64().unwrap());
         (t1, b1)
     }
 
@@ -94,12 +103,12 @@ impl<R: PolyRing> CommonReferenceString<R> {
     ) -> CommonReferenceString<R> {
         let d = R::dimension();
         let q = R::modulus();
-        let log2_q: f64 = q.next_power_of_two().ilog2() as f64;
+        let log2_q: f64 = q.bits() as f64;
         let mut beta = beta_sq.sqrt();
 
         info!(
             "Using Z_q[X]/(X^d+1) with q={q} ({} bits), d={d}",
-            q.next_power_of_two().ilog2()
+            log2_q
         );
         info!("Setting CRS parameters for n={n}, r={r}, d={d}, beta={beta:.1}, num_constraints={num_constraints}, num_constant_constraints={num_constant_constraints}");
 
@@ -111,7 +120,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         );
 
         // Checks
-        assert!(beta < f64::sqrt(30. / 128.) * (q as f64) / 125.);
+        assert!(beta < f64::sqrt(30. / 128.) * (q.to_f64().unwrap()) / 125.);
 
         // Set decomposition basis
         let s_sq = beta / ((r * n * d) as f64);
@@ -152,13 +161,13 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let mut msis_1 = MSIS {
             h: 0, // Dummy value, will be set later
             d,
-            q,
+            q: q.clone(),
             length_bound: 0., // Dummy value
             w: n,
             norm: Norm::L2,
         };
         let k = msis_1.upper_bound_h();
-        // let k = msis_1.find_optimal_n_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
+        // let k = msis_1.find_optimal_h_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         msis_1 = msis_1.with_h(k).with_length_bound(norm_bound_1(k));
         //info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
         info!("  Chose largest k={k} for the MSIS instance {msis_1}");
@@ -166,7 +175,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let mut msis_2 = MSIS {
             h: 0, // Dummy value, will be set later
             d,
-            q,
+            q: q.clone(),
             length_bound: 2. * beta_prime(k),
             w: k,
             norm: Norm::L2,
@@ -250,7 +259,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
     }
 
     pub fn proof_size(&self) -> usize {
-        let log_q = R::modulus().next_power_of_two().ilog2() as usize;
+        let log_q = R::modulus().bits() as usize;
         let beta = self.norm_bound_squared.sqrt();
         // TODO: this assumes that the challenges are sampled from a PRF with a 128-bit seed.
         (self.k1 + self.k2) * self.d * log_q // outer commitments
@@ -260,7 +269,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
     }
 
     pub fn last_prover_message_size(&self) -> usize {
-        let log_q = R::modulus().next_power_of_two().ilog2() as usize;
+        let log_q = R::modulus().bits() as usize;
         let beta = self.norm_bound_squared.sqrt();
         let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
         let tmp = ((self.r * (self.r + 1)) / 2) * self.d;

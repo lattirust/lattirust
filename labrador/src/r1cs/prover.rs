@@ -8,8 +8,8 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::poly_ring::PolyRing;
-use lattirust_arithmetic::ring::Fq;
+use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::Zq;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use lattirust_arithmetic::linear_algebra::Vector;
 
@@ -23,7 +23,7 @@ pub struct FqConfig;
 
 pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
 // pub type Z64 = Fq<18446744073709551617>;
-pub type Z64 = Fq<3>; // TODO
+pub type Z64 = Zq<3>; // TODO
 
 fn enc<R: PolyRing>(vec: &Vector<Z64>) -> Vector<R> {
     todo!()

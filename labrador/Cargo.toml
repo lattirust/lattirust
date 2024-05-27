@@ -15,6 +15,7 @@ ark-std = "0.4.0"
 ark-relations = "0.4.0"
 log = "0.4.21"
 nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
+num-bigint = "0.4.4"
 num-traits = "0.2.18"
 pretty_env_logger = "0.5.0"
 rayon = "1.10.0"

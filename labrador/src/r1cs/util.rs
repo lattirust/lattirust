@@ -1,10 +1,11 @@
 #![allow(non_snake_case)]
 
 use ark_std::rand::thread_rng;
-use num_traits::{One, Zero};
+use num_bigint::BigUint;
+use num_traits::{One, ToPrimitive, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar};
-use lattirust_arithmetic::poly_ring::PolyRing;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::Ring;
 use lattirust_arithmetic::linear_algebra::Vector;
 
@@ -43,24 +44,24 @@ impl<R: PolyRing> R1CSCRS<R> {
         );
         let m = 10usize; // TODO: choose such that MSIS_{m, 2n+6k} is hard with l_inf bound = 1
 
-        let q = R::modulus() as usize;
+        let q = R::modulus();
         assert!(
-            n + 3 * k < q,
+            BigUint::from(n + 3 * k) < q,
             "n + 3k = {} must be less than q = {} for soundness",
             n + 3 * k,
             q
         );
         assert!(
-            6 * k < q,
+            BigUint::from(6 * k) < q,
             "6k = {} must be less than q = {} for soundness",
             6 * k,
             q
         );
         assert!(
-            128 * (n + 3 * k) < 15 * q,
+            BigUint::from(SECURITY_PARAMETER * (n + 3 * k)) < BigUint::from(15u32) * q.clone(),
             "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core",
             n + 3 * k,
-            15 * q / 128
+            (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
         );
 
         let m_d = 10usize; // TODO: choose such that MSIS_{m_d, l*k} is hard with l_2 norm bound = beta
@@ -82,7 +83,7 @@ impl<R: PolyRing> R1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = self.num_variables.div_ceil(d);
-        let norm_bound = (R::modulus() as f64).sqrt();
+        let norm_bound = (R::modulus().to_f64().unwrap()).sqrt();
 
         let num_quad_constraints = self.m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
@@ -104,47 +105,6 @@ pub fn Z2_to_R_vec<R: Ring>(vec: &Vec<Z2>) -> Vec<R> {
         .collect()
 }
 
-/// Reinterprets a vector of k = k' * d binary coefficients as k' vectors of d binary coefficients, represented as a vector of k' elements of the polynomial ring R with dimension d.
-pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
-    let d = R::dimension();
-    assert_eq!(
-        vec.len() % d,
-        0,
-        "vector length {} must be multiple of dimension {}",
-        vec.len(),
-        d
-    );
-    let coeffs = vec
-        .as_slice()
-        .chunks(d)
-        .map(|chunk| R::from(chunk.to_vec().into_iter().map(embed).collect::<Vec<_>>()))
-        .collect();
-    Vector::<R>::from_vec(coeffs)
-}
-
-/// Upcast an element in Z2 to an element in R
-pub fn embed<R: Zero + One>(x: Z2) -> R {
-    if x.is_zero() {
-        R::zero()
-    } else {
-        debug_assert!(x.is_one());
-        R::one()
-    }
-}
-
-pub fn basis_vector<R: PolyRing>(i: usize, n: usize) -> Vector<R> {
-    assert!(i < n, "i = {} must be less than n = {}", i, n);
-    let mut coeffs = vec![R::zero(); n];
-    coeffs[i] = R::one();
-    Vector::<R>::from_vec(coeffs)
-}
-
-// pub fn mul_dense_sparse<R: ConvertibleField>(
-//     dense: &Matrix<R>,
-//     sparse: &SparseMatrix<R>,
-// ) -> Matrix<R> {
-//     return (&sparse.transpose() * &dense.transpose()).transpose();
-// }
 
 pub struct R1CSInstance<R: Scalar> {
     // TODO: use sparse matrices instead

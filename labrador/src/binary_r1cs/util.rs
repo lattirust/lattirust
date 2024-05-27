@@ -3,21 +3,22 @@
 use ark_ff::MontConfig;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::rand;
-use num_traits::Zero;
+use num_bigint::BigUint;
+use num_traits::{ToPrimitive, Zero};
 
 use lattice_estimator::msis::MSIS;
 use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
-use lattirust_arithmetic::ring::Fq;
+use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::Zq;
 use relations::principal_relation::{
     ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction,
 };
 
 use crate::common_reference_string::CommonReferenceString;
-use crate::r1cs::util::{basis_vector, embed};
+use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
 
@@ -26,7 +27,7 @@ const SECURITY_PARAMETER: usize = 128;
 #[generator = "1"]
 pub struct F2Config;
 
-pub type Z2 = Fq<2>;
+pub type Z2 = Zq<2>;
 
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
@@ -67,30 +68,34 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        // let m = msis.find_optimal_n(SECPARAM).expect("failed to find optimal n for MSIS");
-        let m: usize = 163;
-        // debug_assert!(msis.with_n(m).security_level() >= SECPARAM as f64, "MSIS security level {} must be at least {} for soundness", msis.security_level(), SECPARAM);
+        let m = find_optimal_h(&msis, SECURITY_PARAMETER)
+            .expect("failed to find optimal n for MSIS");
+        debug_assert!(
+            msis.with_h(m).security_level() >= SECURITY_PARAMETER as f64,
+            "MSIS security level {} must be at least {} for soundness",
+            msis.security_level(),
+            SECURITY_PARAMETER
+        );
         // TODO: fix lattice-estimator to not choke on inputs of this size
-        // let m: usize = 1;
 
-        let q = R::modulus() as usize;
+        let q = R::modulus();
         assert!(
-            n + 3 * k < q,
+            BigUint::from(n + 3 * k) < q,
             "n + 3k = {} must be less than q = {} for soundness",
             n + 3 * k,
             q
         );
         assert!(
-            6 * k < q,
+            BigUint::from(6 * k) < q,
             "6k = {} must be less than q = {} for soundness",
             6 * k,
             q
         );
         assert!(
-            SECURITY_PARAMETER * (n + 3 * k) < 15 * q,
+            BigUint::from(SECURITY_PARAMETER * (n + 3 * k)) < BigUint::from(15u32) * q.clone(),
             "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core",
             n + 3 * k,
-            15 * q / 128,
+            (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
         );
 
         let rng = &mut rand::rngs::OsRng::default();
@@ -109,7 +114,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = num_variables.div_ceil(d);
-        let norm_bound = (R::modulus() as f64).sqrt();
+        let norm_bound = R::modulus().to_f64().unwrap().sqrt();
 
         let num_quad_constraints = m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;

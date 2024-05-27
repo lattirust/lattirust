@@ -2,15 +2,16 @@
 
 use std::ops::Neg;
 
-use ark_std::{rand, UniformRand};
 use ark_std::rand::prelude::SliceRandom;
+use ark_std::{rand, UniformRand};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
+use rayon::prelude::*;
 
+use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::{Scalar, SymmetricMatrix};
-use crate::linear_algebra::generic_matrix::GenericMatrix;
 
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
 
@@ -24,12 +25,6 @@ impl<R: ComplexField> Matrix<R> {
 }
 
 impl<T: Scalar> Matrix<T> {
-    // delegate! {
-    //     to self.0 {
-    //          #[into]
-    //         pub fn map<O: Scalar, F: FnMut(T) -> O>(&self, f: F) -> Matrix<O>;
-    //     }
-    // }
     pub fn from_vec(m: usize, n: usize, data: Vec<T>) -> Self {
         Self::Inner::from_vec(m, n, data).into()
     }
@@ -41,6 +36,18 @@ impl<T: Scalar> Matrix<T> {
     pub fn from_rows(rows: &[RowVector<T>]) -> Self {
         Self::Inner::from_rows(
             rows.to_owned()
+                .into_iter()
+                .map(|row| row.0)
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .into()
+    }
+
+    pub fn from_columns(columns: &[Vector<T>]) -> Self {
+        Self::Inner::from_columns(
+            columns
+                .to_owned()
                 .into_iter()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()
@@ -78,6 +85,17 @@ impl<T: Scalar + UniformRand> Matrix<T> {
         Self::from_fn(m, n, |_, _| T::rand(rng))
     }
 
+    pub fn par_rand(m: usize, n: usize) -> Self
+    where
+        T: Send + Sync,
+    {
+        let data = (0..m * n)
+            .into_par_iter()
+            .map_init(|| rand::thread_rng(), |mut rng, _| T::rand(&mut rng))
+            .collect();
+        Self::from_vec(m, n, data)
+    }
+
     pub fn rand_symmetric<Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> Self {
         SymmetricMatrix::<T>::rand(n, rng).into()
     }
@@ -99,12 +117,12 @@ impl<T: Scalar + UniformRand + Zero + One + Neg<Output = T>> Matrix<T> {
 mod tests {
     use ark_std::test_rng;
 
-    use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::Fq;
+    use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::ring::Zq;
 
     use super::*;
 
-    type R = Pow2CyclotomicPolyRing<Fq<3>, 20>;
+    type R = Pow2CyclotomicPolyRing<Zq<3>, 20>;
 
     #[test]
     fn test_sample_uniform() {

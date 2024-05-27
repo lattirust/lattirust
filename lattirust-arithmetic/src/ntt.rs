@@ -1,6 +1,9 @@
+use std::ops::Rem;
 use ark_ff::Field;
+use num_bigint::BigUint;
+use num_traits::One;
 
-use crate::ring::{const_fq_from, Fq};
+use crate::ring::{const_fq_from, Zq};
 use crate::traits::Modulus;
 
 //noinspection RsAssertEqual
@@ -69,11 +72,11 @@ const fn primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
 }
 
 //noinspection RsAssertEqual
-const fn root_of_unity_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>; N] {
+const fn root_of_unity_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Zq<Q>; N] {
     assert!(N.is_power_of_two());
     assert!(Q % (2 * N as u64) == 1, "Q is not NTT-friendly, i.e., not equal to 1 mod 2N");
     let log_n = N.ilog2();
-    let mut pows = [Fq::<Q>::ZERO; N];
+    let mut pows = [Zq::<Q>::ZERO; N];
     let mut i = 0;
     while i < N {
         let iinv = (i as u64).reverse_bits() >> (64 - log_n);
@@ -84,11 +87,11 @@ const fn root_of_unity_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64)
 }
 
 //noinspection RsAssertEqual
-const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>; N] {
+const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Zq<Q>; N] {
     assert!(N.is_power_of_two());
     assert!(Q % (2 * N as u64) == 1, "Q is not NTT-friendly, i.e., not equal to 1 mod 2N");
     let log_n = N.ilog2();
-    let mut pows = [Fq::<Q>::ZERO; N];
+    let mut pows = [Zq::<Q>::ZERO; N];
     let mut i = 0;
     let psi_inv = const_inv_mod::<Q>(psi);
     while i < N {
@@ -101,17 +104,17 @@ const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: 
 
 pub trait NTT<const Q: u64, const N: usize> {
     const ROOT_OF_UNITY: u64 = primitive_root_of_unity::<Q, N>();
-    const POWS_ROOT_OF_UNITY: [Fq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
-    const NEG_POWS_ROOT_OF_UNITY: [Fq<Q>; N] = root_of_unity_neg_pows_bit_reversed(Self::ROOT_OF_UNITY);
+    const POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
+    const NEG_POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_neg_pows_bit_reversed(Self::ROOT_OF_UNITY);
 
-    fn ntt(a: &mut [Fq<Q>]) {
+    fn ntt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert_eq!(Fq::<Q>::modulus() % (2 * N as u64), 1);
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
         let mut t = N;
         let mut m = 1;
         let mut j1: usize;
         let mut j2: usize;
-        let mut s: Fq<Q>;
+        let mut s: Zq<Q>;
         while m < N {
             t = t / 2;
             for i in 0..m {
@@ -129,15 +132,15 @@ pub trait NTT<const Q: u64, const N: usize> {
         }
     }
 
-    fn intt(a: &mut [Fq<Q>]) {
+    fn intt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert_eq!(Fq::<Q>::modulus() % (2 * N as u64), 1);
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
         let mut t = 1;
         let mut m = N;
         let mut j1: usize;
         let mut j2: usize;
         let mut h: usize;
-        let mut s: Fq<Q>;
+        let mut s: Zq<Q>;
         while m > 1 {
             j1 = 0;
             h = m / 2;
@@ -155,20 +158,20 @@ pub trait NTT<const Q: u64, const N: usize> {
             t *= 2;
             m /= 2;
         }
-        let n_inv = Fq::<Q>::from(N as u128).inverse().unwrap();
+        let n_inv = Zq::<Q>::from(N as u128).inverse().unwrap();
         for i in 0..N {
             a[i] *= n_inv;
         }
     }
 
-    fn ntt_coeffs(&self) -> Vec<Fq<Q>>;
+    fn ntt_coeffs(&self) -> Vec<Zq<Q>>;
 }
 
 #[cfg(test)]
 mod tests {
     use num_traits::One;
 
-    use crate::ring::Fq;
+    use crate::ring::Zq;
 
     use super::*;
 
@@ -180,7 +183,7 @@ mod tests {
     struct NttStruct {}
 
     impl NTT<Q, N> for NttStruct {
-        fn ntt_coeffs(&self) -> Vec<Fq<Q>> { unimplemented!() }
+        fn ntt_coeffs(&self) -> Vec<Zq<Q>> { unimplemented!() }
     }
 
     #[test]
@@ -193,19 +196,19 @@ mod tests {
 
     #[test]
     fn test_primitive_root_of_unity() {
-        let psi = Fq::<Q>::from(primitive_root_of_unity::<Q, N>());
-        assert_eq!(psi.pow([N as u64]), Fq::<Q>::one());
+        let psi = Zq::<Q>::from(primitive_root_of_unity::<Q, N>());
+        assert_eq!(psi.pow([N as u64]), Zq::<Q>::one());
         for i in 1..N {
-            assert_ne!(psi.pow([i as u64]), Fq::<Q>::one(), "psi^i = {}^{} = {} should not be 1", psi, i, psi.pow([i as u64]));
+            assert_ne!(psi.pow([i as u64]), Zq::<Q>::one(), "psi^i = {}^{} = {} should not be 1", psi, i, psi.pow([i as u64]));
         }
     }
 
     #[test]
     fn test_ntt_intt() {
-        let mut a = (0..N).into_iter().map(|i| Fq::<Q>::from(i as u128)).collect::<Vec<Fq<Q>>>();
+        let mut a: [Zq<Q>; N] = core::array::from_fn(|i| Zq::<Q>::from(i as u128));
         let a_original = a.clone();
-        NttStruct::ntt(a.as_mut_slice());
-        NttStruct::intt(a.as_mut_slice());
+        NttStruct::ntt(&mut a);
+        NttStruct::intt(&mut a);
         assert_eq!(a_original, a);
     }
 }

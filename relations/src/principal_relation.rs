@@ -1,16 +1,13 @@
 #![allow(non_snake_case)]
 
 use ark_std::{rand, UniformRand};
-use serde::{Deserialize, Serialize};
 
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::poly_ring::PolyRing;
-use lattirust_arithmetic::serde::{ark_de, ark_se};
+use lattirust_arithmetic::ring::PolyRing;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound = "R: for<'a> Deserialize<'a>")]
+#[derive(Clone, Debug)]
 pub struct Witness<R: PolyRing> {
     pub s: Vec<Vector<R>>,
 }
@@ -24,8 +21,7 @@ impl<R: PolyRing> Witness<R> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(bound = "R: for<'a> Deserialize<'a>")]
+#[derive(Clone)]
 pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
     pub A: Option<Matrix<R>>,
@@ -109,12 +105,10 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(bound = "R: for<'a> Deserialize<'a>")]
+#[derive(Clone)]
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
     pub A: Option<Matrix<R>>,
     pub phi: Vec<Vector<R>>,
-    #[serde(serialize_with = "ark_se", deserialize_with = "ark_de")]
     pub b: R::BaseRing,
     _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
 }
@@ -188,8 +182,7 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(bound = "R: for<'a> Deserialize<'a>")]
+#[derive(Clone)]
 pub struct PrincipalRelation<R: PolyRing> {
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,
