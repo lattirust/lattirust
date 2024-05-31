@@ -1,6 +1,6 @@
 #![feature(const_trait_impl)]
 #![feature(trait_alias)]
-#![feature(exclusive_range_pattern)]
+#![allow(incomplete_features)]
 #![feature(inherent_associated_types)]
 #![feature(int_roundings)]
 

@@ -16,7 +16,7 @@ fn main() {
         .arg(format!("PYO3_PYTHON={}", sage_python.to_str().unwrap()))
         .status().expect("failed to export PYO3_PYTHON");
 
-    println!("cargo:warning=sage_python: {:?}", sage_python);
+    //println!("cargo:warning=sage_python: {:?}", sage_python);
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rustc-env=PYO3_PYTHON={}", sage_python.to_str().unwrap());
