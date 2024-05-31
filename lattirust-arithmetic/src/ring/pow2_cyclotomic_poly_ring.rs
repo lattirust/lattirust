@@ -26,6 +26,7 @@ use crate::traits::{
 pub struct Pow2CyclotomicPolyRing<BaseRing: ConvertibleRing, const N: usize>(SVector<BaseRing, N>);
 
 impl<BaseRing: ConvertibleRing, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
+    #[allow(dead_code)]
     pub(crate) type Inner = SVector<BaseRing, N>;
     pub fn from_fn<F>(f: F) -> Self
     where

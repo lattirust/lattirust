@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-use ark_ff::MontConfig;
 use ark_relations::r1cs::ConstraintSystem;
 use ark_std::rand;
 use num_bigint::BigUint;
@@ -21,11 +20,6 @@ use crate::common_reference_string::CommonReferenceString;
 use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
-
-#[derive(MontConfig)]
-#[modulus = "2"]
-#[generator = "1"]
-pub struct F2Config;
 
 pub type Z2 = Zq<2>;
 
