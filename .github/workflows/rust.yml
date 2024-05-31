@@ -16,10 +16,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      # Install sagemath
+      - run: sudo add-apt-repository universe
       - uses: awalsh128/cache-apt-pkgs-action@v1.4.2
         with:
           packages: sagemath
-          version: 10.1
+          version: 9.5
+      # Install cargo
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly
       - name: Build
         run: cargo build --verbose
       - name: Run tests
