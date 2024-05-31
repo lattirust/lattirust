@@ -14,7 +14,6 @@ impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
 }
 
 pub type Zq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
-pub type Zq2<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 2>>;
 
 impl<const Q: u64> const Modulus for Zq<Q> {
     fn modulus() -> BigUint {
