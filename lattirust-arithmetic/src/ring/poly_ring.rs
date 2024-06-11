@@ -39,6 +39,11 @@ pub trait PolyRing:
     fn dimension() -> usize;
 
     fn from_scalar(scalar: Self::BaseRing) -> Self;
+
+    #[inline]
+    fn x() -> Self {
+        Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
+    }
 }
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
