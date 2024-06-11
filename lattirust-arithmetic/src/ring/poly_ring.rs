@@ -4,7 +4,7 @@ use ark_ff::{Field, Fp, FpConfig};
 use ark_serialize::CanonicalSerialize;
 use num_traits::Zero;
 
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Matrix, Vector};
 use crate::ring::representatives::{SignedRepresentative, UnsignedRepresentative};
 use crate::ring::Ring;
 use crate::traits::{FromRandomBytes, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
@@ -43,6 +43,14 @@ pub trait PolyRing:
     #[inline]
     fn x() -> Self {
         Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
+    }
+}
+
+pub trait WithRot: PolyRing {
+    fn rot(&self) -> Matrix<Self::BaseRing>;
+
+    fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
+        todo!()
     }
 }
 
