@@ -46,6 +46,8 @@ impl<const Q: u64, const N: usize> Pow2CyclotomicPolyRingNTT<Q, N> {
         Self::ntt(&mut coeffs);
         Self::from_array(coeffs)
     }
+use std::ops::Mul;
+use std::ops::Mul;
 }
 
 impl<const Q: u64, const N: usize> const NTT<Q, N> for Pow2CyclotomicPolyRingNTT<Q, N> {

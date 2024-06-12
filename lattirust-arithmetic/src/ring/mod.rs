@@ -25,6 +25,7 @@ use crate::traits::{FromRandomBytes, Modulus};
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
+pub(crate) mod powp_cyclotomic_poly_ring;
 mod representatives;
 mod z_2_128;
 mod z_2_64;
