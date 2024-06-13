@@ -50,7 +50,30 @@ pub trait WithRot: PolyRing {
     fn rot(&self) -> Matrix<Self::BaseRing>;
 
     fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
-        todo!()
+        
+          let degree = Self::dimension(); //if tau is 1 in latticefold paper lemma 2.1??.
+          let mut result = vec![Self::BaseRing::ZERO; degree];
+          let coeffs = self.coeffs();  
+          for (i,b_i) in bs.iter.enumerate()
+          {
+            let vec_xi_a = multiply_by_xi(&coeffs,i);
+            for (j, coeff) in vec_xi_a.iter().enumerate()
+            {
+                result[j] = result[j] + (*coeff * *b_i);
+            }
+          
+          }
+                result
+
+        }
+    
+    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
+        let len = bs.len();
+        let mut result = vec![Self::BaseRing::ZERO; len];
+        for (j, &coeff) in vec.iter().enumerate() {
+            result[(j + i) % len] += coeff;
+        }
+        result
     }
 }
 
