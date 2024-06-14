@@ -50,37 +50,36 @@ pub trait WithRot: PolyRing {
     fn rot(&self) -> Matrix<Self::BaseRing>;
 
     fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
-        
+
           let degree = Self::dimension(); //if tau is 1 in latticefold paper lemma 2.1??.
           let mut result = vec![Self::BaseRing::ZERO; degree];
           let coeffs = self.coeffs();  
-          for (i,b_i) in bs.iter.enumerate()
+          for (i,b_i) in bs.iter().enumerate()
           {
           let vec_xi_a = Self::multiply_by_xi(&coeffs, i);
             for (j, coeff) in vec_xi_a.iter().enumerate()
             {
                 result[j] = result[j] + (*coeff * *b_i);
             }
-          
+
           }
                 result
 
         }
-    
-    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
-        let len = bs.len();
-        let mut result = vec![Self::BaseRing::ZERO; len];
-        for (j, &coeff) in vec.iter().enumerate() {
-            for (j, &coeff) in vec.iter().enumerate() {
+
+        fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
+            let len = bs.len();
+            let mut result = vec![Self::BaseRing::ZERO; len];
+            for (j, &coeff) in bs.iter().enumerate() {
                 if j + i < len {
                     result[(j + i) % len] += coeff;
                 } else {
                     result[(j + i) % len] -= coeff;
                 }
+            }
+            result
         }
-        result
     }
-}
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     fn byte_size() -> usize {
