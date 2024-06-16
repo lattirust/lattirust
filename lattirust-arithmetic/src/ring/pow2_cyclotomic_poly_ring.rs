@@ -461,6 +461,15 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithRot
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn rot(&self) -> Matrix<BaseRing> {
-        todo!()
+        let degree = Self::dimension();
+        let coeffs = self.coeffs();
+        let mut vec_xi_initial = Self::multiply_by_xi(&coeffs, 0);
+
+        for i in 1..degree {
+            let vec_xi_a = Self::multiply_by_xi(&coeffs, i);
+            vec_xi_initial = vec_xi_initial.into_iter().chain(vec_xi_a.into_iter()).collect();
+        }
+
+        Matrix::from_vec(degree, degree, vec_xi_initial)
     }
 }
