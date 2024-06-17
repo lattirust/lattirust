@@ -40,28 +40,41 @@ impl<E: std::error::Error> From<E> for SageMathError {
 }
 
 pub(crate) fn sagemath_eval<F, T, E>(eval: String, parse: F) -> Result<T, SageMathError>
-    where F: Fn(String) -> Result<T, E>,
-          E: std::error::Error
+where
+    F: Fn(String) -> Result<T, E>,
+    E: std::error::Error,
 {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let output = Command::new("sage")
         .arg("--python")
         .arg("-c")
-        .arg(
-            format!(
-                "import sys;\
+        .arg(format!(
+            "import sys;\
                 sys.path.insert(0, '{}');\
                 sys.path.insert(0, '{}');\
                 sys.path.insert(0, '{}');\
                 from sis import *;\
                 from msis import *;\
                 print({})",
-                root.join("lattice-estimator").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
-                root.join("security-estimates").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
-                root.join("src").to_str().ok_or(SageMathError("could not construct path".to_string()))?,
-                eval)).output()?;
+            root.join("lattice-estimator")
+                .to_str()
+                .ok_or(SageMathError("could not construct path".to_string()))?,
+            root.join("security-estimates")
+                .to_str()
+                .ok_or(SageMathError("could not construct path".to_string()))?,
+            root.join("src")
+                .to_str()
+                .ok_or(SageMathError("could not construct path".to_string()))?,
+            eval
+        ))
+        .output()?;
     if !output.status.success() {
-        return Err(SageMathError(format!("Command {} terminated with exit code {}:\n {}", eval, output.status, String::from_utf8(output.stderr)?)));
+        return Err(SageMathError(format!(
+            "Command {} terminated with exit code {}:\n {}",
+            eval,
+            output.status,
+            String::from_utf8(output.stderr)?
+        )));
     }
     let stdout = String::from_utf8(output.stdout).map_err(SageMathError::from)?;
     parse(stdout).map_err(SageMathError::from)

@@ -106,10 +106,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let log2_q: f64 = q.bits() as f64;
         let mut beta = beta_sq.sqrt();
 
-        info!(
-            "Using Z_q[X]/(X^d+1) with q={q} ({} bits), d={d}",
-            log2_q
-        );
+        info!("Using Z_q[X]/(X^d+1) with q={q} ({} bits), d={d}", log2_q);
         info!("Setting CRS parameters for n={n}, r={r}, d={d}, beta={beta:.1}, num_constraints={num_constraints}, num_constant_constraints={num_constant_constraints}");
 
         let MAX_RECURSION_DEPTH = 7;

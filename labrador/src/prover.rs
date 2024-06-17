@@ -16,7 +16,7 @@ use lattirust_arithmetic::ring::{PolyRing, SignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::principal_relation::{PrincipalRelation, Witness};
 
-use crate::common_reference_string::{CommonReferenceString, fold_instance};
+use crate::common_reference_string::{fold_instance, CommonReferenceString};
 use crate::shared::BaseTranscript;
 use crate::util::*;
 

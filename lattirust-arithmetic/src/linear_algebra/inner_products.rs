@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 use num_traits::Zero;
 use rayon::prelude::*;
 
-use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
 use crate::linear_algebra::generic_matrix::{ClosedAdd, ClosedMul};
+use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
 use crate::ring::PolyRing;
 
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2

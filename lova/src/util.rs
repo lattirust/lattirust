@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
-use ark_std::{One, UniformRand};
 use ark_std::rand::thread_rng;
+use ark_std::{One, UniformRand};
 use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
@@ -15,9 +15,9 @@ use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
 use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
@@ -126,7 +126,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             }
         };
         info!("  Setting norm_bound = {}", pretty_print(norm_bound));
-        
+
         log::logger().flush();
         assert!(norm_bound < F::modulus().to_f64().unwrap());
 
@@ -172,7 +172,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 basis
             }
         };
-        
+
         let decomposition_length: usize =
             balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
         info!(

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
-use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix};
 use lattirust_arithmetic::linear_algebra::Vector;
+use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix};
 use lattirust_arithmetic::ring::PolyRing;
 use relations::principal_relation::PrincipalRelation;
 

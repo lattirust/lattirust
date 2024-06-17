@@ -5,8 +5,8 @@ use ark_std::rand;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 
-use lattice_estimator::msis::MSIS;
 use lattice_estimator::msis::security_estimates::*;
+use lattice_estimator::msis::MSIS;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
@@ -62,8 +62,8 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        let m = find_optimal_h(&msis, SECURITY_PARAMETER)
-            .expect("failed to find optimal n for MSIS");
+        let m =
+            find_optimal_h(&msis, SECURITY_PARAMETER).expect("failed to find optimal n for MSIS");
         debug_assert!(
             msis.with_h(m).security_level() >= SECURITY_PARAMETER as f64,
             "MSIS security level {} must be at least {} for soundness",

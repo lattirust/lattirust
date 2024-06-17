@@ -1,5 +1,5 @@
-use log::Level::Debug;
 use log::log_enabled;
+use log::Level::Debug;
 use nimue::{Arthur, ProofResult};
 use tracing::debug;
 
@@ -11,7 +11,7 @@ use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 
-use crate::util::{norm_l2_columnwise, PublicParameters, to_integers, Witness};
+use crate::util::{norm_l2_columnwise, to_integers, PublicParameters, Witness};
 
 pub struct Prover<F: ConvertibleRing> {
     _marker: std::marker::PhantomData<F>,

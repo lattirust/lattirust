@@ -1,5 +1,5 @@
 use ark_relations::lc;
-use log::{debug};
+use log::debug;
 use nimue::IOPattern;
 use num_traits::One;
 use pretty_env_logger::env_logger;

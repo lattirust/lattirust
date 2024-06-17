@@ -6,12 +6,12 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use delegate::delegate;
 use derive_more;
 use derive_more::{Display, From, Index, IndexMut, Into};
+use nalgebra::allocator::Allocator;
+use nalgebra::constraint::{DimEq, ShapeConstraint};
 use nalgebra::{
     self, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar,
     Storage, StorageMut, ViewStorage,
 };
-use nalgebra::allocator::Allocator;
-use nalgebra::constraint::{DimEq, ShapeConstraint};
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 

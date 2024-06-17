@@ -30,7 +30,9 @@ impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>>
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>>
+    for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>
+{
     fn byte_size() -> usize {
         N * WeightedTernaryChallengeSet::<Zq<Q>>::byte_size()
     }
@@ -38,16 +40,21 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
         let b = WeightedTernaryChallengeSet::<Zq<Q>>::byte_size();
-        Some(
-            Pow2CyclotomicPolyRing::<Zq<Q>, N>::from_fn(|i|
-                WeightedTernaryChallengeSet::<Zq<Q>>::try_from_random_bytes(&bytes[i * b..(i + 1) * b]).unwrap()
-            )
-        )
+        Some(Pow2CyclotomicPolyRing::<Zq<Q>, N>::from_fn(|i| {
+            WeightedTernaryChallengeSet::<Zq<Q>>::try_from_random_bytes(&bytes[i * b..(i + 1) * b])
+                .unwrap()
+        }))
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>> for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>> {
-    fn byte_size() -> usize { Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size() }
+impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>>
+    for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>>
+{
+    fn byte_size() -> usize {
+        Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size()
+    }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> { Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes).map(|x| x.into()) }
+    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
+        Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes).map(|x| x.into())
+    }
 }

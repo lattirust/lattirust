@@ -1,16 +1,16 @@
-use criterion::{BenchmarkId, black_box, Criterion, criterion_group, criterion_main};
 use criterion::BatchSize::PerIteration;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use humansize::DECIMAL;
 use log::info;
 use nimue::IOPattern;
 
 use lattirust_arithmetic::ring::Z2_64;
 use lova::prover::Prover;
-use lova::util::{
-    BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters,
-    rand_matrix_with_bounded_column_norms,
-};
 use lova::util::OptimizationMode::{OptimizeForSpeed, OptimizeForSpeedWithCompletenessError};
+use lova::util::{
+    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern, OptimizationMode,
+    PublicParameters,
+};
 use lova::verifier::Verifier;
 use relations::traits::Relation;
 

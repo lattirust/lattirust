@@ -3,8 +3,8 @@ use std::io::{Read, Write};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use nalgebra::{Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar, VecStorage};
 use nalgebra::allocator::Allocator;
+use nalgebra::{Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar, VecStorage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;

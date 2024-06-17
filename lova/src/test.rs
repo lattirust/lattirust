@@ -7,8 +7,8 @@ use relations::traits::Relation;
 
 use crate::prover::Prover;
 use crate::util::{
-    BaseRelation, Instance, LovaIOPattern, OptimizationMode, PublicParameters,
-    rand_matrix_with_bounded_column_norms,
+    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern, OptimizationMode,
+    PublicParameters,
 };
 use crate::verifier::Verifier;
 
