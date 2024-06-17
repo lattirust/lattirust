@@ -71,7 +71,7 @@ impl SIS {
 
     pub fn parse_f64(s: String) -> Result<f64, ParseFloatError> {
         // Both lattice-estimator and security-estimator logs some additional info, we only care about the last line of stdout
-        f64::from_str(&s.lines().last().unwrap())
+        f64::from_str(s.lines().last().unwrap())
     }
 
     /// Return lambda such that SIS_{n, q, length_bound, m} is 2^lambda-hard (for a given norm).
@@ -93,8 +93,8 @@ impl SIS {
 
     pub fn upper_bound_h(&self) -> usize {
         let log_q = match self.norm {
-            Norm::L2 => (self.q.to_f64().unwrap()).log2(),
-            Norm::Linf => (self.q.to_f64().unwrap()).log(2. * self.length_bound + 1.),
+            Norm::L2 => self.q.to_f64().unwrap().log2(),
+            Norm::Linf => self.q.to_f64().unwrap().log(2. * self.length_bound + 1.),
         };
         let mut h = (self.w as f64 / log_q).floor() as usize;
         // Deal with the case where e.g. w and q are powers of 2, to ensure that w > h * log_q still holds without having to set h = w / (2*log_q)

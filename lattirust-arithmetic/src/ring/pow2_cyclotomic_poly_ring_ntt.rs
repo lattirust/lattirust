@@ -95,12 +95,8 @@ impl<const Q: u64, const N: usize> CanonicalDeserialize for Pow2CyclotomicPolyRi
 }
 
 impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
-    const ZERO: Self = Self {
-        0: vec_from_element(<Zq<Q> as Ring>::ZERO),
-    };
-    const ONE: Self = Self {
-        0: vec_from_element(<Zq<Q> as Ring>::ONE),
-    };
+    const ZERO: Self = Self(vec_from_element(<Zq<Q> as Ring>::ZERO));
+    const ONE: Self = Self(vec_from_element(<Zq<Q> as Ring>::ONE));
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
@@ -266,13 +262,13 @@ impl<'a, const Q: u64, const N: usize> Mul<&'a mut Self> for Pow2CyclotomicPolyR
 
 impl<'a, const Q: u64, const N: usize> AddAssign<&'a mut Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0.add_assign(rhs.0).into()
+        self.0.add_assign(rhs.0)
     }
 }
 
 impl<'a, const Q: u64, const N: usize> SubAssign<&'a mut Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0.sub_assign(rhs.0).into()
+        self.0.sub_assign(rhs.0)
     }
 }
 
@@ -292,11 +288,11 @@ impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     }
 }
 
-impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Zq<Q>, N>>
-    for Pow2CyclotomicPolyRingNTT<Q, N>
+impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRingNTT<Q, N>>
+    for Pow2CyclotomicPolyRing<Zq<Q>, N>
 {
-    fn into(self) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
-        Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(self.coeffs())
+    fn from(val: Pow2CyclotomicPolyRingNTT<Q, N>) -> Self {
+        Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(val.coeffs())
     }
 }
 

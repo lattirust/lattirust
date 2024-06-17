@@ -42,7 +42,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
     // Decompose z, t, G, H
     let mut sum_norm_sq = 0u128;
 
-    let z_decomp = decompose_balanced_vec_polyring(&z, crs.b, Some(2usize));
+    let z_decomp = decompose_balanced_vec_polyring(z, crs.b, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
     check!(&z_decomp[0].linf_norm() * 2 <= crs.b);
 
@@ -122,13 +122,13 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
 
     // Check Az = c1 * t1 + ... + c_r * t_r
     let Az = &crs.A * z;
-    let t_lc = c.into_iter().zip(t).map(|(c_i, t_i)| t_i * *c_i).sum();
+    let t_lc = c.iter().zip(t).map(|(c_i, t_i)| t_i * *c_i).sum();
     check_eq!(Az, t_lc);
 
     // Check <z, z> = sum_{i,j in [r]} g_ij * c_i * c_j
     let G = transcript.G.as_ref().expect("G not available");
-    let g_lc = linear_combination_symmetric_matrix(G, &c);
-    check_eq!(z.dot(&z), g_lc);
+    let g_lc = linear_combination_symmetric_matrix(G, c);
+    check_eq!(z.dot(z), g_lc);
 
     // Check sum_{i in [r]} <phi_i, z> * c_i = sum_{i,j in [r]} h_ij * c_i * c_j
     // Compute phi_i
@@ -147,9 +147,9 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
 
     let mut phi_z_lc = R::zero();
     for i in 0..r {
-        phi_z_lc += phi[i].dot(&z) * c[i];
+        phi_z_lc += phi[i].dot(z) * c[i];
     }
-    let h_lc = linear_combination_symmetric_matrix(&H, &c);
+    let h_lc = linear_combination_symmetric_matrix(H, c);
     check_eq!(phi_z_lc, h_lc);
 
     // Check sum_{i, j in [r]} a_ij * g_ij + sum_{i in [r]} h_ii = b

@@ -36,8 +36,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
         instance: &'a PrincipalRelation<R>,
     ) -> BaseTranscript<'a, R> {
         BaseTranscript {
-            instance: &instance,
-            crs: &crs,
+            instance,
+            crs,
             u_1: None,
             Pi: None,
             p: None,
@@ -71,8 +71,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
         phi: Vec<Vector<R>>,
     ) -> BaseTranscript<'a, R> {
         BaseTranscript {
-            instance: &instance,
-            crs: &crs,
+            instance,
+            crs,
             u_1: Some(u_1),
             Pi: Some(Pi),
             p: None,
@@ -111,8 +111,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
         phi: Vec<Vector<R>>,
     ) -> BaseTranscript<'a, R> {
         BaseTranscript {
-            instance: &instance,
-            crs: &crs,
+            instance,
+            crs,
             u_1: Some(u_1),
             Pi: Some(Pi),
             p: Some(p),

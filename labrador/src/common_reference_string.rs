@@ -110,7 +110,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         info!("Setting CRS parameters for n={n}, r={r}, d={d}, beta={beta:.1}, num_constraints={num_constraints}, num_constant_constraints={num_constant_constraints}");
 
         let MAX_RECURSION_DEPTH = 7;
-        beta_sq = beta_sq * f64::sqrt(128. / 30.).powi(MAX_RECURSION_DEPTH);
+        beta_sq *= f64::sqrt(128. / 30.).powi(MAX_RECURSION_DEPTH);
         beta = beta_sq.sqrt();
         info!(
             "  Accounting for at most {MAX_RECURSION_DEPTH} recursion levels, use beta={beta:.1}"
@@ -222,7 +222,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             b2,
             next_crs: None,
         };
-        crs.next_crs = crs.next_crs().map(|crs| Box::new(crs));
+        crs.next_crs = crs.next_crs().map(Box::new);
         crs
     }
 
@@ -357,7 +357,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
     }
 }
 
-pub fn fold_instance<'a, R: PolyRing>(
+pub fn fold_instance<R: PolyRing>(
     transcript: &BaseTranscript<R>,
     compute_witness: bool,
 ) -> (PrincipalRelation<R>, Option<Witness<R>>) {
@@ -646,19 +646,19 @@ pub fn fold_instance<'a, R: PolyRing>(
             transcript.G.as_ref().unwrap(),
             transcript.H.as_ref().unwrap(),
         );
-        let z_decomp = decompose_balanced_vec_polyring(&z, crs.b, Some(2usize));
+        let z_decomp = decompose_balanced_vec_polyring(z, crs.b, Some(2usize));
         assert_eq!(z_decomp.len(), 2);
 
         let v = concat(&[
-            &flatten_vec_vector(&t).as_slice(),
-            &flatten_symmetric_matrix(&G).as_slice(),
-            &flatten_symmetric_matrix(&H).as_slice(),
+            flatten_vec_vector(t).as_slice(),
+            flatten_symmetric_matrix(G).as_slice(),
+            flatten_symmetric_matrix(H).as_slice(),
         ]);
         let z_0_split = crate::util::split(&z_decomp[0], nu);
         let z_1_split = crate::util::split(&z_decomp[1], nu);
         let v_split = crate::util::split(&v, mu);
         Some(Witness::<R> {
-            s: vec![z_0_split, z_1_split, v_split].concat(),
+            s: [z_0_split, z_1_split, v_split].concat(),
         })
     } else {
         None

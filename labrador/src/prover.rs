@@ -33,20 +33,20 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         crs: &'a CommonReferenceString<R>,
     ) -> Self {
         Self {
-            transcript: BaseTranscript::<R>::init(&crs, &instance),
-            witness: &witness,
+            transcript: BaseTranscript::<R>::init(crs, instance),
+            witness,
             phi__: None,
         }
     }
 
     fn instance(&self) -> &PrincipalRelation<R> {
-        &self.transcript.instance
+        self.transcript.instance
     }
     fn crs(&self) -> &CommonReferenceString<R> {
-        &self.transcript.crs
+        self.transcript.crs
     }
     fn witness(&self) -> &Witness<R> {
-        &self.witness
+        self.witness
     }
 
     fn prove_1(&mut self) {
@@ -108,7 +108,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         for j in 0..256 {
             for i in 0..crs.r {
                 let pi_ij = &Pi[i].row(j).transpose();
-                p[j] += R::flattened(&pi_ij).dot(&R::flattened(&witness.s[i]));
+                p[j] += R::flattened(pi_ij).dot(&R::flattened(&witness.s[i]));
             }
         }
         self.transcript.p.replace(p);
@@ -147,7 +147,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
                         }
                     }
 
-                    b__[k] += a_ijk * &witness.s[i].dot(&witness.s[j]);
+                    b__[k] += a_ijk * witness.s[i].dot(&witness.s[j]);
                 }
                 // Compute vec{phi}''_i^{(k)}
                 for l in 0..instance.ct_quad_dot_prod_funcs.len() {
@@ -228,11 +228,13 @@ impl<'a, R: PolyRing> Prover<'a, R> {
     fn prove_5(&mut self) {
         let (witness, crs) = (self.witness(), self.crs());
         let c = self.transcript.c.as_ref().expect("c not available");
-        let mut z = Vector::<R>::zeros(crs.n);
         debug_assert_eq!(c.len(), crs.r);
-        for i in 0..crs.r {
-            z += &witness.s[i] * c[i];
-        }
+        let z = witness
+            .s
+            .iter()
+            .zip(c.iter())
+            .map(|(s_i, c_i)| s_i * *c_i)
+            .sum();
         self.transcript.z.replace(z);
     }
 }
@@ -248,11 +250,11 @@ where
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
     // Check dimensions and norms
-    debug_assert!(crs.is_wellformed_instance(&instance));
-    debug_assert!(crs.is_wellformed_witness(&witness));
+    debug_assert!(crs.is_wellformed_instance(instance));
+    debug_assert!(crs.is_wellformed_witness(witness));
 
     // Check that the witness is valid for this instance
-    debug_assert!(instance.is_valid_witness(&witness));
+    debug_assert!(instance.is_valid_witness(witness));
 
     // Initialize Fiat-Shamir transcript
     // TODO: add the following, but at the moment this causes a stack overflow somewhere in nimue/keccak
@@ -264,12 +266,12 @@ where
     // Prove
     let num_constraints = instance.quad_dot_prod_funcs.len();
     let num_ct_constraints = instance.ct_quad_dot_prod_funcs.len();
-    let mut prover = Prover::new(&instance, &witness, &crs);
+    let mut prover = Prover::new(instance, witness, crs);
 
     prover.prove_1();
     let u_1 = prover.transcript.u_1.as_ref().unwrap();
     arthur
-        .absorb_vector(&u_1)
+        .absorb_vector(u_1)
         .expect("error absorbing prover message 1");
 
     let pis = arthur
@@ -280,7 +282,7 @@ where
     prover.prove_2();
     let p = prover.transcript.p.as_ref().unwrap();
     arthur
-        .absorb_vector_canonical::<R::BaseRing>(&p)
+        .absorb_vector_canonical::<R::BaseRing>(p)
         .expect("error absorbing prover message 2");
 
     let psi = arthur
@@ -295,7 +297,7 @@ where
     prover.prove_3();
     let b__ = prover.transcript.b__.as_ref().unwrap();
     arthur
-        .absorb_vec(&b__)
+        .absorb_vec(b__)
         .expect("error absorbing prover message 3");
 
     let alpha = arthur
@@ -310,7 +312,7 @@ where
     prover.prove_4();
     let u_2 = prover.transcript.u_2.as_ref().unwrap();
     arthur
-        .absorb_vector(&u_2)
+        .absorb_vector(u_2)
         .expect("error absorbing prover message 4");
 
     let c = arthur
@@ -328,7 +330,7 @@ where
             arthur,
             &instance_next,
             &witness_next.unwrap(),
-            &crs.next_crs.as_ref().unwrap(),
+            crs.next_crs.as_ref().unwrap(),
         )
     } else {
         // Append final messages to Fiat-Shamir transcript and finish
@@ -339,10 +341,10 @@ where
         let H = prover.transcript.H.as_ref().unwrap();
 
         arthur
-            .absorb_vector(&z)
+            .absorb_vector(z)
             .expect("error absorbing prover message 5 (z)");
         arthur
-            .absorb_vectors(&t)
+            .absorb_vectors(t)
             .expect("error absorbing prover message 5 (t)");
         arthur
             .absorb_symmetric_matrix(G)

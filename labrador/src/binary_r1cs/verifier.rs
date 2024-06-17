@@ -59,7 +59,7 @@ where
         g,
         delta,
     };
-    let instance_pr = reduce(&crs, &cs, &transcript);
+    let instance_pr = reduce(crs, cs, &transcript);
 
     merlin.ratchet()?;
 

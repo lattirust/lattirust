@@ -10,7 +10,7 @@ use crate::ring::PolyRing;
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
 #[inline(always)]
 pub fn vec_from_lowertriang<T>(mut m: VecDeque<VecDeque<T>>) -> Vec<T> {
-    debug_assert!(m.len() > 0);
+    debug_assert!(!m.is_empty());
     let mut v = Vec::<T>::with_capacity((m.len() * (m.len() + 1)) / 2);
     for i in 0..m.len() {
         let mut m_i = m.pop_front().unwrap();
@@ -46,7 +46,7 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
     indices
 }
 
-pub fn inner_products_serial<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
+pub fn inner_products_serial<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
     let mut symmetric_matrix = vec![vec![]; s.len()];
     for i in 0..s.len() {
         symmetric_matrix[i] = Vec::<R>::with_capacity(i + 1);
@@ -58,7 +58,7 @@ pub fn inner_products_serial<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix
 }
 
 /// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$ for $s \in R^{n \times m}$
-pub fn inner_products<R: PolyRing>(s: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
+pub fn inner_products<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
     inner_products2(s, s)
 }
 
@@ -80,7 +80,7 @@ pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send
 }
 
 /// Compute $(\langle s_i, t_j\rangle)_{i, j \in \[n\]}$ for $s,t \in R^{n \times m}$
-pub fn inner_products2<R: PolyRing>(s: &Vec<Vector<R>>, t: &Vec<Vector<R>>) -> SymmetricMatrix<R> {
+pub fn inner_products2<R: PolyRing>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
     debug_assert_eq!(s.len(), t.len());
     let ranges = lower_triang_indices(s.len());
 

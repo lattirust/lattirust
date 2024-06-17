@@ -19,7 +19,7 @@ where
     fn next_with_size<S: FromBytes>(&mut self, size: usize) -> Result<S, IOPatternError> {
         let mut buf = vec![0u8; size];
         self.fill_next_bytes(&mut buf)?;
-        Ok(S::from_bytes(buf.as_slice()).map_err(Self::err_to_io_pattern_error)?)
+        S::from_bytes(buf.as_slice()).map_err(Self::err_to_io_pattern_error)
     }
 
     fn next_like<S: FromBytes + ToBytes>(&mut self, like: &S) -> Result<S, IOPatternError> {

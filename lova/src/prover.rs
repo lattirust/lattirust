@@ -83,7 +83,7 @@ impl<F: ConvertibleRing> Prover<F> {
         // Commit to decomposed witness matrix (mod q)
         let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
         debug_assert_eq!(
-            recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice())
+            recompose_matrix(&committed_decomp_witness, pp.powers_of_basis().as_slice())
                 .map(|x| Into::<SignedRepresentative>::into(x).0),
             (&pp.commitment_mat * &witness).map(|x| Into::<SignedRepresentative>::into(x).0),
             "commitments match"
@@ -96,7 +96,7 @@ impl<F: ConvertibleRing> Prover<F> {
         // Compute inner products over the integers
         let decomp_witness_int = &to_integers(&decomp_witness);
         let inner_products_decomp: SymmetricMatrix<SignedRepresentative> =
-            inner_products_mat(&decomp_witness_int);
+            inner_products_mat(decomp_witness_int);
         debug_assert_eq!(
             inner_products_decomp.size(),
             witness.ncols() * pp.decomposition_length

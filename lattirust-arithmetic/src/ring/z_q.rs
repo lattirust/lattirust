@@ -7,10 +7,10 @@ use crate::traits::Modulus;
 pub struct FqConfig<const Q: u64> {}
 
 impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
-    const MODULUS: BigInt<1> = BigInt::<1> { 0: [Q] };
-    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1> { 0: [2u64] });
+    const MODULUS: BigInt<1> = BigInt::<1>([Q]);
+    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1>([2u64]));
     // TODO: check if this needed/makes sense
-    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1> { 0: [0u64] }); // TODO: implement this? Not using todo!() here to generate the docs
+    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1>([0u64])); // TODO: implement this? Not using todo!() here to generate the docs
 }
 
 pub type Zq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
@@ -22,7 +22,7 @@ impl<const Q: u64> const Modulus for Zq<Q> {
 }
 
 pub const fn const_fq_from<const Q: u64>(val: u64) -> Zq<Q> {
-    Zq::new(BigInt::<1> { 0: [val] })
+    Zq::new(BigInt::<1>([val]))
 }
 
 impl<const Q: u64> Ring for Zq<Q> {

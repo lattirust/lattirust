@@ -99,7 +99,7 @@ impl<F: ConvertibleRing> Verifier<F> {
         );
 
         check_eq!(
-            recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice()),
+            recompose_matrix(&committed_decomp_witness, pp.powers_of_basis().as_slice()),
             instance.commitment,
             "commitments match"
         );

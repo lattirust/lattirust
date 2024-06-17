@@ -192,10 +192,10 @@ impl<R: PolyRing> PrincipalRelation<R> {
     pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
         self.quad_dot_prod_funcs
             .iter()
-            .all(|c| c.is_valid_witness(&witness))
+            .all(|c| c.is_valid_witness(witness))
             && self
                 .ct_quad_dot_prod_funcs
                 .iter()
-                .all(|c| c.is_valid_witness(&witness))
+                .all(|c| c.is_valid_witness(witness))
     }
 }

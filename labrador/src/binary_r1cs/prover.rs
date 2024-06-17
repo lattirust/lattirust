@@ -132,7 +132,7 @@ where
         delta,
     };
 
-    let instance_pr = reduce(&crs, &cs, &transcript);
+    let instance_pr = reduce(crs, cs, &transcript);
 
     let witness_pr = Witness::<R> {
         s: vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde], // see definition of indices above

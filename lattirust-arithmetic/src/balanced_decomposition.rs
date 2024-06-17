@@ -65,9 +65,9 @@ pub fn decompose_balanced<R: ConvertibleRing>(
         let rem = curr % b; // rem = curr % b is in [-(b-1), (b-1)]
 
         // Ensure digit is in [-b/2, b/2]
-        if rem.abs() as u128 <= b_half_floor {
+        if rem.unsigned_abs() <= b_half_floor {
             decomp_bal_signed.push(rem);
-            curr = curr / b; // Rust integer division rounds towards zero
+            curr /= b; // Rust integer division rounds towards zero
         } else {
             // The next element in the decomposition is sign(rem) * (|rem| - b)
             if rem < 0 {
@@ -170,7 +170,7 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
         .collect(); // v.len() x decomp_size
     pad_and_transpose(decomp)
         .into_par_iter()
-        .map(|v_i| Vector::from(v_i))
+        .map(Vector::from)
         .collect() // decomp_size x v.len()
 }
 
@@ -207,7 +207,7 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 
 pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
 where
-    A: std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
+    A: Mul<B, Output = A> + Copy + Sum + Send + Sync,
     B: Field,
 {
     v.par_iter()
@@ -260,12 +260,11 @@ where
                 .map(|j| {
                     (0..nd)
                         .filter(|k| k / d == i)
-                        .map(|k| {
+                        .flat_map(|k| {
                             (0..nd).filter(|l| l / d == j).map(move |l| {
                                 &mat[(k, l)] * &(&powers_of_basis[k % d] * &powers_of_basis[l % d])
                             })
                         })
-                        .flatten()
                         .sum()
                 })
                 .collect()

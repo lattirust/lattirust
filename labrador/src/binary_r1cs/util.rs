@@ -92,7 +92,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
         );
 
-        let rng = &mut rand::rngs::OsRng::default();
+        let rng = &mut rand::rngs::OsRng;
 
         Self {
             A: Matrix::<R>::rand(m.div_ceil(d), (3 * k + n).div_ceil(d), rng),
@@ -113,7 +113,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let num_quad_constraints = m.div_ceil(d) + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
 
-        let rng = &mut rand::rngs::OsRng::default();
+        let rng = &mut rand::rngs::OsRng;
         CommonReferenceString::<R>::new(
             r_pr,
             n_pr,
@@ -144,9 +144,9 @@ fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
     for j in 0..k_ {
         // Embed alpha_i as an element alphaR_i of R such that the constant term of alphaR_i * a_R (as polynomial multiplication over R) is equal to <alpha_i, a>
         let mut coeffs = vec![R::BaseRing::zero(); d];
-        coeffs[0] = embed::<R::BaseRing>(alpha_i[j * d].clone());
+        coeffs[0] = embed::<R::BaseRing>(alpha_i[j * d]);
         for l in 1..d {
-            coeffs[d - 1 - l] = -embed::<R::BaseRing>(alpha_i[j * d + l].clone());
+            coeffs[d - 1 - l] = -embed::<R::BaseRing>(alpha_i[j * d + l]);
         }
         phi_a_idx.push(R::from(coeffs));
     }

@@ -31,21 +31,15 @@ impl<F: Clone + Scalar> From<Matrix<F>> for SymmetricMatrix<F> {
             value
                 .row_iter()
                 .enumerate()
-                .map(|(i, v_i)| {
-                    v_i.iter()
-                        .take(i + 1)
-                        .into_iter()
-                        .map(|v| v.clone())
-                        .collect()
-                })
+                .map(|(i, v_i)| v_i.iter().take(i + 1).cloned().collect())
                 .collect(),
         )
     }
 }
 
-impl<F: Clone + Scalar> Into<Matrix<F>> for SymmetricMatrix<F> {
-    fn into(self) -> Matrix<F> {
-        Matrix::<F>::from_fn(self.size(), self.size(), |i, j| self.at(i, j).clone())
+impl<F: Clone + Scalar> From<SymmetricMatrix<F>> for Matrix<F> {
+    fn from(val: SymmetricMatrix<F>) -> Self {
+        Matrix::<F>::from_fn(val.size(), val.size(), |i, j| val.at(i, j).clone())
     }
 }
 
@@ -59,7 +53,7 @@ impl<F: Scalar> PartialEq<Matrix<F>> for SymmetricMatrix<F> {
     fn eq(&self, other: &Matrix<F>) -> bool {
         self.0.iter().enumerate().all(|(i, self_i)| {
             self_i
-                .into_iter()
+                .iter()
                 .enumerate()
                 .all(|(j, self_ij)| other[(i, j)] == *self_ij)
         })
@@ -106,8 +100,8 @@ impl<F: Clone> SymmetricMatrix<F> {
     {
         SymmetricMatrix::<T>::from(
             self.rows()
-                .into_iter()
-                .map(|row| row.into_iter().map(&func).collect())
+                .iter()
+                .map(|row| row.iter().map(&func).collect())
                 .collect::<Vec<Vec<T>>>(),
         )
     }
@@ -140,8 +134,8 @@ impl<F: Clone + Scalar> SymmetricMatrix<F> {
         result.extend(
             bottom_left
                 .row_iter()
-                .zip(bottom_right.0.into_iter())
-                .map(|(bl_i, br_i)| [&bl_i.0.into_owned().as_slice(), br_i.as_slice()].concat()),
+                .zip(bottom_right.0)
+                .map(|(bl_i, br_i)| [bl_i.0.into_owned().as_slice(), br_i.as_slice()].concat()),
         );
         Self(result)
     }

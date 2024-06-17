@@ -28,7 +28,7 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     const NUM_COEFFS: usize = Self::NUM_ZEROS + Self::NUM_PM_ONES + Self::NUM_PM_TWOS; // 64
 
     pub const OPERATOR_NORM_THRESHOLD: f64 = 15.;
-    pub const L2_NORM_SQUARED: f64 = (1 * Self::NUM_PM_ONES + 2 * 2 * Self::NUM_PM_TWOS) as f64; // 71
+    pub const L2_NORM_SQUARED: f64 = (Self::NUM_PM_ONES + 2 * 2 * Self::NUM_PM_TWOS) as f64; // 71
 
     // Return the variance of the sum of the coefficients of a challenge polynomial
     pub const VARIANCE_SUM_COEFFS: f64 = (Self::NUM_PM_ONES + 2 * Self::NUM_PM_TWOS) as f64; // 51
@@ -70,18 +70,18 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
         let mut j: u8;
         for i in (1..N - 1).rev() {
             assert!(i > 0);
-            (j, bytes) = Self::u8_from_random_bytes((i + 1) as u8, &bytes).unwrap();
+            (j, bytes) = Self::u8_from_random_bytes((i + 1) as u8, bytes).unwrap();
             indices.swap(i, j as usize);
         }
         assert_eq!(indices.clone().len(), N);
         for i in 0..N {
-            assert!(indices.clone().into_iter().find(|x| *x == i).is_some());
+            assert!(indices.clone().into_iter().any(|x| x == i));
         }
 
         // Set coefficients according to permutation and sign bits
         let mut coeffs = Vec::with_capacity(N);
-        for i in 0..N {
-            let val = match indices[i] {
+        for index in indices {
+            let val = match index {
                 0..23 => 0,  // 23 times 0
                 23..54 => 1, // 31 times ±1
                 54..64 => 2, // 10 times ±2
@@ -107,7 +107,7 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
             let coeffs = Self::unchecked_coeffs_from_random_bytes(
                 &bytes[i * sample_bytesize..(i + 1) * sample_bytesize],
             );
-            if Self::operator_norm(&coeffs.to_vec()) < Self::OPERATOR_NORM_THRESHOLD {
+            if Self::operator_norm(coeffs.as_ref()) < Self::OPERATOR_NORM_THRESHOLD {
                 return coeffs;
             }
             i += 1;
@@ -170,7 +170,7 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
 }
 
 impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
-    fn challenge_to_matrix(c: &Vec<i8>) -> Matrix<f64> {
+    fn challenge_to_matrix(c: &[i8]) -> Matrix<f64> {
         assert_eq!(c.len(), N);
 
         let mut c_mat = Matrix::<f64>::zeros(N, N);
@@ -185,13 +185,12 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
         c_mat
     }
 
-    pub fn operator_norm(c: &Vec<i8>) -> f64 {
+    pub fn operator_norm(c: &[i8]) -> f64 {
         let c_mat = Self::challenge_to_matrix(c);
         let eig = (c_mat.transpose() * c_mat)
             .symmetric_eigenvalues()
             .iter()
             .map(|e| e.abs())
-            .into_iter()
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .unwrap();
         eig.sqrt()

@@ -35,8 +35,8 @@ impl<T: Scalar> Matrix<T> {
 
     pub fn from_rows(rows: &[RowVector<T>]) -> Self {
         Self::Inner::from_rows(
-            rows.to_owned()
-                .into_iter()
+            rows.iter()
+                .cloned()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()
                 .as_slice(),
@@ -47,8 +47,8 @@ impl<T: Scalar> Matrix<T> {
     pub fn from_columns(columns: &[Vector<T>]) -> Self {
         Self::Inner::from_columns(
             columns
-                .to_owned()
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()
                 .as_slice(),
@@ -91,7 +91,7 @@ impl<T: Scalar + UniformRand> Matrix<T> {
     {
         let data = (0..m * n)
             .into_par_iter()
-            .map_init(|| rand::thread_rng(), |mut rng, _| T::rand(&mut rng))
+            .map_init(rand::thread_rng, |mut rng, _| T::rand(&mut rng))
             .collect();
         Self::from_vec(m, n, data)
     }

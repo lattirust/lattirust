@@ -213,15 +213,15 @@ impl From<SignedRepresentative> for Z2_64 {
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
-impl Into<SignedRepresentative> for Z2_64 {
-    fn into(self) -> SignedRepresentative {
-        SignedRepresentative(self.0 .0 as i128)
+impl From<Z2_64> for SignedRepresentative {
+    fn from(value: Z2_64) -> Self {
+        SignedRepresentative(value.0 .0 as i128)
     }
 }
 
-impl Into<UnsignedRepresentative> for Z2_64 {
-    fn into(self) -> UnsignedRepresentative {
-        unimplemented!()
+impl From<Z2_64> for UnsignedRepresentative {
+    fn from(val: Z2_64) -> Self {
+        unimplemented!("{}", val) // Not sure if this should really be used anywhere
     }
 }
 

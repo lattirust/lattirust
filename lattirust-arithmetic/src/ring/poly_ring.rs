@@ -52,7 +52,7 @@ impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        Self::from_random_bytes(&mut bytes.as_ref())
+        Self::from_random_bytes(bytes)
     }
 }
 
@@ -65,6 +65,6 @@ impl<F: ConvertibleRing> WithL2Norm for F {
 
 impl<F: ConvertibleRing> WithLinfNorm for F {
     fn linf_norm(&self) -> u128 {
-        Into::<SignedRepresentative>::into(*self).0.abs() as u128
+        Into::<SignedRepresentative>::into(*self).0.unsigned_abs()
     }
 }

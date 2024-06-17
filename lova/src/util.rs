@@ -330,7 +330,7 @@ impl<F: ConvertibleRing> Instance<F> {
     pub fn new(pp: &PublicParameters<F>, w: &Witness<F>) -> Instance<F> {
         Instance {
             commitment: &pp.commitment_mat * w,
-            inner_products: inner_products_mat(&to_integers(&w)),
+            inner_products: inner_products_mat(&to_integers(w)),
         }
     }
 }

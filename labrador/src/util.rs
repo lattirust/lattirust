@@ -40,20 +40,20 @@ pub fn split<T: Ring>(v: &Vector<T>, m: usize) -> Vec<Vector<T>> {
     res
 }
 
-pub fn flatten_vec_vector<R: Ring>(v: &Vec<Vector<R>>) -> Vector<R> {
+pub fn flatten_vec_vector<R: Ring>(v: &[Vector<R>]) -> Vector<R> {
     let mut res = Vec::<R>::with_capacity(v.len() * v[0].len());
-    for i in 0..v.len() {
-        res.extend(v[i].as_slice());
+    for v_i in v {
+        res.extend(v_i.as_slice());
     }
     Vector::<R>::from_vec(res)
 }
 
 pub fn flatten_symmetric_matrix<R: Ring>(v: &SymmetricMatrix<R>) -> Vector<R> {
-    Vector::<R>::from_vec(v.rows().into_iter().cloned().flatten().collect())
+    Vector::<R>::from_vec(v.rows().into_iter().flatten().cloned().collect())
 }
 
 pub fn concat<R: Clone + Scalar>(vecs: &[&[R]]) -> Vector<R> {
-    let mut vals = Vec::<R>::with_capacity(vecs.into_iter().map(|v| v.len()).sum());
+    let mut vals = Vec::<R>::with_capacity(vecs.iter().map(|v| v.len()).sum());
     for v in vecs {
         vals.extend_from_slice(v);
     }
@@ -75,7 +75,7 @@ pub fn mul_basescalar_vector<R: PolyRing>(s: R::BaseRing, A: &Vector<R>) -> Vect
 }
 
 /// Compute $\sum_{i,j \in \[r\]} A_ij c_i  c_j$
-pub fn linear_combination_symmetric_matrix<R: Ring>(A: &SymmetricMatrix<R>, c: &Vec<R>) -> R {
+pub fn linear_combination_symmetric_matrix<R: Ring>(A: &SymmetricMatrix<R>, c: &[R]) -> R {
     let n = A.size();
     debug_assert_eq!(c.len(), n);
     let mut lc = R::zero();
@@ -100,7 +100,7 @@ pub fn lift<R: PolyRing>(vec: &Vector<Z2>) -> Vector<R> {
     let coeffs = vec
         .as_slice()
         .chunks(d)
-        .map(|chunk| R::from(chunk.to_vec().into_iter().map(embed).collect::<Vec<_>>()))
+        .map(|chunk| R::from(chunk.iter().copied().map(embed).collect::<Vec<_>>()))
         .collect();
     Vector::<R>::from_vec(coeffs)
 }

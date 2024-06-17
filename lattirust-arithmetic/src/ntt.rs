@@ -47,7 +47,7 @@ const fn const_inv_mod<const Q: u64>(x: u64) -> u64 {
         panic!("could not find inverse");
     }
     if t < 0 {
-        t = t + (Q as i64);
+        t += Q as i64;
     }
     t as u64
 }
@@ -126,7 +126,7 @@ pub trait NTT<const Q: u64, const N: usize> {
         let mut j2: usize;
         let mut s: Zq<Q>;
         while m < N {
-            t = t / 2;
+            t /= 2;
             for i in 0..m {
                 j1 = 2 * i * t;
                 j2 = j1 + t - 1;
@@ -169,8 +169,8 @@ pub trait NTT<const Q: u64, const N: usize> {
             m /= 2;
         }
         let n_inv = Zq::<Q>::from(N as u128).inverse().unwrap();
-        for i in 0..N {
-            a[i] *= n_inv;
+        for a_i in a.iter_mut() {
+            *a_i *= n_inv;
         }
     }
 

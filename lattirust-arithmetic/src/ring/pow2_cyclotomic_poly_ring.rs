@@ -352,7 +352,7 @@ impl<'a, BaseRing: ConvertibleRing, const N: usize> AddAssign<&'a mut Self>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0.add_assign(rhs.0).into()
+        self.0.add_assign(rhs.0)
     }
 }
 
@@ -360,7 +360,7 @@ impl<'a, BaseRing: ConvertibleRing, const N: usize> SubAssign<&'a mut Self>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0.sub_assign(rhs.0).into()
+        self.0.sub_assign(rhs.0)
     }
 }
 
@@ -402,7 +402,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> Mul<BaseRing>
 impl<BaseRing: ConvertibleRing, const N: usize> PolyRing for Pow2CyclotomicPolyRing<BaseRing, N> {
     type BaseRing = BaseRing;
     fn coeffs(&self) -> Vec<Self::BaseRing> {
-        self.0.into_iter().map(|v_i| *v_i).collect()
+        self.0.into_iter().copied().collect()
     }
     fn dimension() -> usize {
         N

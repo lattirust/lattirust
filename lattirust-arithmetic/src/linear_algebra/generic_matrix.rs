@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -25,7 +26,7 @@ impl<T> ClosedSub for T where T: nalgebra::ClosedSub {}
 pub trait ClosedMul: nalgebra::ClosedMul {}
 impl<T> ClosedMul for T where T: nalgebra::ClosedMul {}
 
-#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut, Hash)]
+#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut)]
 pub struct GenericMatrix<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>>(
     pub(crate) nalgebra::Matrix<T, R, C, S>,
 );
@@ -103,7 +104,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 
     pub fn transpose(&self) -> GenericMatrix<T, C, R, Owned<T, C, R>>
     where
-        DefaultAllocator: nalgebra::allocator::Allocator<T, C, R>,
+        DefaultAllocator: Allocator<T, C, R>,
     {
         self.0.transpose().into()
     }
@@ -111,15 +112,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
     pub type RowViewStorage<'b> = ViewStorage<'b, T, Const<1>, C, S::RStride, S::CStride>;
-    pub fn row_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a {
+    pub fn row_iter(
+        &self,
+    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> {
         self.0.row_iter().map(|r| r.into())
     }
 
-    pub fn par_row_iter<'a>(
-        &'a self,
-    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a
+    pub fn par_row_iter(
+        &self,
+    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>>
     where
         T: Send + Sync,
     {
@@ -128,15 +129,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 
     pub type ColumnViewStorage<'b> = ViewStorage<'b, T, R, Const<1>, S::RStride, S::CStride>;
-    pub fn column_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a {
+    pub fn column_iter(
+        &self,
+    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> {
         self.0.column_iter().map(|c| c.into())
     }
 
-    pub fn par_column_iter<'a>(
-        &'a self,
-    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a
+    pub fn par_column_iter(
+        &self,
+    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>>
     where
         T: Send + Sync,
         S: Sync,
@@ -153,7 +154,6 @@ impl<T: Scalar + ClosedAdd + ClosedMul + Zero, R: Dim, C: Dim, S: RawStorage<T, 
         rhs: &GenericMatrix<T, R2, C2, S2>,
     ) -> T
     where
-        S2: RawStorage<T, R2, C2>,
         ShapeConstraint: DimEq<R, R2> + DimEq<C, C2>,
     {
         self.0.dot(&rhs.0)
@@ -188,6 +188,15 @@ where
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Eq for GenericMatrix<T, R, C, S> where
     nalgebra::Matrix<T, R, C, S>: Eq
 {
+}
+
+impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Hash for GenericMatrix<T, R, C, S>
+where
+    nalgebra::Matrix<T, R, C, S>: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
 }
 
 /// Implement unary operation `GenericMatrix<T>` -> `GenericMatrix<TO>`
