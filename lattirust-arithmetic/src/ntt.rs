@@ -1,7 +1,7 @@
-use std::ops::Rem;
 use ark_ff::Field;
 use num_bigint::BigUint;
 use num_traits::One;
+use std::ops::Rem;
 
 use crate::ring::{const_fq_from, Zq};
 use crate::traits::Modulus;
@@ -55,7 +55,10 @@ const fn const_inv_mod<const Q: u64>(x: u64) -> u64 {
 //noinspection RsAssertEqual
 const fn primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
     assert!(N.is_power_of_two());
-    assert!(Q % (2 * N as u64) == 1, "Q is not NTT-friendly, i.e., not equal to 1 mod 2N");
+    assert!(
+        Q % (2 * N as u64) == 1,
+        "Q is not NTT-friendly, i.e., not equal to 1 mod 2N"
+    );
     let exp = (Q - 1) / N as u64;
     let n_half = N as u64 / 2;
     // Ideally, this would be a randomized algorithm, randomness in const functions is hard, so we iterate through all integers mod Q instead.
@@ -74,7 +77,10 @@ const fn primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
 //noinspection RsAssertEqual
 const fn root_of_unity_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Zq<Q>; N] {
     assert!(N.is_power_of_two());
-    assert!(Q % (2 * N as u64) == 1, "Q is not NTT-friendly, i.e., not equal to 1 mod 2N");
+    assert!(
+        Q % (2 * N as u64) == 1,
+        "Q is not NTT-friendly, i.e., not equal to 1 mod 2N"
+    );
     let log_n = N.ilog2();
     let mut pows = [Zq::<Q>::ZERO; N];
     let mut i = 0;
@@ -89,7 +95,10 @@ const fn root_of_unity_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64)
 //noinspection RsAssertEqual
 const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Zq<Q>; N] {
     assert!(N.is_power_of_two());
-    assert!(Q % (2 * N as u64) == 1, "Q is not NTT-friendly, i.e., not equal to 1 mod 2N");
+    assert!(
+        Q % (2 * N as u64) == 1,
+        "Q is not NTT-friendly, i.e., not equal to 1 mod 2N"
+    );
     let log_n = N.ilog2();
     let mut pows = [Zq::<Q>::ZERO; N];
     let mut i = 0;
@@ -105,11 +114,12 @@ const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: 
 pub trait NTT<const Q: u64, const N: usize> {
     const ROOT_OF_UNITY: u64 = primitive_root_of_unity::<Q, N>();
     const POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
-    const NEG_POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_neg_pows_bit_reversed(Self::ROOT_OF_UNITY);
+    const NEG_POWS_ROOT_OF_UNITY: [Zq<Q>; N] =
+        root_of_unity_neg_pows_bit_reversed(Self::ROOT_OF_UNITY);
 
     fn ntt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2 * N)).is_one());
         let mut t = N;
         let mut m = 1;
         let mut j1: usize;
@@ -134,7 +144,7 @@ pub trait NTT<const Q: u64, const N: usize> {
 
     fn intt(a: &mut [Zq<Q>; N]) {
         assert!(N.is_power_of_two());
-        assert!(Zq::<Q>::modulus().rem(BigUint::from(2*N)).is_one());
+        assert!(Zq::<Q>::modulus().rem(BigUint::from(2 * N)).is_one());
         let mut t = 1;
         let mut m = N;
         let mut j1: usize;
@@ -183,7 +193,9 @@ mod tests {
     struct NttStruct {}
 
     impl NTT<Q, N> for NttStruct {
-        fn ntt_coeffs(&self) -> Vec<Zq<Q>> { unimplemented!() }
+        fn ntt_coeffs(&self) -> Vec<Zq<Q>> {
+            unimplemented!()
+        }
     }
 
     #[test]
@@ -199,7 +211,14 @@ mod tests {
         let psi = Zq::<Q>::from(primitive_root_of_unity::<Q, N>());
         assert_eq!(psi.pow([N as u64]), Zq::<Q>::one());
         for i in 1..N {
-            assert_ne!(psi.pow([i as u64]), Zq::<Q>::one(), "psi^i = {}^{} = {} should not be 1", psi, i, psi.pow([i as u64]));
+            assert_ne!(
+                psi.pow([i as u64]),
+                Zq::<Q>::one(),
+                "psi^i = {}^{} = {} should not be 1",
+                psi,
+                i,
+                psi.pow([i as u64])
+            );
         }
     }
 

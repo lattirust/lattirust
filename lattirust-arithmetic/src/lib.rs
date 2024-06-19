@@ -8,9 +8,10 @@ extern crate core;
 
 pub mod balanced_decomposition;
 pub mod challenge_set;
+pub mod linear_algebra;
 pub mod nimue;
 pub mod ntt;
+pub mod partial_ntt;
 pub mod ring;
 pub mod serde;
 pub mod traits;
-pub mod linear_algebra;

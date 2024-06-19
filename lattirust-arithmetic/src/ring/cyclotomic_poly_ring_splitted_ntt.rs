@@ -1,6 +1,6 @@
 use num_bigint::BigUint;
 
-use crate::{linear_algebra::SVector, traits::Modulus};
+use crate::{linear_algebra::SVector, partial_ntt::PartialNTT, traits::Modulus};
 
 use super::Zq;
 
@@ -24,11 +24,18 @@ use super::Zq;
 /// where the operations over each R_j are element-wise
 /// let `D` = m/z so we have phi(z) R_j components each with D components
 /// also phi(z) = N/D
-pub struct CyclotomicPolyRingSplittedNTT<const Q: u64, const N: usize, const D: usize>(
-    SVector<Zq<Q>, N>,
-);
+pub struct CyclotomicPolyRingSplittedNTT<
+    const Q: u64,
+    const N: usize,
+    const D: usize,
+    const Z: usize,
+    const PHI_Z: usize,
+>(SVector<Zq<Q>, N>);
 
-impl<const Q: u64, const N: usize, const D: usize> CyclotomicPolyRingSplittedNTT<Q, N, D> {
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize>
+    CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    #[allow(dead_code)]
     pub(crate) type Inner = SVector<Zq<Q>, N>;
 
     /// Constructs a polynomial from an array of coefficients in NTT form.
@@ -42,14 +49,20 @@ impl<const Q: u64, const N: usize, const D: usize> CyclotomicPolyRingSplittedNTT
         F: FnMut(usize) -> Zq<Q>,
     {
         let mut coeffs = core::array::from_fn(f);
-        // Do NTT here or in the function?
+        Self::ntt(&mut coeffs);
         Self::from_array(coeffs)
     }
 }
 
 // TODO: impl SplittedNTT
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize>
+    PartialNTT<Q, N, D, Z, PHI_Z> for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+}
 
-impl<const Q: u64, const N: usize, const D: usize> Modulus for CyclotomicPolyRingSplittedNTT<Q, N, D> {
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Modulus
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
     fn modulus() -> BigUint {
         Zq::<Q>::modulus()
     }

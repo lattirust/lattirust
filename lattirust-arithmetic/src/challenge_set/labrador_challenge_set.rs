@@ -1,9 +1,9 @@
 use bitter::BitReader;
 
 use crate::linear_algebra::Matrix;
-use crate::ring::PolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::ring::PolyRing;
 use crate::ring::Zq;
 use crate::traits::FromRandomBytes;
 
@@ -219,8 +219,8 @@ mod tests {
     use crate::linear_algebra::Matrix;
     use crate::linear_algebra::Vector;
     use crate::ntt::ntt_modulus;
-    use crate::ring::PolyRing;
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::ring::PolyRing;
     use crate::ring::Zq;
     use crate::traits::{FromRandomBytes, WithL2Norm};
 

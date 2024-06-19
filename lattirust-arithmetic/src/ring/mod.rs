@@ -22,10 +22,10 @@ pub use z_q::{const_fq_from, Zq};
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus};
 
+pub(crate) mod cyclotomic_poly_ring_splitted_ntt;
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
-pub(crate) mod cyclotomic_poly_ring_splitted_ntt;
 mod representatives;
 mod z_2_128;
 mod z_2_64;
