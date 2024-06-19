@@ -667,6 +667,52 @@ dependencies = [
 ]
 
 [[package]]
+name = "hax"
+version = "0.1.0"
+dependencies = [
+ "ark-std",
+ "hax-lib",
+ "num-traits",
+ "rayon",
+ "ring",
+ "rounded-div",
+]
+
+[[package]]
+name = "hax-lib"
+version = "0.1.0-pre.1"
+source = "git+https://github.com/hacspec/hax#6a3081c8234e5a4468704c1dc50c1bdcd4b49f96"
+dependencies = [
+ "hax-lib-macros",
+ "num-bigint",
+ "num-traits",
+]
+
+[[package]]
+name = "hax-lib-macros"
+version = "0.1.0-pre.1"
+source = "git+https://github.com/hacspec/hax#6a3081c8234e5a4468704c1dc50c1bdcd4b49f96"
+dependencies = [
+ "hax-lib-macros-types",
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.59",
+]
+
+[[package]]
+name = "hax-lib-macros-types"
+version = "0.1.0-pre.1"
+source = "git+https://github.com/hacspec/hax#6a3081c8234e5a4468704c1dc50c1bdcd4b49f96"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "heck"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1048,9 +1094,9 @@ dependencies = [
 
 [[package]]
 name = "num-traits"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da0df0e5185db44f69b44f26786fe401b6c293d1907744beaa7fa62b2e5a517a"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
 ]
@@ -1150,6 +1196,30 @@ checksum = "865724d4dbe39d9f3dd3b52b88d859d66bcb2d6a0acfd5ea68a65fb66d4bdc1c"
 dependencies = [
  "env_logger 0.10.2",
  "log",
+]
+
+[[package]]
+name = "proc-macro-error"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
+dependencies = [
+ "proc-macro-error-attr",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+ "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "version_check",
 ]
 
 [[package]]
@@ -1293,6 +1363,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ring"
+version = "0.17.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c17fa4cb658e3583423e915b9f3acc01cceaee1860e33d59ebae66adc3a2dc0d"
+dependencies = [
+ "cc",
+ "cfg-if",
+ "getrandom",
+ "libc",
+ "spin",
+ "untrusted",
+ "windows-sys",
+]
+
+[[package]]
 name = "rounded-div"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1428,6 +1513,12 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+
+[[package]]
+name = "spin"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "stability"
@@ -1633,10 +1724,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68f5e5f3158ecfd4b8ff6fe086db7c8467a2dfdac97fe420f2b7c4aa97af66d6"
 
 [[package]]
+name = "untrusted"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
+
+[[package]]
 name = "utf8parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
+
+[[package]]
+name = "uuid"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a183cf7feeba97b4dd1c0d46788634f6221d87fa961b305bed08c851829efcc0"
+dependencies = [
+ "getrandom",
+]
 
 [[package]]
 name = "version_check"

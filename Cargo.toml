@@ -5,7 +5,8 @@ members = [
     "relations",
     "sumcheck",
     "labrador",
-    "lova"
+    "lova",
+    "hax"
 ]
 resolver = "2"
 

@@ -1,0 +1,12 @@
+[package]
+name = "hax"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+num-traits = "0.2.19"
+rayon = "1.10.0"
+ring = "0.17.8"
+ark-std = "0.4.0"
+rounded-div = "0.1.2"
+hax-lib = { git = "https://github.com/hacspec/hax", version = "0.1.0-pre.1" }

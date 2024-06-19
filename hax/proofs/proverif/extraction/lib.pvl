@@ -1,0 +1,228 @@
+(*****************************************)
+(* Preamble *)
+(*****************************************)
+
+channel c.
+
+fun construct_fail() : bitstring
+reduc construct_fail() = fail.
+
+type Option.
+fun Some(bitstring): Option [data].
+fun None(): Option [data].
+letfun Option_err() = let x = construct_fail() in None().
+
+const empty: bitstring.
+letfun bitstring_default() = empty.
+letfun bitstring_err() = let x = construct_fail() in bitstring_default().
+
+letfun nat_default() = 0.
+fun nat_to_bitstring(nat): bitstring.
+
+letfun bool_default() = false.
+
+
+(*****************************************)
+(* Types and Constructors *)
+(*****************************************)
+
+
+
+(*****************************************)
+(* Functions *)
+(*****************************************)
+
+letfun hax__recompose(v : bitstring, b : v_B) =
+       rayon__iter__ParallelIterator_f_sum(
+         rayon__iter__ParallelIterator_f_map(
+           rayon__iter__IndexedParallelIterator_f_enumerate(
+             rayon__iter__IntoParallelRefIterator_f_par_iter(v)
+           ),
+           |(i: nat, vv_i: v_A)|core__ops__arith__Mul_f_mul(
+             vv_i, num_traits__pow__Pow_f_pow(b, [i])
+           )
+         )
+       ).
+
+letfun hax__floor_log(x : nat, base : nat) =
+       let wildcard2: bitstring =
+         if core__ops__bit__Not__v_not(core__cmp__PartialOrd__gt(base, 1))
+         then (bitstring_err())
+         else (())
+        in
+       let wildcard1: bitstring =
+         if core__ops__bit__Not__v_not(core__cmp__PartialOrd__ge(x, 1))
+         then (bitstring_err())
+         else (())
+        in
+       let floor_log = 0 in
+       let (floor_log: nat, x: nat) =
+         rust_primitives__hax__failure(
+           "",
+           "{
+        (for _ in (core::iter::traits::collect::f_into_iter::<core::ops::range::t_RangeFrom<int>>(
+            core::ops::range::RangeFrom { f_start: 0 },
+        )) {
+            |Tuple2(floor_log, x)| {
+                (if core::cmp::PartialOrd::ge(x, base) {
+                    {
+                        let x: int = { core::ops::arith::Div::div(x, base) };
+                        {
+                            let floor_log: int = { core::ops::arith::Add::add(floor_log, 1) };
+                            Tuple2(floor_log, x)
+                        }
+                    }
+                } else {
+                    Tuple2(floor_log, x)
+                })
+            }
+        })(Tuple2(floor_log, x))
+    }"
+         )
+        in
+       floor_log.
+
+letfun hax__balanced_decomposition_max_length(b : nat, max : nat) =
+       if core__cmp__PartialEq__eq(max, 0)
+       then (0)
+       else (
+         core__ops__arith__Add__add(
+           core__ops__arith__Add__add(hax__floor_log(max, b), 1), 1
+         )
+       ).
+
+letfun hax__decompose_balanced(
+         v : nat, b : nat, padding_size : Option, length : nat
+       ) =
+       let wildcard5: bitstring =
+         if
+           core__ops__bit__Not__v_not(
+               core__ops__bit__Not__v_not(
+                 num_traits__identities__Zero_f_is_zero(b)
+               ) && core__ops__bit__Not__v_not(
+                 num_traits__identities__One_f_is_one(b)
+               )
+             )
+         then (bitstring_err())
+         else (())
+        in
+       let wildcard4: bitstring =
+         let (left_val: nat, right_val: nat) = (
+           core__ops__arith__Rem__rem(b, 2), 0
+         ) in (
+           if
+             core__ops__bit__Not__v_not(
+                 core__cmp__PartialEq__eq(left_val, right_val)
+               )
+           then
+             (let kind = core__panicking__AssertKind_AssertKind_Eq_c() in
+              bitstring_err())
+           else (())
+         )
+        in
+       let b_half_floor = core__num__impl__u128__div_euclid(b, 2) in
+       let b = b in
+       let decomp_bal_signed = alloc__vec__impl__new(()) in
+       let curr = v in
+       let (curr: nat, decomp_bal_signed: bitstring) =
+         rust_primitives__hax__failure(
+           "",
+           "{
+        (for _ in (core::iter::traits::collect::f_into_iter::<core::ops::range::t_Range<int>>(
+            core::ops::range::Range {
+                f_start: 0,
+                f_end: length,
+            },
+        )) {
+            |Tuple2(curr, decomp_bal_signed)| {
+                let rem: int = { core::ops::arith::Rem::rem(curr, b) };
+                (if core::cmp::PartialOrd::le(cast(core::num::impl__i128__abs(rem)), b_half_floor) {
+                    {
+                        let decomp_bal_signed: alloc::vec::t_Vec<int, alloc::alloc::t_Global> = {
+                            alloc::vec::impl_1__push::<int, alloc::alloc::t_Global>(
+                                decomp_bal_signed,
+                                rem,
+                            )
+                        };
+                        {
+                            let curr: int = { core::ops::arith::Div::div(curr, b) };
+                            Tuple2(curr, decomp_bal_signed)
+                        }
+                    }
+                } else {
+                    {
+                        let decomp_bal_signed: alloc::vec::t_Vec<int, alloc::alloc::t_Global> = {
+                            (if core::cmp::PartialOrd::lt(rem, 0) {
+                                {
+                                    let decomp_bal_signed: alloc::vec::t_Vec<
+                                        int,
+                                        alloc::alloc::t_Global,
+                                    > = {
+                                        alloc::vec::impl_1__push::<int, alloc::alloc::t_Global>(
+                                            decomp_bal_signed,
+                                            core::ops::arith::Add::add(rem, b),
+                                        )
+                                    };
+                                    decomp_bal_signed
+                                }
+                            } else {
+                                {
+                                    let decomp_bal_signed: alloc::vec::t_Vec<
+                                        int,
+                                        alloc::alloc::t_Global,
+                                    > = {
+                                        alloc::vec::impl_1__push::<int, alloc::alloc::t_Global>(
+                                            decomp_bal_signed,
+                                            core::ops::arith::Sub::sub(rem, b),
+                                        )
+                                    };
+                                    decomp_bal_signed
+                                }
+                            })
+                        };
+                        {
+                            let carry: int = { rounded_div::f_rounded_div::<int, int>(rem, b) };
+                            {
+                                let curr: int = {
+                                    core::ops::arith::Add::add(
+                                        core::ops::arith::Div::div(curr, b),
+                                        carry,
+                                    )
+                                };
+                                Tuple2(curr, decomp_bal_signed)
+                            }
+                        }
+                    }
+                })
+            }
+        })(Tuple2(curr, decomp_bal_signed))
+    }"
+         )
+        in
+       let decomp_bal_signed =
+         let Some(nat_to_bitstring(padding_size)) = padding_size in (
+           let wildcard3: bitstring =
+             if
+               core__ops__bit__Not__v_not(
+                   core__cmp__PartialOrd__le(
+                     alloc__vec__impl_1__len(decomp_bal_signed), padding_size
+                   )
+                 )
+             then (bitstring_err())
+             else (())
+            in
+           let decomp_bal_signed =
+             alloc__vec__impl_2__resize(decomp_bal_signed, padding_size, 0)
+            in
+           decomp_bal_signed
+         )
+         else decomp_bal_signed
+        in
+       decomp_bal_signed.
+
+(*****************************************)
+(* Processes *)
+(*****************************************)
+
+
+
