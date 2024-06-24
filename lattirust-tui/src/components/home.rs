@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -11,6 +12,7 @@ use tracing::instrument::WithSubscriber;
 use tui_logger::{TuiLoggerLevelOutput, TuiLoggerSmartWidget, TuiLoggerWidget, TuiWidgetState};
 
 use crate::{action::Action, config::Config};
+use crate::components::cpu::CPUWidget;
 
 use super::{Component, Frame};
 
@@ -26,6 +28,7 @@ pub struct Home<Instance, Witness, PublicParameters, Proof> {
     header: String,
     header_widget: Paragraph<'static>,
     header_layout: Rect,
+    perf_widget: CPUWidget,
     perf_layout: Rect,
     logs_layout: Rect,
 }
@@ -44,6 +47,7 @@ impl<Instance, Witness, PublicParameters, Proof> Default
             header: String::default(),
             header_widget: Paragraph::new(String::default()),
             header_layout: Rect::default(),
+            perf_widget: CPUWidget::default(),
             perf_layout: Rect::default(),
             logs_layout: Rect::default(),
         }
@@ -153,8 +157,7 @@ impl<Instance: 'static, Witness: 'static, Proof: 'static> Component
 
         frame.render_widget(self.header_widget.clone(), self.header_layout);
         frame.render_widget(
-            Paragraph::new(format!("htop:  {:?}", self.public_parameters))
-                .block(Block::new().borders(Borders::ALL)),
+            self.perf_widget.clone(),
             self.perf_layout,
         );
 
@@ -176,7 +179,7 @@ impl<Instance: 'static, Witness: 'static, Proof: 'static> Component
                 .block(
                     Block::new()
                         .borders(Borders::ALL)
-                        .title_top(" Logs ")
+                        .title_top("Logs")
                         .title_style(Style::default().fg(THEME_COLOR)),
                 ),
             self.logs_layout,
