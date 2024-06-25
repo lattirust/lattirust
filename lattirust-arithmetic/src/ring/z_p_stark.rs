@@ -4,6 +4,8 @@ use num_bigint::BigUint;
 use crate::ring::Ring;
 use crate::traits::Modulus;
 
+use super::{ ConvertibleRing, SignedRepresentative, UnsignedRepresentative };
+
 // pSTARK = 2^251 + 17 · 2^192 + 1
 pub struct FPStarkConfig {}
 
@@ -35,3 +37,24 @@ impl Ring for ZPStark {
     const ZERO: Self = ZPStark::new(BigInt::<4> { 0: [0, 0, 0, 0] });
     const ONE: Self = ZPStark::new(BigInt::<4> { 0: [1, 0, 0, 0] });
 }
+
+/// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
+impl From<SignedRepresentative> for ZPStark {
+    fn from(_: SignedRepresentative) -> Self {
+        unimplemented!()
+    }
+}
+
+impl Into<SignedRepresentative> for ZPStark {
+    fn into(self) -> SignedRepresentative {
+        unimplemented!()
+    }
+}
+
+impl Into<UnsignedRepresentative> for ZPStark {
+    fn into(self) -> UnsignedRepresentative {
+        unimplemented!()
+    }
+}
+
+impl ConvertibleRing for ZPStark {}
