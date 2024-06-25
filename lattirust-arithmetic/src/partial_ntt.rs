@@ -2,42 +2,47 @@
 
 use crate::ring::{Ring, Zq};
 
-const fn primitive_root_of_unity<const Q: u64, const Z: usize>() -> u64 {
+const fn primitive_root_of_unity<const Q: u64, const Z: usize>(rou: u64) -> u64 {
     // Find the root of unity such that w^z = 1
-    assert!((Q - 1) % Z as u64 == 0);
+    if Z == 0 || Q % Z as u64 != 1 {
+        panic!("Invalid input: Z must divide Q - 1");
+    }
     let resized_power = (Q - 1) / Z as u64;
-    todo!()
-}
-
-const fn root_of_unity_relative_powers<const Q: u64, const Z: usize, const PHI_Z: usize>(
-    rou: u64,
-) -> [Zq<Q>; PHI_Z] {
-    // 1. Generate set of relative primes to Z
-    // 2. raise rou to powers in the set
-    todo!()
+    rou.pow(resized_power as u32)
 }
 
 pub trait PartialNTT<
     const Q: u64,
-    const N: usize,
-    const D: usize,
-    const Z: usize,
+    const N: usize, // Euler totient function of m for an m-th cyclotomic ring
+    const D: usize, // Max degree of the ring splits
+    const Z: usize, // Such that ord_m(p) = m / z and p = 1 mod z
     const PHI_Z: usize,
 >
 {
-    const ROOT_OF_UNITY: u64 = primitive_root_of_unity::<Q, Z>();
-    const REL_POWS_ROOT_OF_UNITY: [Zq<Q>; PHI_Z] =
-        root_of_unity_relative_powers::<Q, Z, PHI_Z>(Self::ROOT_OF_UNITY);
-
-    fn ntt(a: &mut [Zq<Q>; N]) {
-        let rou = Zq::<Q>::from(Self::ROOT_OF_UNITY);
+    fn ntt(a: &mut [Zq<Q>; N], rou: Zq<Q>) {
+        // Precompute the root of unity
         // 1. Split array in chunks of size D
         let components = coprimes_set::<Z, PHI_Z>().map(|power| {
+            let mut temp = a.clone();
             let rj = rou.pow([power as u64]);
+            for i in (D..N).rev() {
+                let high_coeff = a[i];
+
+                if high_coeff != Zq::<Q>::ZERO {
+                    let target_idx = i - D;
+                    temp[target_idx] = temp[target_idx] + high_coeff * rj;
+                }
+            }
+            let mut res = [Zq::<Q>::ZERO; D];
+            res.copy_from_slice(&temp[..D]);
+            drop(temp);
+            res
         });
-        // 2. reduce polynomial for each chunk with the corresponding relative power of the root of
-        //    unity
-        todo!()
+        for (j, component) in components.iter().enumerate() {
+            for i in 0..D {
+                a[j * D + i] = component[i];
+            }
+        }
     }
 }
 
