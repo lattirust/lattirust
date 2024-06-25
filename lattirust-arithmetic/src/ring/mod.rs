@@ -30,6 +30,7 @@ mod z_2_128;
 mod z_2_64;
 mod z_q;
 mod z_p_stark;
+mod z_p_gold;
 mod poly_utils;
 
 pub trait Ring: 'static +
