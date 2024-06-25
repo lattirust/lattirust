@@ -1,7 +1,7 @@
-use ark_ff::{ BigInt, BigInteger, Field, Fp, Fp64, FpConfig, MontBackend, MontConfig, PrimeField };
-use num_bigint::{ BigUint, ToBigUint };
+use ark_ff::{ BigInt, Fp, MontBackend, MontConfig };
+use num_bigint::BigUint;
 
-use crate::ring::{ ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative };
+use crate::ring::Ring;
 use crate::traits::Modulus;
 
 // pSTARK = 2^251 + 17 · 2^192 + 1
@@ -9,7 +9,7 @@ pub struct FPStarkConfig {}
 
 impl MontConfig<4> for FPStarkConfig {
     const MODULUS: BigInt<4> = BigInt::<4> {
-        0: [0x800000000000011, 0x0000000000000000, 0x0000000000000000, 0x0000000000000001],
+        0: [0x0000000000000001, 0x0000000000000000, 0x0000000000000000, 0x800000000000011],
     };
     const GENERATOR: Fp<MontBackend<Self, 4>, 4> = Fp::new(BigInt::<4> { 0: [0, 0, 0, 2] });
     // TODO: check if this needed/makes sense
@@ -29,4 +29,9 @@ impl Modulus for ZPStark {
 // Function to create a constant element in ZPStark
 pub const fn const_zp_stark_from(val1: u64, val2: u64, val3: u64, val4: u64) -> ZPStark {
     ZPStark::new(BigInt::<4> { 0: [val1, val2, val3, val4] })
+}
+
+impl Ring for ZPStark {
+    const ZERO: Self = ZPStark::new(BigInt::<4> { 0: [0, 0, 0, 0] });
+    const ONE: Self = ZPStark::new(BigInt::<4> { 0: [1, 0, 0, 0] });
 }
