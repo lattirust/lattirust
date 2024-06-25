@@ -18,7 +18,8 @@ pub use representatives::{ SignedRepresentative, UnsignedRepresentative };
 pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::{ const_fq_from, Zq };
-pub use z_p_stark::*;
+pub use z_p_stark::ZPStark;
+pub use z_p_gold::ZPGold;
 
 use crate::nimue::serialization::{ FromBytes, ToBytes };
 use crate::traits::{ FromRandomBytes, Modulus };
