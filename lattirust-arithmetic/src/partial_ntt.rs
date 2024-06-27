@@ -35,7 +35,7 @@ pub trait PartialNTT<
             }
             let mut res = [Zq::<Q>::ZERO; D];
             res.copy_from_slice(&temp[..D]);
-            drop(temp);
+            let _ = temp;
             res
         });
         for (j, component) in components.iter().enumerate() {

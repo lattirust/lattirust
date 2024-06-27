@@ -1,3 +1,5 @@
+use std::ops::{Add, Mul};
+
 use num_bigint::BigUint;
 
 use crate::{linear_algebra::SVector, partial_ntt::PartialNTT, traits::Modulus};
@@ -44,12 +46,12 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
         Self(Self::Inner::const_from_array(coeffs_ntt))
     }
 
-    pub fn from_fn<F>(f: F) -> Self
+    pub fn from_fn<F>(f: F, rou: Zq<Q>) -> Self
     where
         F: FnMut(usize) -> Zq<Q>,
     {
         let mut coeffs = core::array::from_fn(f);
-        Self::ntt(&mut coeffs);
+        Self::ntt(&mut coeffs, rou);
         Self::from_array(coeffs)
     }
 }
@@ -70,4 +72,39 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
 
 const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
     SVector::<Zq<Q>, N>::const_from_array([elem; N])
+}
+
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Add
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        let mut res = [Zq::<Q>::from(0); N];
+        for i in 0..N {
+            res[i] = self.0[i] + rhs.0[i];
+        }
+        Self::from_array(res)
+    }
+}
+
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Mul
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self::Output {
+        let res = self
+            .0
+            .iter()
+            .zip(rhs.0.iter())
+            .collect::<Vec<_>>()
+            .chunks_exact(D)
+            .map(|array| todo!())
+            .collect::<Vec<[Zq<Q>; D]>>()
+            .concat();
+        let mut temp = [Zq::<Q>::from(0); N];
+        for i in 0..temp.len() {
+            temp[i] = res[i];
+        }
+        Self::from_array(temp)
+    }
 }
