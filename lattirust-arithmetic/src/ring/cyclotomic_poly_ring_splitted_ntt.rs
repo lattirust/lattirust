@@ -92,18 +92,29 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
 {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
-        let res = self
-            .0
-            .iter()
-            .zip(rhs.0.iter())
-            .collect::<Vec<_>>()
-            .chunks_exact(D)
-            .map(|array| todo!())
-            .collect::<Vec<[Zq<Q>; D]>>()
-            .concat();
+        let binding_lhs = self.0.iter().collect::<Vec<_>>();
+        let concat_lhs = binding_lhs.chunks_exact(D);
+        let binding_rhs = self.0.iter().collect::<Vec<_>>();
+        let concat_rhs = binding_rhs.chunks_exact(D);
         let mut temp = [Zq::<Q>::from(0); N];
-        for i in 0..temp.len() {
-            temp[i] = res[i];
+        for (k, (lhs, rhs)) in concat_lhs.zip(concat_rhs).enumerate() {
+            // This is the multiplication of factors that doesn't need to be reduced
+            for mu in 0..D {
+                for nu in 0..D - mu {
+                    temp[k * D + mu + nu] = lhs[mu] * rhs[nu];
+                }
+            }
+
+            // This takes into account the reduction for each component
+            // note that we need to multiply by the correct r_j such that
+            // ord(r_j) = z
+            // How to include this into Mul?
+            let rj = Zq::<Q>::from(1); // Placeholder
+            for mu in 1..D {
+                for nu in D - mu..D {
+                    temp[k * D + mu + nu - D] = lhs[mu] * rhs[nu] * rj;
+                }
+            }
         }
         Self::from_array(temp)
     }
