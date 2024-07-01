@@ -1,26 +1,27 @@
 #![allow(non_snake_case)]
 
-use std::fmt::{Debug, Display};
+use std::fmt::{ Debug, Display };
 use std::hash::Hash;
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::iter::{ Product, Sum };
+use std::ops::{ Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign };
 
-use ark_ff::{BitIteratorBE, BitIteratorLE};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_ff::{ BitIteratorBE, BitIteratorLE };
+use ark_serialize::{ CanonicalDeserialize, CanonicalSerialize };
 use ark_std::UniformRand;
-use num_traits::{One, Zero};
+use num_traits::{ One, Zero };
 
 // Exports
-pub use poly_ring::{ConvertibleRing, PolyRing};
+pub use poly_ring::{ ConvertibleRing, PolyRing };
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-pub use representatives::{SignedRepresentative, UnsignedRepresentative};
+pub use representatives::{ SignedRepresentative, UnsignedRepresentative };
 pub use z_2_128::*;
 pub use z_2_64::*;
-pub use z_q::{const_fq_from, Zq};
+pub use z_q::{ const_fq_from, Zq };
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 
-use crate::nimue::serialization::{FromBytes, ToBytes};
-use crate::traits::{FromRandomBytes, Modulus};
+use crate::nimue::serialization::{ FromBytes, ToBytes };
+use crate::traits::{ FromRandomBytes, Modulus };
 
 pub(crate) mod cyclotomic_poly_ring_splitted_ntt;
 mod poly_ring;
@@ -31,64 +32,63 @@ mod z_2_128;
 mod z_2_64;
 mod z_q;
 
-pub trait Ring:
-'static
-+ Copy
-+ Clone
-+ Debug
-+ Display
-+ Default
-+ Send
-+ Sync
-+ Eq
-+ Zero
-+ One
-// + Ord
-+ Neg<Output=Self>
-+ UniformRand
-//+ Zeroize
-+ Sized
-+ Hash
-+ CanonicalSerialize
-// + CanonicalSerializeWithFlags
-+ CanonicalDeserialize
-// + CanonicalDeserializeWithFlags
-+ Add<Self, Output=Self>
-+ Sub<Self, Output=Self>
-+ Mul<Self, Output=Self>
-+ AddAssign<Self>
-+ SubAssign<Self>
-+ MulAssign<Self>
-+ for<'a> Add<&'a Self, Output=Self>
-+ for<'a> Sub<&'a Self, Output=Self>
-+ for<'a> Mul<&'a Self, Output=Self>
-+ for<'a> AddAssign<&'a Self>
-+ for<'a> SubAssign<&'a Self>
-+ for<'a> MulAssign<&'a Self>
-+ for<'a> Add<&'a mut Self, Output=Self>
-+ for<'a> Sub<&'a mut Self, Output=Self>
-+ for<'a> Mul<&'a mut Self, Output=Self>
-+ for<'a> AddAssign<&'a mut Self>
-+ for<'a> SubAssign<&'a mut Self>
-+ for<'a> MulAssign<&'a mut Self>
-+ Sum<Self>
-+ for<'a> Sum<&'a Self>
-+ Product<Self>
-+ for<'a> Product<&'a Self>
-+ Sum<Self>
-+ From<u128>
-+ From<u64>
-+ From<u32>
-+ From<u16>
-+ From<u8>
-+ From<bool>
-// Differs from arkworks
-+ FromRandomBytes<Self>
-+ FromBytes
-+ ToBytes
-+ Modulus
-+ CanonicalSerialize
-+ CanonicalDeserialize
+pub trait Ring: 'static +
+    Copy +
+    Clone +
+    Debug +
+    Display +
+    Default +
+    Send +
+    Sync +
+    Eq +
+    Zero +
+    One +
+    // + Ord
+    Neg<Output = Self> +
+    UniformRand +
+    //+ Zeroize
+    Sized +
+    Hash +
+    CanonicalSerialize +
+    // + CanonicalSerializeWithFlags
+    CanonicalDeserialize +
+    // + CanonicalDeserializeWithFlags
+    Add<Self, Output = Self> +
+    Sub<Self, Output = Self> +
+    Mul<Self, Output = Self> +
+    AddAssign<Self> +
+    SubAssign<Self> +
+    MulAssign<Self> +
+    for<'a> Add<&'a Self, Output = Self> +
+    for<'a> Sub<&'a Self, Output = Self> +
+    for<'a> Mul<&'a Self, Output = Self> +
+    for<'a> AddAssign<&'a Self> +
+    for<'a> SubAssign<&'a Self> +
+    for<'a> MulAssign<&'a Self> +
+    for<'a> Add<&'a mut Self, Output = Self> +
+    for<'a> Sub<&'a mut Self, Output = Self> +
+    for<'a> Mul<&'a mut Self, Output = Self> +
+    for<'a> AddAssign<&'a mut Self> +
+    for<'a> SubAssign<&'a mut Self> +
+    for<'a> MulAssign<&'a mut Self> +
+    Sum<Self> +
+    for<'a> Sum<&'a Self> +
+    Product<Self> +
+    for<'a> Product<&'a Self> +
+    Sum<Self> +
+    From<u128> +
+    From<u64> +
+    From<u32> +
+    From<u16> +
+    From<u8> +
+    From<bool> +
+    // Differs from arkworks
+    FromRandomBytes<Self> +
+    FromBytes +
+    ToBytes +
+    Modulus +
+    CanonicalSerialize +
+    CanonicalDeserialize
 {
     /// The additive identity of the ring.
     const ZERO: Self;
@@ -125,7 +125,6 @@ pub trait Ring:
         }
         res
     }
-
 
     /// Exponentiates a field element `f` by a number represented with `u64`
     /// limbs, using a precomputed table containing as many powers of 2 of
