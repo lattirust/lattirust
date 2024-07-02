@@ -4,7 +4,7 @@ use num_bigint::BigUint;
 
 use crate::{linear_algebra::SVector, partial_ntt::PartialNTT, traits::Modulus};
 
-use super::Zq;
+use super::{Zq, Ring};
 
 /// For an m-th cyclotomic ring its minimal polynomail has the form
 /// `Phi_m = Prod_{j=1}^phi(m)(x - r_j)`
@@ -54,6 +54,31 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
         Self::ntt(&mut coeffs, rou);
         Self::from_array(coeffs)
     }
+
+    pub fn ntt_mul(&self, rhs: &Self, rou: Zq<Q>) -> Self {
+        let binding_lhs = self.0.iter().collect::<Vec<_>>();
+        let concat_lhs = binding_lhs.chunks_exact(D);
+        let binding_rhs = rhs.0.iter().collect::<Vec<_>>();
+        let concat_rhs = binding_rhs.chunks_exact(D);
+        let mut temp = [Zq::<Q>::from(0); N];
+        let components = coprimes_set::<Z, PHI_Z>();
+        for (k, (lhs, rhs)) in concat_lhs.zip(concat_rhs).enumerate() {
+            // This is the multiplication of factors that doesn't need to be reduced
+            for mu in 0..D {
+                for nu in 0..D - mu {
+                    temp[k * D + mu + nu] = lhs[mu] * rhs[nu];
+                }
+            }
+            let rj_power = components[k] as u64;
+            let rj = rou.pow([rj_power]);
+            for mu in 1..D {
+                for nu in D - mu..D {
+                    temp[k * D + mu + nu - D] = lhs[mu] * rhs[nu] * rj;
+                }
+            }
+        }
+        Self::from_array(temp)
+    }
 }
 
 // TODO: impl SplittedNTT
@@ -87,35 +112,27 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
     }
 }
 
-impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Mul
-    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
-{
-    type Output = Self;
-    fn mul(self, rhs: Self) -> Self::Output {
-        let binding_lhs = self.0.iter().collect::<Vec<_>>();
-        let concat_lhs = binding_lhs.chunks_exact(D);
-        let binding_rhs = self.0.iter().collect::<Vec<_>>();
-        let concat_rhs = binding_rhs.chunks_exact(D);
-        let mut temp = [Zq::<Q>::from(0); N];
-        for (k, (lhs, rhs)) in concat_lhs.zip(concat_rhs).enumerate() {
-            // This is the multiplication of factors that doesn't need to be reduced
-            for mu in 0..D {
-                for nu in 0..D - mu {
-                    temp[k * D + mu + nu] = lhs[mu] * rhs[nu];
-                }
-            }
-
-            // This takes into account the reduction for each component
-            // note that we need to multiply by the correct r_j such that
-            // ord(r_j) = z
-            // How to include this into Mul?
-            let rj = Zq::<Q>::from(1); // Placeholder
-            for mu in 1..D {
-                for nu in D - mu..D {
-                    temp[k * D + mu + nu - D] = lhs[mu] * rhs[nu] * rj;
-                }
-            }
+const fn coprimes_set<const Z: usize, const PHI_Z: usize>() -> [usize; PHI_Z] {
+    let mut i = 0;
+    let mut j = 0;
+    let mut set = [0; PHI_Z];
+    while i < Z {
+        if gcd::<Z>(i) {
+            set[j] = i;
+            j += 1;
         }
-        Self::from_array(temp)
+        i += 1;
     }
+    set
+}
+
+const fn gcd<const Z: usize>(i: usize) -> bool {
+    let mut a = i;
+    let mut b = Z;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp
+    }
+    a == 1
 }
