@@ -463,13 +463,17 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithRot
     fn rot(&self) -> Matrix<BaseRing> {
         let degree = Self::dimension();
         let coeffs = self.coeffs();
-        let mut vec_xi_initial = Self::multiply_by_xi(&coeffs, 0);
+        let mut columns = Vec::with_capacity(degree);
 
-        for i in 1..degree {
-            let vec_xi_a = Self::multiply_by_xi(&coeffs, i);
-            vec_xi_initial = vec_xi_initial.into_iter().chain(vec_xi_a.into_iter()).collect();
+        for i in 0..degree {
+            let vec_xi_a = if i == 0 {
+                coeffs.clone()
+            } else {
+                Self::multiply_by_xi(&coeffs, i)
+            };
+            columns.push(vec_xi_a);
         }
 
-        Matrix::from_vec(degree, degree, vec_xi_initial)
+        Matrix::from_columns(&columns)
     }
 }
