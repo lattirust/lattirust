@@ -165,6 +165,7 @@ mod tests {
         assert!(Q % Z as u64 == 1);
         let resize_power = Q - 1 / Z as u64;
         let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
+        let rou3 = rou.pow([3]);
         let poly1 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
             |i| Zq::<Q>::from(i as u64),
             rou,
@@ -176,8 +177,7 @@ mod tests {
             println!("poly[{}] = {} + {}*r = {}", i, i, i + 8, red_poly[i]);
         }
         for i in 0..N / 2 {
-            red_poly[N / 2 + i] =
-                Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou.pow([3 as u64]);
+            red_poly[N / 2 + i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou3;
             println!(
                 "poly[{}] = {} + {}*r^3 = {}",
                 i + N / 2,
@@ -200,38 +200,69 @@ mod tests {
         let final_poly = poly1.ntt_mul(&poly2, rou);
 
         let mut res_coeffs = [Zq::<Q>::from(0); N];
-        res_coeffs[0] = Zq::<Q>::from(56) * rou.pow([2]) + Zq::<Q>::from(120) * rou;
-        res_coeffs[1] =
-            Zq::<Q>::from(111) * rou.pow([2]) + Zq::<Q>::from(254) * rou + Zq::<Q>::from(15);
-        res_coeffs[2] =
-            Zq::<Q>::from(164) * rou.pow([2]) + Zq::<Q>::from(400) * rou + Zq::<Q>::from(44);
-        res_coeffs[3] = Zq::<Q>::from(214) * rou.pow([2]) + Zq::<Q>::from(556) * rou + Zq::from(86);
-        res_coeffs[4] =
-            Zq::<Q>::from(260) * rou.pow([2]) + Zq::<Q>::from(720) * rou + Zq::<Q>::from(140);
-        res_coeffs[5] =
-            Zq::<Q>::from(301) * rou.pow([2]) + Zq::<Q>::from(890) * rou + Zq::<Q>::from(208);
+
+        res_coeffs[0] = Zq::<Q>::from(280) * rou.pow([3])
+            + Zq::<Q>::from(1120) * rou.pow([2])
+            + Zq::<Q>::from(456) * rou;
+        res_coeffs[1] = Zq::<Q>::from(205) * rou.pow([3])
+            + Zq::<Q>::from(1001) * rou.pow([2])
+            + Zq::<Q>::from(555) * rou
+            + Zq::<Q>::from(15);
+        res_coeffs[2] = Zq::<Q>::from(140) * rou.pow([3])
+            + Zq::<Q>::from(884) * rou.pow([2])
+            + Zq::<Q>::from(660) * rou
+            + Zq::<Q>::from(44);
+        res_coeffs[3] = Zq::<Q>::from(86) * rou.pow([3])
+            + Zq::<Q>::from(770) * rou.pow([2])
+            + Zq::<Q>::from(770) * rou
+            + Zq::<Q>::from(86);
+        res_coeffs[4] = Zq::<Q>::from(44) * rou.pow([3])
+            + Zq::<Q>::from(606) * rou.pow([2])
+            + Zq::<Q>::from(884) * rou
+            + Zq::<Q>::from(140);
+        res_coeffs[5] = Zq::<Q>::from(15) * rou.pow([3])
+            + Zq::<Q>::from(555) * rou.pow([2])
+            + Zq::<Q>::from(1001) * rou
+            + Zq::<Q>::from(208);
         res_coeffs[6] =
-            Zq::<Q>::from(336) * rou.pow([2]) + Zq::<Q>::from(1064) * rou + Zq::<Q>::from(280);
+            Zq::<Q>::from(456) * rou.pow([2]) + Zq::<Q>::from(1120) * rou + Zq::<Q>::from(280);
         res_coeffs[7] =
             Zq::<Q>::from(364) * rou.pow([2]) + Zq::<Q>::from(1080) * rou + Zq::<Q>::from(524);
-        res_coeffs[8] =
-            Zq::<Q>::from(280) * rou.pow([2]) + Zq::<Q>::from(1064) * rou + Zq::<Q>::from(336);
-        res_coeffs[9] =
-            Zq::<Q>::from(205) * rou.pow([2]) + Zq::<Q>::from(890) * rou + Zq::<Q>::from(301);
-        res_coeffs[10] =
-            Zq::<Q>::from(140) * rou.pow([2]) + Zq::<Q>::from(720) * rou + Zq::<Q>::from(260);
-        res_coeffs[11] =
-            Zq::<Q>::from(86) * rou.pow([2]) + Zq::<Q>::from(556) * rou + Zq::<Q>::from(214);
-        res_coeffs[12] =
-            Zq::<Q>::from(44) * rou.pow([2]) + Zq::<Q>::from(400) * rou + Zq::<Q>::from(164);
-        res_coeffs[13] =
-            Zq::<Q>::from(15) * rou.pow([2]) + Zq::<Q>::from(254) * rou + Zq::<Q>::from(111);
-        res_coeffs[14] = Zq::<Q>::from(120) * rou + Zq::<Q>::from(56);
 
+        res_coeffs[8] = Zq::<Q>::from(280) * rou3.pow([3])
+            + Zq::<Q>::from(1120) * rou3.pow([2])
+            + Zq::<Q>::from(456) * rou3;
+        res_coeffs[9] = Zq::<Q>::from(205) * rou3.pow([3])
+            + Zq::<Q>::from(1001) * rou3.pow([2])
+            + Zq::<Q>::from(555) * rou3
+            + Zq::<Q>::from(15);
+        res_coeffs[10] = Zq::<Q>::from(140) * rou3.pow([3])
+            + Zq::<Q>::from(884) * rou3.pow([2])
+            + Zq::<Q>::from(660) * rou3
+            + Zq::<Q>::from(44);
+        res_coeffs[11] = Zq::<Q>::from(86) * rou3.pow([3])
+            + Zq::<Q>::from(770) * rou3.pow([2])
+            + Zq::<Q>::from(770) * rou3
+            + Zq::<Q>::from(86);
+        res_coeffs[12] = Zq::<Q>::from(44) * rou3.pow([3])
+            + Zq::<Q>::from(606) * rou3.pow([2])
+            + Zq::<Q>::from(884) * rou3
+            + Zq::<Q>::from(140);
+        res_coeffs[13] = Zq::<Q>::from(15) * rou3.pow([3])
+            + Zq::<Q>::from(555) * rou3.pow([2])
+            + Zq::<Q>::from(1001) * rou3
+            + Zq::<Q>::from(208);
+        res_coeffs[14] =
+            Zq::<Q>::from(456) * rou3.pow([2]) + Zq::<Q>::from(1120) * rou3 + Zq::<Q>::from(280);
+        res_coeffs[15] =
+            Zq::<Q>::from(364) * rou3.pow([2]) + Zq::<Q>::from(1080) * rou3 + Zq::<Q>::from(524);
+
+        for i in res_coeffs.iter() {
+            println!("Coeff: {}", i);
+        }
         let res_poly =
             CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(|i| res_coeffs[i], rou);
         println!("Result poly:\n{}", res_poly);
         println!("Final poly:\n{}", final_poly);
-
     }
 }

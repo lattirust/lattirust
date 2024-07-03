@@ -1,27 +1,27 @@
 #![allow(non_snake_case)]
 
-use std::fmt::{ Debug, Display };
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::iter::{ Product, Sum };
-use std::ops::{ Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign };
+use std::iter::{Product, Sum};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{ BitIteratorBE, BitIteratorLE };
-use ark_serialize::{ CanonicalDeserialize, CanonicalSerialize };
+use ark_ff::{BitIteratorBE, BitIteratorLE};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-use num_traits::{ One, Zero };
+use num_traits::{One, Zero};
 
 // Exports
-pub use poly_ring::{ ConvertibleRing, PolyRing };
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
+pub use poly_ring::{ConvertibleRing, PolyRing};
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-pub use representatives::{ SignedRepresentative, UnsignedRepresentative };
+pub use representatives::{SignedRepresentative, UnsignedRepresentative};
 pub use z_2_128::*;
 pub use z_2_64::*;
-pub use z_q::{ const_fq_from, Zq };
-pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
+pub use z_q::{const_fq_from, Zq};
 
-use crate::nimue::serialization::{ FromBytes, ToBytes };
-use crate::traits::{ FromRandomBytes, Modulus };
+use crate::nimue::serialization::{FromBytes, ToBytes};
+use crate::traits::{FromRandomBytes, Modulus};
 
 pub(crate) mod cyclotomic_poly_ring_splitted_ntt;
 mod poly_ring;
