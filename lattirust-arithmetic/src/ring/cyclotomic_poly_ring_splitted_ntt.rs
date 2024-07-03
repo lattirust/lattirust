@@ -1,10 +1,13 @@
-use std::ops::{Add, Mul};
+use std::{
+    fmt::Display,
+    ops::{Add, Mul},
+};
 
 use num_bigint::BigUint;
 
 use crate::{linear_algebra::SVector, partial_ntt::PartialNTT, traits::Modulus};
 
-use super::{Zq, Ring};
+use super::{Ring, Zq};
 
 /// For an m-th cyclotomic ring its minimal polynomail has the form
 /// `Phi_m = Prod_{j=1}^phi(m)(x - r_j)`
@@ -26,6 +29,7 @@ use super::{Zq, Ring};
 /// where the operations over each R_j are element-wise
 /// let `D` = m/z so we have phi(z) R_j components each with D components
 /// also phi(z) = N/D
+#[derive(PartialEq, Eq, Debug)]
 pub struct CyclotomicPolyRingSplittedNTT<
     const Q: u64,
     const N: usize,
@@ -33,6 +37,14 @@ pub struct CyclotomicPolyRingSplittedNTT<
     const Z: usize,
     const PHI_Z: usize,
 >(SVector<Zq<Q>, N>);
+
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Display
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
 
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize>
     CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
@@ -135,4 +147,91 @@ const fn gcd<const Z: usize>(i: usize) -> bool {
         a = temp
     }
     a == 1
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ring::{Ring, Zq};
+
+    use super::CyclotomicPolyRingSplittedNTT;
+
+    const Q: u64 = 15 * (1 << 27) + 1;
+    const N: usize = 1 << 4;
+    const Z: usize = 1 << 2;
+    const D: usize = 1 << 5 - 2;
+    const PHI_Z: usize = 1 << 1;
+    #[test]
+    fn mul_test() {
+        assert!(Q % Z as u64 == 1);
+        let resize_power = Q - 1 / Z as u64;
+        let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
+        let poly1 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
+            |i| Zq::<Q>::from(i as u64),
+            rou,
+        );
+        println!("Poly1: \n{}", poly1);
+        let mut red_poly = [Zq::<Q>::from(0); N];
+        for i in 0..N / 2 {
+            red_poly[i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
+            println!("poly[{}] = {} + {}*r = {}", i, i, i + 8, red_poly[i]);
+        }
+        for i in 0..N / 2 {
+            red_poly[N / 2 + i] =
+                Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou.pow([3 as u64]);
+            println!(
+                "poly[{}] = {} + {}*r^3 = {}",
+                i + N / 2,
+                i,
+                i + 8,
+                red_poly[N / 2 + i]
+            );
+        }
+        let poly_reduced =
+            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(|i| red_poly[i], rou);
+        println!("Reduced Poly: \n{}", poly_reduced);
+        // assert_eq!(poly1, poly_reduced, "Reduced poly is incorrect");
+        let poly2 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
+            |i| Zq::<Q>::from((N - 1 - i) as u64),
+            rou,
+        );
+        println!("Poly 1:\n{}", poly1);
+        println!("Poly 2:\n{}", poly2);
+
+        let final_poly = poly1.ntt_mul(&poly2, rou);
+
+        let mut res_coeffs = [Zq::<Q>::from(0); N];
+        res_coeffs[0] = Zq::<Q>::from(56) * rou.pow([2]) + Zq::<Q>::from(120) * rou;
+        res_coeffs[1] =
+            Zq::<Q>::from(111) * rou.pow([2]) + Zq::<Q>::from(254) * rou + Zq::<Q>::from(15);
+        res_coeffs[2] =
+            Zq::<Q>::from(164) * rou.pow([2]) + Zq::<Q>::from(400) * rou + Zq::<Q>::from(44);
+        res_coeffs[3] = Zq::<Q>::from(214) * rou.pow([2]) + Zq::<Q>::from(556) * rou + Zq::from(86);
+        res_coeffs[4] =
+            Zq::<Q>::from(260) * rou.pow([2]) + Zq::<Q>::from(720) * rou + Zq::<Q>::from(140);
+        res_coeffs[5] =
+            Zq::<Q>::from(301) * rou.pow([2]) + Zq::<Q>::from(890) * rou + Zq::<Q>::from(208);
+        res_coeffs[6] =
+            Zq::<Q>::from(336) * rou.pow([2]) + Zq::<Q>::from(1064) * rou + Zq::<Q>::from(280);
+        res_coeffs[7] =
+            Zq::<Q>::from(364) * rou.pow([2]) + Zq::<Q>::from(1080) * rou + Zq::<Q>::from(524);
+        res_coeffs[8] =
+            Zq::<Q>::from(280) * rou.pow([2]) + Zq::<Q>::from(1064) * rou + Zq::<Q>::from(336);
+        res_coeffs[9] =
+            Zq::<Q>::from(205) * rou.pow([2]) + Zq::<Q>::from(890) * rou + Zq::<Q>::from(301);
+        res_coeffs[10] =
+            Zq::<Q>::from(140) * rou.pow([2]) + Zq::<Q>::from(720) * rou + Zq::<Q>::from(260);
+        res_coeffs[11] =
+            Zq::<Q>::from(86) * rou.pow([2]) + Zq::<Q>::from(556) * rou + Zq::<Q>::from(214);
+        res_coeffs[12] =
+            Zq::<Q>::from(44) * rou.pow([2]) + Zq::<Q>::from(400) * rou + Zq::<Q>::from(164);
+        res_coeffs[13] =
+            Zq::<Q>::from(15) * rou.pow([2]) + Zq::<Q>::from(254) * rou + Zq::<Q>::from(111);
+        res_coeffs[14] = Zq::<Q>::from(120) * rou + Zq::<Q>::from(56);
+
+        let res_poly =
+            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(|i| res_coeffs[i], rou);
+        println!("Result poly:\n{}", res_poly);
+        println!("Final poly:\n{}", final_poly);
+
+    }
 }
