@@ -1,7 +1,4 @@
-use std::{
-    fmt::Display,
-    ops::{Add, Mul},
-};
+use std::{fmt::Display, ops::Add};
 
 use num_bigint::BigUint;
 
@@ -68,24 +65,20 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
     }
 
     pub fn ntt_mul(&self, rhs: &Self, rou: Zq<Q>) -> Self {
-        let binding_lhs = self.0.iter().collect::<Vec<_>>();
-        let concat_lhs = binding_lhs.chunks_exact(D);
-        let binding_rhs = rhs.0.iter().collect::<Vec<_>>();
-        let concat_rhs = binding_rhs.chunks_exact(D);
         let mut temp = [Zq::<Q>::from(0); N];
         let components = coprimes_set::<Z, PHI_Z>();
-        for (k, (lhs, rhs)) in concat_lhs.zip(concat_rhs).enumerate() {
-            // This is the multiplication of factors that doesn't need to be reduced
-            for mu in 0..D {
-                for nu in 0..D - mu {
-                    temp[k * D + mu + nu] = lhs[mu] * rhs[nu];
+        let num_chunks = N / D;
+        for k in 0..num_chunks {
+            for i in 0..D {
+                for j in 0..D - i {
+                    temp[k * D + i + j] += self.0[i + k * D] * rhs.0[j + k * D];
                 }
             }
             let rj_power = components[k] as u64;
             let rj = rou.pow([rj_power]);
-            for mu in 1..D {
-                for nu in D - mu..D {
-                    temp[k * D + mu + nu - D] = lhs[mu] * rhs[nu] * rj;
+            for i in 1..D {
+                for j in D - i..D {
+                    temp[k * D + i + j - D] += self.0[i + k * D] * rhs.0[j + k * D] * rj;
                 }
             }
         }
@@ -170,99 +163,69 @@ mod tests {
             |i| Zq::<Q>::from(i as u64),
             rou,
         );
-        println!("Poly1: \n{}", poly1);
         let mut red_poly = [Zq::<Q>::from(0); N];
         for i in 0..N / 2 {
             red_poly[i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
-            println!("poly[{}] = {} + {}*r = {}", i, i, i + 8, red_poly[i]);
         }
         for i in 0..N / 2 {
             red_poly[N / 2 + i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou3;
-            println!(
-                "poly[{}] = {} + {}*r^3 = {}",
-                i + N / 2,
-                i,
-                i + 8,
-                red_poly[N / 2 + i]
-            );
         }
-        let poly_reduced =
-            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(|i| red_poly[i], rou);
-        println!("Reduced Poly: \n{}", poly_reduced);
-        // assert_eq!(poly1, poly_reduced, "Reduced poly is incorrect");
+        let poly_reduced = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(red_poly);
+        assert_eq!(poly_reduced, poly1, "Poly NTT incorrect");
         let poly2 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
             |i| Zq::<Q>::from((N - 1 - i) as u64),
             rou,
         );
-        println!("Poly 1:\n{}", poly1);
-        println!("Poly 2:\n{}", poly2);
-
         let final_poly = poly1.ntt_mul(&poly2, rou);
 
-        let mut res_coeffs = [Zq::<Q>::from(0); N];
+        let mut poly1_split1 = [Zq::<Q>::from(0); D];
+        let mut poly2_split1 = [Zq::<Q>::from(0); D];
+        let mut poly1_split2 = [Zq::<Q>::from(0); D];
+        let mut poly2_split2 = [Zq::<Q>::from(0); D];
+        for i in 0..D {
+            poly1_split1[i] = poly1.0[i];
+            poly2_split1[i] = poly2.0[i];
 
-        res_coeffs[0] = Zq::<Q>::from(280) * rou.pow([3])
-            + Zq::<Q>::from(1120) * rou.pow([2])
-            + Zq::<Q>::from(456) * rou;
-        res_coeffs[1] = Zq::<Q>::from(205) * rou.pow([3])
-            + Zq::<Q>::from(1001) * rou.pow([2])
-            + Zq::<Q>::from(555) * rou
-            + Zq::<Q>::from(15);
-        res_coeffs[2] = Zq::<Q>::from(140) * rou.pow([3])
-            + Zq::<Q>::from(884) * rou.pow([2])
-            + Zq::<Q>::from(660) * rou
-            + Zq::<Q>::from(44);
-        res_coeffs[3] = Zq::<Q>::from(86) * rou.pow([3])
-            + Zq::<Q>::from(770) * rou.pow([2])
-            + Zq::<Q>::from(770) * rou
-            + Zq::<Q>::from(86);
-        res_coeffs[4] = Zq::<Q>::from(44) * rou.pow([3])
-            + Zq::<Q>::from(606) * rou.pow([2])
-            + Zq::<Q>::from(884) * rou
-            + Zq::<Q>::from(140);
-        res_coeffs[5] = Zq::<Q>::from(15) * rou.pow([3])
-            + Zq::<Q>::from(555) * rou.pow([2])
-            + Zq::<Q>::from(1001) * rou
-            + Zq::<Q>::from(208);
-        res_coeffs[6] =
-            Zq::<Q>::from(456) * rou.pow([2]) + Zq::<Q>::from(1120) * rou + Zq::<Q>::from(280);
-        res_coeffs[7] =
-            Zq::<Q>::from(364) * rou.pow([2]) + Zq::<Q>::from(1080) * rou + Zq::<Q>::from(524);
-
-        res_coeffs[8] = Zq::<Q>::from(280) * rou3.pow([3])
-            + Zq::<Q>::from(1120) * rou3.pow([2])
-            + Zq::<Q>::from(456) * rou3;
-        res_coeffs[9] = Zq::<Q>::from(205) * rou3.pow([3])
-            + Zq::<Q>::from(1001) * rou3.pow([2])
-            + Zq::<Q>::from(555) * rou3
-            + Zq::<Q>::from(15);
-        res_coeffs[10] = Zq::<Q>::from(140) * rou3.pow([3])
-            + Zq::<Q>::from(884) * rou3.pow([2])
-            + Zq::<Q>::from(660) * rou3
-            + Zq::<Q>::from(44);
-        res_coeffs[11] = Zq::<Q>::from(86) * rou3.pow([3])
-            + Zq::<Q>::from(770) * rou3.pow([2])
-            + Zq::<Q>::from(770) * rou3
-            + Zq::<Q>::from(86);
-        res_coeffs[12] = Zq::<Q>::from(44) * rou3.pow([3])
-            + Zq::<Q>::from(606) * rou3.pow([2])
-            + Zq::<Q>::from(884) * rou3
-            + Zq::<Q>::from(140);
-        res_coeffs[13] = Zq::<Q>::from(15) * rou3.pow([3])
-            + Zq::<Q>::from(555) * rou3.pow([2])
-            + Zq::<Q>::from(1001) * rou3
-            + Zq::<Q>::from(208);
-        res_coeffs[14] =
-            Zq::<Q>::from(456) * rou3.pow([2]) + Zq::<Q>::from(1120) * rou3 + Zq::<Q>::from(280);
-        res_coeffs[15] =
-            Zq::<Q>::from(364) * rou3.pow([2]) + Zq::<Q>::from(1080) * rou3 + Zq::<Q>::from(524);
-
-        for i in res_coeffs.iter() {
-            println!("Coeff: {}", i);
+            poly1_split2[i] = poly1.0[i + D];
+            poly2_split2[i] = poly2.0[i + D];
         }
-        let res_poly =
-            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(|i| res_coeffs[i], rou);
-        println!("Result poly:\n{}", res_poly);
-        println!("Final poly:\n{}", final_poly);
+
+        let naive_mul_poly_split1 = poly_mul(&poly1_split1, &poly2_split1);
+        let naive_mul_poly_split2 = poly_mul(&poly1_split2, &poly2_split2);
+        let split1 = reduce(naive_mul_poly_split1, rou);
+        let split2 = reduce(naive_mul_poly_split2, rou3);
+        let mut naive_coeffs = [Zq::<Q>::from(0); N];
+        for i in 0..D {
+            naive_coeffs[i] = split1[i];
+            naive_coeffs[i + D] = split2[i];
+        }
+
+        let naive_poly =
+            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(naive_coeffs);
+        assert_eq!(
+            naive_poly, final_poly,
+            "Splitted NTT multiplication incorrect"
+        );
+    }
+
+    fn poly_mul(a: &[Zq<Q>; D], b: &[Zq<Q>; D]) -> [Zq<Q>; 2 * D] {
+        let mut temp = [Zq::<Q>::from(0); 2 * D];
+        for i in 0..D {
+            for j in 0..D {
+                temp[i + j] += a[i] * b[j];
+            }
+        }
+        temp
+    }
+
+    fn reduce(a: [Zq<Q>; 2 * D], rou: Zq<Q>) -> [Zq<Q>; D] {
+        let mut temp = [Zq::<Q>::from(0); D];
+        for i in 0..D {
+            temp[i] += a[i];
+        }
+        for i in 0..D {
+            temp[i] += a[i + D] * rou;
+        }
+        temp
     }
 }

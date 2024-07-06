@@ -2,15 +2,6 @@
 
 use crate::ring::{Ring, Zq};
 
-const fn primitive_root_of_unity<const Q: u64, const Z: usize>(rou: u64) -> u64 {
-    // Find the root of unity such that w^z = 1
-    if Z == 0 || Q % Z as u64 != 1 {
-        panic!("Invalid input: Z must divide Q - 1");
-    }
-    let resized_power = (Q - 1) / Z as u64;
-    rou.pow(resized_power as u32)
-}
-
 pub trait PartialNTT<
     const Q: u64,
     const N: usize, // Euler totient function of m for an m-th cyclotomic ring
