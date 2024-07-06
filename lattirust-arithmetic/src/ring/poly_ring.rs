@@ -50,33 +50,22 @@ pub trait WithRot: PolyRing {
     fn rot(&self) -> Matrix<Self::BaseRing>;
 
     fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
-
         let degree = Self::dimension(); // if tau is 1 in latticefold paper lemma 2.1.
         let mut result = vec![Self::BaseRing::ZERO; degree];
-        let rot_matrix = self.rot();  
-    
+        let rot_matrix = self.rot();
+
         for (i, b_i) in bs.iter().enumerate() {
-            let vec_xi_a = rot_matrix.column(i);  
+            let vec_xi_a = rot_matrix.column(i);
             for (j, coeff) in vec_xi_a.iter().enumerate() {
                 result[j] = result[j] + (*coeff * *b_i);
             }
         }
         result
-        }
-
-        fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
-            let len = bs.len();
-            let mut result = vec![Self::BaseRing::ZERO; len];
-            for (j, &coeff) in bs.iter().enumerate() {
-                if j + i < len {
-                    result[(j + i) % len] += coeff;
-                } else {
-                    result[(j + i) % len] -= coeff;
-                }
-            }
-            result
-        }
     }
+
+    // Multiply by x^i depends on the irreducible polynomial
+    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing>;
+}
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     fn byte_size() -> usize {

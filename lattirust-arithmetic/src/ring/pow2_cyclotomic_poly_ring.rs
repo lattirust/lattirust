@@ -14,8 +14,8 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::{Matrix, SVector, Vector};
-use crate::ring::{ConvertibleRing, PolyRing};
 use crate::ring::Ring;
+use crate::ring::{ConvertibleRing, PolyRing};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
@@ -441,9 +441,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithConjugationAutomorphism
     }
 }
 
-impl<BaseRing: ConvertibleRing, const N: usize> WithL2Norm
-    for Pow2CyclotomicPolyRing<BaseRing, N>
-{
+impl<BaseRing: ConvertibleRing, const N: usize> WithL2Norm for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn l2_norm_squared(&self) -> u128 {
         self.coeffs().l2_norm_squared()
     }
@@ -457,9 +455,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithLinfNorm
     }
 }
 
-impl<BaseRing: ConvertibleRing, const N: usize> WithRot
-    for Pow2CyclotomicPolyRing<BaseRing, N>
-{
+impl<BaseRing: ConvertibleRing, const N: usize> WithRot for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn rot(&self) -> Matrix<BaseRing> {
         let degree = Self::dimension();
         let coeffs = self.coeffs();
@@ -467,13 +463,25 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithRot
 
         for i in 0..degree {
             let vec_xi_a = if i == 0 {
-                coeffs.clone()
+                Vector::from_vec(coeffs.clone())
             } else {
-                Self::multiply_by_xi(&coeffs, i)
+                Vector::from_vec(Self::multiply_by_xi(&coeffs, i))
             };
             columns.push(vec_xi_a);
         }
 
-        Matrix::from_columns(&columns)
+        Matrix::from_columns(columns.as_slice())
+    }
+    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
+        let len = bs.len();
+        let mut result = vec![Self::BaseRing::ZERO; len];
+        for (j, &coeff) in bs.iter().enumerate() {
+            if j + i < len {
+                result[(j + i) % len] += coeff;
+            } else {
+                result[(j + i) % len] -= coeff;
+            }
+        }
+        result
     }
 }
