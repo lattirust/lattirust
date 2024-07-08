@@ -1,5 +1,5 @@
-mod sparse;
-mod dense;
+pub mod sparse;
+pub mod dense;
 
 use crate::ring::Ring;
 use std::fmt::Debug;
