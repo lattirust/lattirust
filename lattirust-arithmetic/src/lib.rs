@@ -15,3 +15,4 @@ pub mod ring;
 pub mod serde;
 pub mod traits;
 pub mod linear_algebra;
+pub mod polynomials;
