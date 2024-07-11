@@ -14,8 +14,8 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
-use crate::ring::{ConvertibleRing, PolyRing};
 use crate::ring::Ring;
+use crate::ring::{ConvertibleRing, PolyRing};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
@@ -439,9 +439,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithConjugationAutomorphism
     }
 }
 
-impl<BaseRing: ConvertibleRing, const N: usize> WithL2Norm
-    for Pow2CyclotomicPolyRing<BaseRing, N>
-{
+impl<BaseRing: ConvertibleRing, const N: usize> WithL2Norm for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn l2_norm_squared(&self) -> u128 {
         self.coeffs().l2_norm_squared()
     }

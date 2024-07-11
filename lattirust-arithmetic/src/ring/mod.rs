@@ -11,7 +11,8 @@ use ark_std::UniformRand;
 use num_traits::{ One, Zero };
 
 // Exports
-pub use poly_ring::{ ConvertibleRing, PolyRing };
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
+pub use poly_ring::{ConvertibleRing, PolyRing};
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 pub use representatives::{ SignedRepresentative, UnsignedRepresentative };
@@ -22,6 +23,7 @@ pub use z_q::{ const_fq_from, Zq };
 use crate::nimue::serialization::{ FromBytes, ToBytes };
 use crate::traits::{ FromRandomBytes, Modulus };
 
+pub(crate) mod cyclotomic_poly_ring_splitted_ntt;
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
