@@ -20,6 +20,10 @@ impl<R: Ring> DenseMultilinearExtension<R> {
         Self::from_evaluations_vec(num_vars, evaluations.to_vec())
     }
 
+    pub fn evaluate(&self, point: &[R]) -> Option<R> {
+        if point.len() == self.num_vars { Some(self.fix_variables(point)[0]) } else { None }
+    }
+
     pub fn from_evaluations_vec(num_vars: usize, evaluations: Vec<R>) -> Self {
         // assert that the number of variables matches the size of evaluations
         assert_eq!(

@@ -1,5 +1,5 @@
-mod sparse;
 mod dense;
+mod sparse;
 
 use crate::ring::Ring;
 use std::fmt::Debug;
@@ -16,7 +16,7 @@ use rand::Rng;
 ///
 /// Index represents a point, which is a vector in {0,1}^`num_vars` in little
 /// endian form. For example, `0b1011` represents `P(1,1,0,1)`
-trait MultilinearExtension<R: Ring>: Sized +
+pub trait MultilinearExtension<R: Ring>: Sized +
     Clone +
     Debug +
     Hash +
@@ -63,3 +63,8 @@ pub(crate) fn swap_bits(x: usize, a: usize, b: usize, n: usize) -> usize {
     let global_xor_mask = (local_xor_mask << a) | (local_xor_mask << b);
     x ^ global_xor_mask
 }
+
+/// Exports
+
+pub use dense::DenseMultilinearExtension;
+pub use sparse::SparseMultilinearExtension;

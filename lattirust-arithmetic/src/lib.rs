@@ -16,3 +16,4 @@ pub mod partial_ntt;
 pub mod ring;
 pub mod serde;
 pub mod traits;
+pub mod polynomials;
