@@ -1,10 +1,10 @@
 use std::io::{Read, Write};
 use std::ops::Mul;
 
+use ark_serialize::Validate::Yes;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_serialize::Validate::Yes;
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Product, Sub, SubAssign, Sum};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,8 @@ pub struct UnsignedRepresentative(pub u128);
     SubAssign,
     Mul,
     MulAssign,
-    Sum, Product
+    Sum,
+    Product,
 )]
 #[mul(forward)]
 #[mul_assign(forward)]
@@ -58,7 +59,6 @@ impl<'a> Mul<&'a SignedRepresentative> for &'a SignedRepresentative {
     fn mul(self, rhs: &'a SignedRepresentative) -> Self::Output {
         SignedRepresentative(self.0 * rhs.0)
     }
-
 }
 
 impl CanonicalSerialize for SignedRepresentative {
@@ -104,8 +104,8 @@ impl CanonicalDeserialize for SignedRepresentative {
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::PrimeField;
     use crate::ring::Zq;
+    use ark_ff::PrimeField;
 
     use super::*;
 

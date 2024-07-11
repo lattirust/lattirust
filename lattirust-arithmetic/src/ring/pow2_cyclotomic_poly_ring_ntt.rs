@@ -15,9 +15,9 @@ use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
 use crate::ntt::NTT;
-use crate::ring::{Ring, Zq};
-use crate::ring::PolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+use crate::ring::PolyRing;
+use crate::ring::{Ring, Zq};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };

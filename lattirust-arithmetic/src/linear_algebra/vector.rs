@@ -2,11 +2,11 @@ use ark_ff::UniformRand;
 use ark_std::rand;
 use ark_std::rand::Rng;
 use delegate::delegate;
+use nalgebra::allocator::Allocator;
 use nalgebra::{
     self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
     ViewStorage,
 };
-use nalgebra::allocator::Allocator;
 use num_traits::Zero;
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
