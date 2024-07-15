@@ -81,7 +81,7 @@ impl<R: Ring> MultilinearExtension<R> for DenseMultilinearExtension<R> {
 
         for i in 1..dim + 1 {
             let r = partial_point[i - 1];
-            for b in 0..1 << i {
+            for b in 0..1 << (nv - i) {
                 let left = poly[b << 1];
                 let right = poly[(b << 1) + 1];
                 poly[b] = left + r * (right - left);
