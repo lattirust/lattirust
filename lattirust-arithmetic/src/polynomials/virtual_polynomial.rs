@@ -41,7 +41,7 @@ use std::{ cmp::max, collections::HashMap, marker::PhantomData, ops::Add, sync::
 ///     \]
 /// - raw_pointers_lookup_table maps fi to i
 ///
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct VirtualPolynomial<R: Ring> {
     /// Aux information about the multilinear polynomial
     pub aux_info: VPAuxInfo<R>,
