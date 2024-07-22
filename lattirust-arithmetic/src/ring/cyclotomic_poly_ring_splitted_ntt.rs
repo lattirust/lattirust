@@ -33,13 +33,16 @@ pub struct CyclotomicPolyRingSplittedNTT<
     const D: usize,
     const Z: usize,
     const PHI_Z: usize,
->(SVector<Zq<Q>, N>);
+>{
+    coeffs: SVector<Zq<Q>, N>,
+    rou: Zq<Q>,
+}
 
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Display
     for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, f)
+        std::fmt::Display::fmt(&self.coeffs, f)
     }
 }
 
@@ -51,8 +54,12 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
 
     /// Constructs a polynomial from an array of coefficients in NTT form.
     /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [Zq<Q>; N]) -> Self {
-        Self(Self::Inner::const_from_array(coeffs_ntt))
+    fn from_array(coeffs_ntt: [Zq<Q>; N], rou: Zq<Q>) -> Self {
+        assert!(rou.pow([Z as u64]) == Zq::<Q>::from(1));
+        Self{
+            coeffs: Self::Inner::const_from_array(coeffs_ntt),
+            rou,
+        }
     }
 
     pub fn from_fn<F>(f: F, rou: Zq<Q>) -> Self
@@ -61,7 +68,7 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
     {
         let mut coeffs = core::array::from_fn(f);
         Self::ntt(&mut coeffs, rou);
-        Self::from_array(coeffs)
+        Self::from_array(coeffs, rou)
     }
 
     pub fn ntt_mul(&self, rhs: &Self, rou: Zq<Q>) -> Self {
@@ -71,18 +78,18 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
         for k in 0..num_chunks {
             for i in 0..D {
                 for j in 0..D - i {
-                    temp[k * D + i + j] += self.0[i + k * D] * rhs.0[j + k * D];
+                    temp[k * D + i + j] += self.coeffs[i + k * D] * rhs.coeffs[j + k * D];
                 }
             }
             let rj_power = components[k] as u64;
             let rj = rou.pow([rj_power]);
             for i in 1..D {
                 for j in D - i..D {
-                    temp[k * D + i + j - D] += self.0[i + k * D] * rhs.0[j + k * D] * rj;
+                    temp[k * D + i + j - D] += self.coeffs[i + k * D] * rhs.coeffs[j + k * D] * rj;
                 }
             }
         }
-        Self::from_array(temp)
+        Self::from_array(temp, rou)
     }
 }
 
@@ -111,9 +118,9 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
     fn add(self, rhs: Self) -> Self::Output {
         let mut res = [Zq::<Q>::from(0); N];
         for i in 0..N {
-            res[i] = self.0[i] + rhs.0[i];
+            res[i] = self.coeffs[i] + rhs.coeffs[i];
         }
-        Self::from_array(res)
+        Self::from_array(res, self.rou)
     }
 }
 
@@ -156,7 +163,7 @@ mod tests {
     #[test]
     fn mul_test() {
         assert!(Q % Z as u64 == 1);
-        let resize_power = Q - 1 / Z as u64;
+        let resize_power = (Q - 1) / Z as u64;
         let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
         let rou3 = rou.pow([3]);
         let poly1 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
@@ -170,7 +177,7 @@ mod tests {
         for i in 0..N / 2 {
             red_poly[N / 2 + i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou3;
         }
-        let poly_reduced = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(red_poly);
+        let poly_reduced = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(red_poly, rou);
         assert_eq!(poly_reduced, poly1, "Poly NTT incorrect");
         let poly2 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
             |i| Zq::<Q>::from((N - 1 - i) as u64),
@@ -183,11 +190,11 @@ mod tests {
         let mut poly1_split2 = [Zq::<Q>::from(0); D];
         let mut poly2_split2 = [Zq::<Q>::from(0); D];
         for i in 0..D {
-            poly1_split1[i] = poly1.0[i];
-            poly2_split1[i] = poly2.0[i];
+            poly1_split1[i] = poly1.coeffs[i];
+            poly2_split1[i] = poly2.coeffs[i];
 
-            poly1_split2[i] = poly1.0[i + D];
-            poly2_split2[i] = poly2.0[i + D];
+            poly1_split2[i] = poly1.coeffs[i + D];
+            poly2_split2[i] = poly2.coeffs[i + D];
         }
 
         let naive_mul_poly_split1 = poly_mul(&poly1_split1, &poly2_split1);
@@ -201,7 +208,7 @@ mod tests {
         }
 
         let naive_poly =
-            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(naive_coeffs);
+            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(naive_coeffs, rou);
         assert_eq!(
             naive_poly, final_poly,
             "Splitted NTT multiplication incorrect"
