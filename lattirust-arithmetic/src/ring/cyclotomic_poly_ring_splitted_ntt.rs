@@ -2,7 +2,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, RangeToInclusive, Sub, SubAssign};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -682,11 +682,48 @@ impl<
     type BaseRing = Zq<Q>;
     fn coeffs(&self) -> Vec<Self::BaseRing> {
         // Do INTT
-        todo!()
+        let rou = Zq::<Q>::from(ROU);
+        let zetas = coprimes_set::<Z, PHI_Z>()
+            .iter()
+            .map(|&i| rou.pow([i as u64]))
+            .collect::<Vec<_>>();
+        let minimal_poly = minimal_polynomial::<Q, N, D>(&zetas);
+
+        let mut ms = zetas
+            .iter()
+            .map(|&zeta| long_division::<Q, N>(&minimal_poly, zeta))
+            .collect::<Vec<_>>();
+        for (i, m) in ms.iter_mut().enumerate() {
+            let mut zetas_copy = zetas.clone();
+            let zeta_i = zetas_copy.remove(i);
+            let mut y = Zq::<Q>::ONE;
+            for zeta_j in zetas_copy {
+                y = y * (zeta_i - zeta_j);
+            }
+
+            for i in 0..m.len() {
+                m[i] = m[i] * y;
+            }
+        }
+        let components = ms
+            .iter()
+            .enumerate()
+            .map(|(i, m)| {
+                let mut slice = vec![Zq::<Q>::ZERO; D];
+                for j in 0..D {
+                    slice[j] = self.0[i * D + j]
+                }
+                polynomial_multiplication::<Q>(m, &slice)
+            })
+            .collect::<Vec<_>>();
+        let sum = sum_polys(components.as_slice());
+        polynomial_division_remainder(&sum, &minimal_poly)
     }
+
     fn dimension() -> usize {
         N
     }
+
     fn from_scalar(scalar: Self::BaseRing) -> Self {
         let mut array = [Zq::<Q>::from(0); N];
         for i in 0..Z {
@@ -694,6 +731,96 @@ impl<
         }
         Self::from_array(array)
     }
+}
+
+fn sum_polys<const Q: u64>(polys: &[Vec<Zq<Q>>]) -> Vec<Zq<Q>> {
+    let max_degree = polys.iter().map(|p| p.len()).max().unwrap_or(0);
+
+    let mut result = vec![Zq::<Q>::ZERO; max_degree];
+
+    for poly in polys {
+        for (i, &coeff) in poly.iter().enumerate() {
+            result[i] += coeff;
+        }
+    }
+
+    result
+}
+
+fn polynomial_multiplication<const Q: u64>(poly1: &Vec<Zq<Q>>, poly2: &Vec<Zq<Q>>) -> Vec<Zq<Q>> {
+    let n = poly1.len();
+    let m = poly2.len();
+    let result_size = n + m - 1;
+    let mut result = vec![Zq::<Q>::ZERO; result_size];
+
+    for i in 0..n {
+        for j in 0..m {
+            result[i + j] += poly1[i] * poly2[j];
+        }
+    }
+
+    result
+}
+
+fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(
+    zetas: &Vec<Zq<Q>>,
+) -> Vec<Zq<Q>> {
+    let mut minimal_poly = vec![Zq::<Q>::ZERO; N + 1];
+    minimal_poly[0] = -zetas[0];
+    minimal_poly[D] = Zq::<Q>::ONE;
+    for (i, &zeta) in zetas.iter().enumerate().skip(1) {
+        let temp = minimal_poly.clone();
+        minimal_poly.rotate_right(D);
+        for j in 0..minimal_poly.len() {
+            minimal_poly[j] = minimal_poly[j] - (zeta * temp[j]); //This can be optimize
+        }
+    }
+    minimal_poly
+}
+
+fn long_division<const Q: u64, const N: usize>(
+    minimal_polynomial: &Vec<Zq<Q>>,
+    zeta: Zq<Q>,
+) -> Vec<Zq<Q>> {
+    assert_eq!(N + 1, minimal_polynomial.len());
+    let mut result = vec![Zq::<Q>::ZERO; N];
+
+    result[N - 1] = minimal_polynomial[N];
+
+    for i in (0..N - 1).rev() {
+        result[i] = minimal_polynomial[i + 1] + zeta * result[i + 1];
+    }
+
+    result
+}
+
+fn polynomial_division_remainder<const Q: u64>(
+    dividend: &[Zq<Q>],
+    divisor: &[Zq<Q>],
+) -> Vec<Zq<Q>> {
+    if divisor.is_empty() || divisor.iter().all(|&x| x == Zq::<Q>::ZERO) {
+        panic!("Division by zero polynomial")
+    }
+
+    let mut remainder = dividend.to_vec();
+    let divisor_degree = divisor.len() - 1;
+    let divided_degree = dividend.len() - 1;
+
+    if divided_degree < divisor_degree {
+        return remainder;
+    }
+
+    for i in (0..=divided_degree - divisor_degree).rev() {
+        let factor = remainder[i + divisor_degree] / divisor[divisor_degree];
+        for j in 0..=divisor_degree {
+            remainder[i + j] -= factor * divisor[j];
+        }
+    }
+
+    while remainder.len() > 1 && remainder.last() == Some(&Zq::<Q>::ZERO) {
+        remainder.pop();
+    }
+    remainder
 }
 
 impl<
