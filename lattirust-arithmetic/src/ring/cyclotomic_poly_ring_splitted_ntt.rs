@@ -4,6 +4,7 @@ use std::io::{Read, Write};
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, RangeToInclusive, Sub, SubAssign};
 
+use ark_ff::Field;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
@@ -71,12 +72,12 @@ impl<
         }
     }
 
-    pub fn from_fn<F>(f: F, rou: Zq<Q>) -> Self
+    pub fn from_fn<F>(f: F) -> Self
     where
         F: FnMut(usize) -> Zq<Q>,
     {
         let mut coeffs = core::array::from_fn(f);
-        Self::ntt(&mut coeffs, rou);
+        Self::ntt(&mut coeffs, Zq::<Q>::from(ROU));
         Self::from_array(coeffs)
     }
 
@@ -91,7 +92,7 @@ impl<
                 }
             }
             let rj_power = components[k] as u64;
-            let rj = rou.pow([rj_power]);
+            let rj = Ring::pow(&rou, [rj_power]);
             for i in 1..D {
                 for j in D - i..D {
                     temp[k * D + i + j - D] += self.0[i + k * D] * rhs.0[j + k * D] * rj;
@@ -373,7 +374,7 @@ impl<
     > UniformRand for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
     fn rand<R: rand::prelude::Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| Zq::<Q>::rand(rng), Zq::<Q>::from(ROU))
+        Self::from_fn(|_| Zq::<Q>::rand(rng))
     }
 }
 
@@ -685,21 +686,23 @@ impl<
         let rou = Zq::<Q>::from(ROU);
         let zetas = coprimes_set::<Z, PHI_Z>()
             .iter()
-            .map(|&i| rou.pow([i as u64]))
+            .map(|&i| Ring::pow(&rou, [i as u64]))
             .collect::<Vec<_>>();
         let minimal_poly = minimal_polynomial::<Q, N, D>(&zetas);
 
         let mut ms = zetas
             .iter()
-            .map(|&zeta| long_division::<Q, N>(&minimal_poly, zeta))
+            .map(|&zeta| polynomial_division::<Q, N, D>(&minimal_poly, zeta))
             .collect::<Vec<_>>();
         for (i, m) in ms.iter_mut().enumerate() {
             let mut zetas_copy = zetas.clone();
             let zeta_i = zetas_copy.remove(i);
-            let mut y = Zq::<Q>::ONE;
+            let mut y = <Zq<Q> as Ring>::ONE;
             for zeta_j in zetas_copy {
                 y = y * (zeta_i - zeta_j);
             }
+
+            y = y.inverse().unwrap();
 
             for i in 0..m.len() {
                 m[i] = m[i] * y;
@@ -709,7 +712,7 @@ impl<
             .iter()
             .enumerate()
             .map(|(i, m)| {
-                let mut slice = vec![Zq::<Q>::ZERO; D];
+                let mut slice = vec![<Zq::<Q> as Ring>::ZERO; D];
                 for j in 0..D {
                     slice[j] = self.0[i * D + j]
                 }
@@ -736,7 +739,7 @@ impl<
 fn sum_polys<const Q: u64>(polys: &[Vec<Zq<Q>>]) -> Vec<Zq<Q>> {
     let max_degree = polys.iter().map(|p| p.len()).max().unwrap_or(0);
 
-    let mut result = vec![Zq::<Q>::ZERO; max_degree];
+    let mut result = vec![<Zq::<Q> as Ring>::ZERO; max_degree];
 
     for poly in polys {
         for (i, &coeff) in poly.iter().enumerate() {
@@ -751,7 +754,7 @@ fn polynomial_multiplication<const Q: u64>(poly1: &Vec<Zq<Q>>, poly2: &Vec<Zq<Q>
     let n = poly1.len();
     let m = poly2.len();
     let result_size = n + m - 1;
-    let mut result = vec![Zq::<Q>::ZERO; result_size];
+    let mut result = vec![<Zq::<Q> as Ring>::ZERO; result_size];
 
     for i in 0..n {
         for j in 0..m {
@@ -765,10 +768,9 @@ fn polynomial_multiplication<const Q: u64>(poly1: &Vec<Zq<Q>>, poly2: &Vec<Zq<Q>
 fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(
     zetas: &Vec<Zq<Q>>,
 ) -> Vec<Zq<Q>> {
-    let mut minimal_poly = vec![Zq::<Q>::ZERO; N + 1];
-    minimal_poly[0] = -zetas[0];
-    minimal_poly[D] = Zq::<Q>::ONE;
-    for (i, &zeta) in zetas.iter().enumerate().skip(1) {
+    let mut minimal_poly = vec![<Zq::<Q> as Ring>::ZERO; N + 1];
+    minimal_poly[0] = <Zq<Q> as Ring>::ONE;
+    for (i, &zeta) in zetas.iter().enumerate() {
         let temp = minimal_poly.clone();
         minimal_poly.rotate_right(D);
         for j in 0..minimal_poly.len() {
@@ -778,27 +780,29 @@ fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(
     minimal_poly
 }
 
-fn long_division<const Q: u64, const N: usize>(
+fn polynomial_division<const Q: u64, const N: usize, const D: usize>(
     minimal_polynomial: &Vec<Zq<Q>>,
     zeta: Zq<Q>,
 ) -> Vec<Zq<Q>> {
     assert_eq!(N + 1, minimal_polynomial.len());
-    let mut result = vec![Zq::<Q>::ZERO; N];
-
-    result[N - 1] = minimal_polynomial[N];
-
-    for i in (0..N - 1).rev() {
-        result[i] = minimal_polynomial[i + 1] + zeta * result[i + 1];
+    let mut quotient = vec![<Zq::<Q> as Ring>::ZERO; N - D + 1];
+    for i in N - 2 * D + 1..N - D + 1 {
+        quotient[i] = minimal_polynomial[i + D];
     }
 
-    result
+    for i in (0..N - 2 * D + 1).rev() {
+        quotient[i] = minimal_polynomial[i + D] + (zeta * quotient[i + D]);
+    }
+
+    println!();
+    quotient
 }
 
 fn polynomial_division_remainder<const Q: u64>(
     dividend: &[Zq<Q>],
-    divisor: &[Zq<Q>],
+    divisor: &[Zq<Q>], //Minimal poly
 ) -> Vec<Zq<Q>> {
-    if divisor.is_empty() || divisor.iter().all(|&x| x == Zq::<Q>::ZERO) {
+    if divisor.is_empty() || divisor.iter().all(|&x| x == <Zq<Q> as Ring>::ZERO) {
         panic!("Division by zero polynomial")
     }
 
@@ -817,7 +821,7 @@ fn polynomial_division_remainder<const Q: u64>(
         }
     }
 
-    while remainder.len() > 1 && remainder.last() == Some(&Zq::<Q>::ZERO) {
+    while remainder.len() > 1 && remainder.last() == Some(&<Zq<Q> as Ring>::ZERO) {
         remainder.pop();
     }
     remainder
@@ -896,7 +900,15 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use crate::ring::{Ring, Zq};
+    use ark_std::UniformRand;
+    use rand::rngs::StdRng;
+
+    use crate::ring::{
+        cyclotomic_poly_ring_splitted_ntt::{
+            minimal_polynomial, polynomial_division_remainder, polynomial_multiplication,
+        },
+        PolyRing, Ring, Zq,
+    };
 
     use super::CyclotomicPolyRingSplittedNTT;
 
@@ -907,18 +919,46 @@ mod tests {
     const Z: usize = 1 << 2;
     const D: usize = 1 << 5 - 2;
     const PHI_Z: usize = 1 << 1;
+
+    fn test_rng_helper() -> StdRng {
+        // Should be good enough for testing
+        use rand::SeedableRng;
+        // arbitrary seed
+        let seed = [
+            1, 0, 0, 0, 23, 0, 0, 0, 200, 1, 0, 0, 210, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0,
+        ];
+        rand::rngs::StdRng::from_seed(seed)
+    }
+
     #[test]
-    fn mul_test() {
+    fn ntt_test() {
+        assert!(Q % Z as u64 == 1);
+        let mut rng = test_rng_helper();
+        let initial_coeffs = (0..N).map(|_| Zq::<Q>::rand(&mut rng)).collect::<Vec<_>>();
+        // let initial_coeffs = (0..N).map(|i| Zq::<Q>::from(i as u64)).collect::<Vec<_>>();
+
+        let poly =
+            CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(|i| initial_coeffs[i]);
+
+        let intt_coeffs = poly.coeffs();
+        assert_eq!(initial_coeffs, intt_coeffs, "INNT incorrect");
+    }
+    #[test]
+    fn tailored_mul_test() {
         assert!(Q % Z as u64 == 1);
         // let resize_power = (Q - 1) / Z as u64;
         // let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
         let rou = Zq::<Q>::from(ROU);
-        assert_eq!(rou.pow([Z as u64]), Zq::<Q>::ONE, "ROU^Z != 1");
-        let rou3 = rou.pow([3]);
-        let poly1 = CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(
-            |i| Zq::<Q>::from(i as u64),
-            rou,
+        assert_eq!(
+            Ring::pow(&rou, [Z as u64]),
+            <Zq::<Q> as Ring>::ONE,
+            "ROU^Z != 1"
         );
+        let rou3 = Ring::pow(&rou, [3]);
+        let poly1 = CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(|i| {
+            Zq::<Q>::from(i as u64)
+        });
         let mut red_poly = [Zq::<Q>::from(0); N];
         for i in 0..N / 2 {
             red_poly[i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
@@ -929,10 +969,9 @@ mod tests {
         let poly_reduced =
             CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_array(red_poly);
         assert_eq!(poly_reduced, poly1, "Poly NTT incorrect");
-        let poly2 = CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(
-            |i| Zq::<Q>::from((N - 1 - i) as u64),
-            rou,
-        );
+        let poly2 = CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(|i| {
+            Zq::<Q>::from((N - 1 - i) as u64)
+        });
         let final_poly = poly1.ntt_mul(&poly2, rou);
 
         let mut poly1_split1 = [Zq::<Q>::from(0); D];
@@ -963,6 +1002,34 @@ mod tests {
             naive_poly, final_poly,
             "Splitted NTT multiplication incorrect"
         );
+    }
+
+    #[test]
+    fn mul_test() {
+        assert!(Q % Z as u64 == 1);
+        // let resize_power = (Q - 1) / Z as u64;
+        // let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
+        let rou = Zq::<Q>::from(ROU);
+        assert_eq!(
+            Ring::pow(&rou, [Z as u64]),
+            <Zq::<Q> as Ring>::ONE,
+            "ROU^Z != 1"
+        );
+        let mut rng = test_rng_helper();
+        let coeffs1 = (0..N).map(|_| Zq::<Q>::rand(&mut rng)).collect::<Vec<_>>();
+        let poly1 =
+            CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(|i| coeffs1[i]);
+        let coeffs2 = (0..N).map(|_| Zq::<Q>::rand(&mut rng)).collect::<Vec<_>>();
+        let poly2 =
+            CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(|i| coeffs2[i]);
+        let final_poly = poly1 * poly2;
+
+        let true_coeffs = polynomial_multiplication(&coeffs1, &coeffs2);
+        let zetas = vec![rou, Ring::pow(&rou, [3])];
+        let minimal_poly = minimal_polynomial::<Q, N, D>(&zetas);
+        let true_coeffs = polynomial_division_remainder(&true_coeffs, &minimal_poly);
+        let final_coeffs = final_poly.coeffs();
+        assert_eq!(true_coeffs, final_coeffs);
     }
 
     fn poly_mul(a: &[Zq<Q>; D], b: &[Zq<Q>; D]) -> [Zq<Q>; 2 * D] {
