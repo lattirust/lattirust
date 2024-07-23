@@ -387,7 +387,8 @@ impl<
     > MulAssign<Self> for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
     fn mul_assign(&mut self, rhs: Self) {
-        todo!()
+        let res = self.ntt_mul(&rhs, Zq::<Q>::from(ROU));
+        *self = *self + res;
     }
 }
 
@@ -747,8 +748,7 @@ impl<
     > WithL2Norm for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
     fn l2_norm_squared(&self) -> u128 {
-        // self.0().l2_norm_squared()
-        todo!()
+        self.coeffs().l2_norm_squared()
     }
 }
 
@@ -762,8 +762,7 @@ impl<
     > WithLinfNorm for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
     fn linf_norm(&self) -> u128 {
-        // self.0().linf_norm()
-        todo!()
+        self.coeffs().linf_norm()
     }
 }
 // ============================================================================
@@ -787,7 +786,6 @@ mod tests {
         // let resize_power = (Q - 1) / Z as u64;
         // let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
         let rou = Zq::<Q>::from(ROU);
-        println!("This is ROU: {}", rou);
         assert_eq!(rou.pow([Z as u64]), Zq::<Q>::ONE, "ROU^Z != 1");
         let rou3 = rou.pow([3]);
         let poly1 = CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_fn(
