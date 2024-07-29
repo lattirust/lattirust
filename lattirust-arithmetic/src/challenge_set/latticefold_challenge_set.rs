@@ -1,9 +1,9 @@
-use ark_ff::Field;
+use ark_ff::{ Field, PrimeField };
 
 use crate::ring::{ PolyRing, Pow2CyclotomicPolyRingNTT, Zq };
 
 pub trait OverField: PolyRing {
-    type F: Field;
+    type F: PrimeField;
 
     fn field_to_base_ring(f: &Self::F) -> Self::BaseRing;
 }
