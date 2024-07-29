@@ -1,10 +1,11 @@
-use ark_ff::Field;
+use ark_ff::{ Field, PrimeField };
+
 use ark_crypto_primitives::sponge::Absorb;
 
 use crate::ring::{ PolyRing, Pow2CyclotomicPolyRingNTT, Zq };
 
 pub trait OverField: PolyRing {
-    type F: Field + Absorb;
+    type F: PrimeField + Absorb;
 
     fn field_to_base_ring(f: &Self::F) -> Self::BaseRing;
 }
