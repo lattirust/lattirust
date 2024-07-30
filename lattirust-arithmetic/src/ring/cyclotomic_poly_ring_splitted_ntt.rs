@@ -42,6 +42,7 @@ use crate::traits::{
 /// where the operations over each R_j are element-wise
 /// let `D` = m/z so we have phi(z) R_j components each with D components
 /// also phi(z) = N/D
+/// For more details look at [Short, Invertible Elements in Partially Splitting Cyclotomic Rings and Applications to Lattice-Based Zero-Knowledge Proofs](https://eprint.iacr.org/2017/523)
 #[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, Add, AddAssign, Sum, Sub, SubAssign, From)]
 pub struct CyclotomicPolyRingSplittedNTT<
     const Q: u64,
@@ -81,6 +82,13 @@ impl<
         Self::from_array(coeffs)
     }
 
+    /// `coeffs` are the coefficients of the complete Ring not partially splitted
+    pub fn from_coeffs(coeffs: [Zq<Q>; N]) -> Self {
+        let mut coeffs = coeffs;
+        Self::ntt(&mut coeffs, Zq::<Q>::from(ROU));
+        Self::from_array(coeffs)
+    }
+
     pub fn ntt_mul(&self, rhs: &Self, rou: Zq<Q>) -> Self {
         let mut temp = [Zq::<Q>::from(0); N];
         let components = coprimes_set::<Z, PHI_Z>();
@@ -103,7 +111,6 @@ impl<
     }
 }
 
-// TODO: impl SplittedNTT
 impl<
         const Q: u64,
         const ROU: u64,
@@ -132,25 +139,6 @@ impl<
 const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
     SVector::<Zq<Q>, N>::const_from_array([elem; N])
 }
-
-// impl<
-//         const Q: u64,
-//         const ROU: u64,
-//         const N: usize,
-//         const D: usize,
-//         const Z: usize,
-//         const PHI_Z: usize,
-//     > Add for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
-// {
-//     type Output = Self;
-//     fn add(self, rhs: Self) -> Self::Output {
-//         let mut res = [Zq::<Q>::from(0); N];
-//         for i in 0..N {
-//             res[i] = self.0[i] + rhs.0[i];
-//         }
-//         Self::from_array(res)
-//     }
-// }
 
 const fn coprimes_set<const Z: usize, const PHI_Z: usize>() -> [usize; PHI_Z] {
     let mut i = 0;
