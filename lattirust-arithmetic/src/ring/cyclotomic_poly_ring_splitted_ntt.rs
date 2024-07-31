@@ -895,15 +895,16 @@ impl<
         const PHI_Z: usize,
     > WithRot for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
-    fn rot(&self) -> crate::linear_algebra::Matrix<Self::BaseRing> {
-        todo!()
-    }
     fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
-        let mut xi = vec![<Zq::<Q> as Ring>::ZERO; N];
-        if i > N {
-            xi.resize(i + 1, <Zq<Q> as Ring>::ZERO);
+        let mut xi = [<Zq<Q> as Ring>::ZERO; N];
+        if i < N {
+            xi[i] = <Zq<Q> as Ring>::ONE;
+        } else {
+            unimplemented!("No support for multiplying with a polynomial bigger than N");
         }
-        todo!()
+        let xi_poly = Self::from_fn(|i| xi[i]);
+        let result = self.clone() * xi_poly;
+        result.0.iter().map(|&x| x).collect::<Vec<_>>()
     }
 }
 // ============================================================================
