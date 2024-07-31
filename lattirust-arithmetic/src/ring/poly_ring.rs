@@ -4,7 +4,7 @@ use ark_ff::{Field, Fp, FpConfig};
 use ark_serialize::CanonicalSerialize;
 use num_traits::Zero;
 
-use crate::linear_algebra::Vector;
+use crate::linear_algebra::{Matrix, Vector};
 use crate::ring::representatives::{SignedRepresentative, UnsignedRepresentative};
 use crate::ring::Ring;
 use crate::traits::{FromRandomBytes, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm};
@@ -44,6 +44,42 @@ pub trait PolyRing:
     fn x() -> Self {
         Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
     }
+}
+
+pub trait WithRot: PolyRing {
+    fn rot(&self) -> Matrix<Self::BaseRing>{
+        let degree = Self::dimension() - 1;
+        let coeffs = self.coeffs();
+        let mut columns = Vec::with_capacity(degree);
+
+        for i in 0..degree {
+            let vec_xi_a = if i == 0 {
+                Vector::from_vec(coeffs.clone())
+            } else {
+                Vector::from_vec(self.multiply_by_xi(i))
+            };
+            columns.push(vec_xi_a);
+        }
+
+        Matrix::from_columns(columns.as_slice())
+    }
+
+    fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
+        let degree = Self::dimension(); // if tau is 1 in latticefold paper lemma 2.1.
+        let mut result = vec![Self::BaseRing::ZERO; degree];
+        let rot_matrix = self.rot();
+
+        for (i, b_i) in bs.iter().enumerate() {
+            let vec_xi_a = rot_matrix.column(i);
+            for (j, coeff) in vec_xi_a.iter().enumerate() {
+                result[j] = result[j] + (*coeff * *b_i);
+            }
+        }
+        result
+    }
+
+    // Multiply by x^i depends on the irreducible polynomial
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing>;
 }
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {

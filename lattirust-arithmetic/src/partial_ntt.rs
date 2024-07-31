@@ -10,9 +10,12 @@ pub trait PartialNTT<
     const PHI_Z: usize,
 >
 {
+    /// Does a splitted NTT as in [Short, Invertible Elements in Partially Splitting Cyclotomic
+    /// Rings and Applications to Lattice-Based Zero-Knowledge
+    /// Proofs](https://eprint.iacr.org/2017/523)
+    /// We require that P = mod Z and rou^Z = 1
     fn ntt(a: &mut [Zq<Q>; N], rou: Zq<Q>) {
-        // Precompute the root of unity
-        // 1. Split array in chunks of size D
+        assert_eq!(rou.pow([Z as u64]), Zq::<Q>::ONE, "rou^Z != 1");
         let components = coprimes_set::<Z, PHI_Z>().map(|power| {
             let mut temp = a.clone();
             let rj = rou.pow([power as u64]);

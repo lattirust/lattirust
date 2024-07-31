@@ -13,7 +13,7 @@ use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
-use crate::linear_algebra::SVector;
+use crate::linear_algebra::{Matrix, SVector, Vector};
 use crate::ntt::NTT;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::PolyRing;
@@ -21,6 +21,8 @@ use crate::ring::{Ring, Zq};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
+
+use super::poly_ring::WithRot;
 
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
@@ -394,5 +396,20 @@ impl<const Q: u64, const N: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<Q, N
 impl<const Q: u64, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn linf_norm(&self) -> u128 {
         self.coeffs().linf_norm()
+    }
+}
+
+impl<const Q: u64, const N: usize> WithRot for Pow2CyclotomicPolyRingNTT<Q, N> {
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+        let mut xi = [Zq::<Q>::ZERO; N];
+        if i < N {
+            xi[i] = Zq::<Q>::ONE;
+        } else {
+            unimplemented!("No support for multiplying with a polynomial bigger than N");
+        }
+        Self::ntt(&mut xi);
+        let xi_poly = Self::from_array(xi);
+        let result = (self.clone() * xi_poly).0;
+        result.iter().map(|&x| x).collect::<Vec<_>>()
     }
 }

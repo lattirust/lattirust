@@ -13,12 +13,14 @@ use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
-use crate::linear_algebra::SVector;
+use crate::linear_algebra::{Matrix, SVector, Vector};
 use crate::ring::Ring;
 use crate::ring::{ConvertibleRing, PolyRing};
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
+
+use super::poly_ring::WithRot;
 
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
@@ -450,5 +452,22 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithLinfNorm
 {
     fn linf_norm(&self) -> u128 {
         self.coeffs().linf_norm()
+    }
+}
+
+impl<BaseRing: ConvertibleRing, const N: usize> WithRot for Pow2CyclotomicPolyRing<BaseRing, N> {
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+        let bs = self.0;
+        let len = bs.ncols();
+        assert_eq!(len, N);
+        let mut result = vec![Self::BaseRing::ZERO; len];
+        for (j, &coeff) in bs.iter().enumerate() {
+            if j + i < len {
+                result[(j + i) % len] += coeff;
+            } else {
+                result[(j + i) % len] -= coeff;
+            }
+        }
+        result
     }
 }
