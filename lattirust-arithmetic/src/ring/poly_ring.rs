@@ -47,7 +47,22 @@ pub trait PolyRing:
 }
 
 pub trait WithRot: PolyRing {
-    fn rot(&self) -> Matrix<Self::BaseRing>;
+    fn rot(&self) -> Matrix<Self::BaseRing>{
+        let degree = Self::dimension() - 1;
+        let coeffs = self.coeffs();
+        let mut columns = Vec::with_capacity(degree);
+
+        for i in 0..degree {
+            let vec_xi_a = if i == 0 {
+                Vector::from_vec(coeffs.clone())
+            } else {
+                Vector::from_vec(self.multiply_by_xi(i))
+            };
+            columns.push(vec_xi_a);
+        }
+
+        Matrix::from_columns(columns.as_slice())
+    }
 
     fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
         let degree = Self::dimension(); // if tau is 1 in latticefold paper lemma 2.1.
@@ -64,7 +79,7 @@ pub trait WithRot: PolyRing {
     }
 
     // Multiply by x^i depends on the irreducible polynomial
-    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing>;
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing>;
 }
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {

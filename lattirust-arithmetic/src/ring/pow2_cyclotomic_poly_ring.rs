@@ -456,24 +456,10 @@ impl<BaseRing: ConvertibleRing, const N: usize> WithLinfNorm
 }
 
 impl<BaseRing: ConvertibleRing, const N: usize> WithRot for Pow2CyclotomicPolyRing<BaseRing, N> {
-    fn rot(&self) -> Matrix<BaseRing> {
-        let degree = Self::dimension();
-        let coeffs = self.coeffs();
-        let mut columns = Vec::with_capacity(degree);
-
-        for i in 0..degree {
-            let vec_xi_a = if i == 0 {
-                Vector::from_vec(coeffs.clone())
-            } else {
-                Vector::from_vec(Self::multiply_by_xi(&coeffs, i))
-            };
-            columns.push(vec_xi_a);
-        }
-
-        Matrix::from_columns(columns.as_slice())
-    }
-    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
-        let len = bs.len();
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+        let bs = self.0;
+        let len = bs.ncols();
+        assert_eq!(len, N);
         let mut result = vec![Self::BaseRing::ZERO; len];
         for (j, &coeff) in bs.iter().enumerate() {
             if j + i < len {

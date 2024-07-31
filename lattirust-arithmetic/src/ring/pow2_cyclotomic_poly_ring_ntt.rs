@@ -400,33 +400,16 @@ impl<const Q: u64, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q,
 }
 
 impl<const Q: u64, const N: usize> WithRot for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn rot(&self) -> Matrix<Self::BaseRing> {
-        let degree = Self::dimension();
-        let coeffs = self.coeffs();
-        let mut columns = Vec::with_capacity(degree);
-
-        for i in 0..degree {
-            let vec_xi_a = if i == 0 {
-                Vector::from_vec(coeffs.clone())
-            } else {
-                Vector::from_vec(Self::multiply_by_xi(&coeffs, i))
-            };
-            columns.push(vec_xi_a);
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+        let mut xi = [Zq::<Q>::ZERO; N];
+        if i < N {
+            xi[i] = Zq::<Q>::ONE;
+        } else {
+            unimplemented!("No support for multiplying with a polynomial bigger than N");
         }
-
-        Matrix::from_columns(columns.as_slice())
-    }
-
-    fn multiply_by_xi(bs: &Vec<Self::BaseRing>, i: usize) -> Vec<Self::BaseRing> {
-        let len = bs.len();
-        let mut result = vec![Self::BaseRing::ZERO; len];
-        for (j, &coeff) in bs.iter().enumerate() {
-            if j + i < len {
-                result[(j + i) % len] += coeff;
-            } else {
-                result[(j + i) % len] -= coeff;
-            }
-        }
-        result
+        Self::ntt(&mut xi);
+        let xi_poly = Self::from_array(xi);
+        let result = (self.clone() * xi_poly).0;
+        result.iter().map(|&x| x).collect::<Vec<_>>()
     }
 }

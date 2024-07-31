@@ -22,6 +22,8 @@ use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
 };
 
+use super::poly_ring::WithRot;
+
 /// For an m-th cyclotomic ring its minimal polynomail has the form
 /// `Phi_m = Prod_{j=1}^phi(m)(x - r_j)`
 /// Where `ord_p(r_j) = m` and `r_j = w^i` where `i \in {i: gcd(i,m) = 1}`
@@ -882,6 +884,26 @@ impl<
 {
     fn linf_norm(&self) -> u128 {
         self.coeffs().linf_norm()
+    }
+}
+impl<
+        const Q: u64,
+        const ROU: u64,
+        const N: usize,
+        const D: usize,
+        const Z: usize,
+        const PHI_Z: usize,
+    > WithRot for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
+{
+    fn rot(&self) -> crate::linear_algebra::Matrix<Self::BaseRing> {
+        todo!()
+    }
+    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+        let mut xi = vec![<Zq::<Q> as Ring>::ZERO; N];
+        if i > N {
+            xi.resize(i + 1, <Zq<Q> as Ring>::ZERO);
+        }
+        todo!()
     }
 }
 // ============================================================================
