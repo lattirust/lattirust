@@ -21,6 +21,9 @@ impl<R: Scalar> SparseMatrix<R> {
             pub fn ncols(&self) -> usize;
             pub fn nnz(&self) -> usize;
             pub fn triplet_iter(&self) -> CscTripletIter<'_, R>;
+            pub fn col_offsets(&self) -> &[usize];
+            pub fn row_indices(&self) -> &[usize];
+            pub fn values(&self) -> &[R];
             #[into]
             pub fn transpose(&self) -> Self;
         }
