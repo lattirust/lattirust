@@ -4,6 +4,7 @@ use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
+use nalgebra_sparse::csc::CscTripletIter;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
@@ -19,6 +20,7 @@ impl<R: Scalar> SparseMatrix<R> {
             pub fn nrows(&self) -> usize;
             pub fn ncols(&self) -> usize;
             pub fn nnz(&self) -> usize;
+            pub fn triplet_iter(&self) -> CscTripletIter<'_, R>;
             #[into]
             pub fn transpose(&self) -> Self;
         }
