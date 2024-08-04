@@ -5,11 +5,13 @@ use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
 use nalgebra_sparse::csc::CscTripletIter;
+use nalgebra_sparse::CscMatrix;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
+use crate::linear_algebra::sparse_matrix::nalgebra_sparse::SparseFormatError;
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.
@@ -29,6 +31,12 @@ impl<R: Scalar> SparseMatrix<R> {
         }
     }
 }
+
+impl<R: Scalar> SparseMatrix<R> {
+    pub fn try_from_csc_data(num_rows: usize, num_cols: usize, col_offsets: Vec<usize>, row_indices: Vec<usize>, values: Vec<R>) -> Result<Self, SparseFormatError> {
+        CscMatrix::try_from_csc_data(num_rows, num_cols, col_offsets, row_indices, values).map(|matrix| SparseMatrix(matrix))
+    }
+} 
 
 impl<R> Serialize for SparseMatrix<R>
 where
