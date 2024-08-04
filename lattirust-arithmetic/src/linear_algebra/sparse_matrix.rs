@@ -6,6 +6,7 @@ use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
 use nalgebra_sparse::csc::CscTripletIter;
 use nalgebra_sparse::CscMatrix;
+use nalgebra_sparse::csc::CscCol;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
@@ -26,6 +27,8 @@ impl<R: Scalar> SparseMatrix<R> {
             pub fn col_offsets(&self) -> &[usize];
             pub fn row_indices(&self) -> &[usize];
             pub fn values(&self) -> &[R];
+            pub fn get_col(&self, index: usize) -> Option<CscCol<'_, R>>;
+            pub fn col(&self, index: usize) -> CscCol<'_, R>;
             #[into]
             pub fn transpose(&self) -> Self;
         }
