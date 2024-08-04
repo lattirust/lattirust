@@ -8,7 +8,7 @@
 
 use super::{ errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list };
 use crate::ring::Ring;
-use crate::mle::{ DenseMultilinearExtension, MultilinearExtension };
+use crate::mle::DenseMultilinearExtension;
 use ark_serialize::CanonicalSerialize;
 use ark_std::{ end_timer, rand::{ Rng, RngCore }, start_timer };
 use rayon::prelude::*;
@@ -346,6 +346,16 @@ impl<R: Ring> VirtualPolynomial<R> {
             println!("{} {}", i, self.evaluate(point_fr.as_ref()).unwrap());
         }
         println!()
+    }
+}
+
+impl<R: Ring> VPAuxInfo<R> {
+    pub fn new(num_variables: usize, max_degree: usize) -> Self {
+        VPAuxInfo {
+            max_degree,
+            num_variables,
+            phantom: PhantomData::default(),
+        }
     }
 }
 

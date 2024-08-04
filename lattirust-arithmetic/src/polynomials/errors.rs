@@ -7,9 +7,10 @@
 
 use ark_std::string::String;
 use displaydoc::Display;
+use thiserror::Error;
 
 /// A `enum` specifying the possible failure modes of the arithmetics.
-#[derive(Display, Debug)]
+#[derive(Display, Debug, Error)]
 pub enum ArithErrors {
     /// Invalid parameters: {0}
     InvalidParameters(String),
