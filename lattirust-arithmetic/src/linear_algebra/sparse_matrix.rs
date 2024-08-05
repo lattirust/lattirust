@@ -1,10 +1,14 @@
+use std::ops::AddAssign;
 use std::ops::Mul;
 
+use ark_ff::Zero;
+use ark_std::iterable::Iterable;
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
 use nalgebra_sparse::csc::CscTripletIter;
+use nalgebra_sparse::CooMatrix;
 use nalgebra_sparse::CscMatrix;
 use nalgebra_sparse::csc::CscCol;
 use serde::{Deserialize, Serialize};
@@ -13,6 +17,7 @@ use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
 use crate::linear_algebra::sparse_matrix::nalgebra_sparse::SparseFormatError;
+use crate::ring::Ring;
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.
@@ -32,6 +37,21 @@ impl<R: Scalar> SparseMatrix<R> {
             #[into]
             pub fn transpose(&self) -> Self;
         }
+    }
+}
+
+
+impl<'a, R: Ring> From<&'a [Vec<R>]> for SparseMatrix<R> {
+    fn from(matrix: &'a [Vec<R>]) -> Self {
+        let mut coo_matrix: CooMatrix<R> = CooMatrix::<R>::new(matrix.len(), matrix[0].len());
+
+        for (i, row) in matrix.iter().enumerate() {
+            for(j, &value) in row.iter().enumerate() {
+                coo_matrix.push(i, j, value);
+            }
+        }
+
+        SparseMatrix((&coo_matrix).into())
     }
 }
 
