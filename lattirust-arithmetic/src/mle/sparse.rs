@@ -1,11 +1,14 @@
-use std::{ hash::{ DefaultHasher, Hash }, ops::{ Add, AddAssign, Index, Neg, Sub, SubAssign } };
+use super::{swap_bits, MultilinearExtension};
+use crate::ring::Ring;
+use ark_ff::{UniformRand, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::cfg_iter;
 use rand::Rng;
-use ark_ff::{ Zero, UniformRand };
-use ark_serialize::{ CanonicalSerialize, CanonicalDeserialize };
-use std::collections::{ BTreeMap, HashMap };
-use crate::ring::Ring;
-use super::{ MultilinearExtension, swap_bits };
+use std::collections::{BTreeMap, HashMap};
+use std::{
+    hash::{DefaultHasher, Hash},
+    ops::{Add, AddAssign, Index, Neg, Sub, SubAssign},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct SparseMultilinearExtension<Rn: Ring> {
@@ -18,7 +21,7 @@ pub struct SparseMultilinearExtension<Rn: Ring> {
 impl<R: Ring> SparseMultilinearExtension<R> {
     pub fn from_evaluations<'a>(
         num_vars: usize,
-        evaluations: impl IntoIterator<Item = &'a (usize, R)>
+        evaluations: impl IntoIterator<Item = &'a (usize, R)>,
     ) -> Self {
         let bit_mask = 1 << num_vars;
 
@@ -29,9 +32,16 @@ impl<R: Ring> SparseMultilinearExtension<R> {
                 (*i, *v)
             })
             .collect();
-        Self { evaluations: tuples_to_treemap(&evaluations), num_vars, zero: R::zero() }
+        Self {
+            evaluations: tuples_to_treemap(&evaluations),
+            num_vars,
+            zero: R::zero(),
+        }
     }
-
+    pub fn evaluate(&self, point: &[R]) -> R {
+        assert!(point.len() == self.num_vars);
+        self.fix_variables(point)[0]
+    }
     /// Outputs an `l`-variate multilinear extension where value of evaluations
     /// are sampled uniformly at random. The number of nonzero entries is
     /// `num_nonzero_entries` and indices of those nonzero entries are
@@ -43,13 +53,12 @@ impl<R: Ring> SparseMultilinearExtension<R> {
     pub fn rand_with_config<Rn: Rng>(
         num_vars: usize,
         num_nonzero_entries: usize,
-        rng: &mut Rn
+        rng: &mut Rn,
     ) -> Self {
         assert!(num_nonzero_entries <= 1 << num_vars);
 
-        let mut map = HashMap::with_hasher(
-            core::hash::BuildHasherDefault::<DefaultHasher>::default()
-        );
+        let mut map =
+            HashMap::with_hasher(core::hash::BuildHasherDefault::<DefaultHasher>::default());
         for _ in 0..num_nonzero_entries {
             let mut index = usize::rand(rng) & ((1 << num_vars) - 1);
             while map.get(&index).is_some() {
@@ -89,7 +98,10 @@ impl<R: Ring> MultilinearExtension<R> for SparseMultilinearExtension<R> {
             core::mem::swap(&mut a, &mut b);
         }
         // sanity check
-        assert!(a + k < self.num_vars && b + k < self.num_vars, "invalid relabel argument");
+        assert!(
+            a + k < self.num_vars && b + k < self.num_vars,
+            "invalid relabel argument"
+        );
         if a == b || k == 0 {
             return self.clone();
         }
@@ -117,14 +129,17 @@ impl<R: Ring> MultilinearExtension<R> for SparseMultilinearExtension<R> {
 
         // batch evaluation
         while !point.is_empty() {
-            let focus_length = if point.len() > window { window } else { point.len() };
+            let focus_length = if point.len() > window {
+                window
+            } else {
+                point.len()
+            };
             let focus = &point[..focus_length];
             point = &point[focus_length..];
             let pre = precompute_eq(focus);
             let dim = focus.len();
-            let mut result = HashMap::with_hasher(
-                core::hash::BuildHasherDefault::<DefaultHasher>::default()
-            );
+            let mut result =
+                HashMap::with_hasher(core::hash::BuildHasherDefault::<DefaultHasher>::default());
             for src_entry in last.iter() {
                 let old_idx = *src_entry.0;
                 let gz = pre[old_idx & ((1 << dim) - 1)];
@@ -185,14 +200,12 @@ impl<'a, 'b, R: Ring> Add<&'a SparseMultilinearExtension<R>> for &'b SparseMulti
         }
 
         assert_eq!(
-            rhs.num_vars,
-            self.num_vars,
+            rhs.num_vars, self.num_vars,
             "trying to add non-zero polynomial with different number of variables"
         );
         // simply merge the evaluations
-        let mut evaluations = HashMap::with_hasher(
-            core::hash::BuildHasherDefault::<DefaultHasher>::default()
-        );
+        let mut evaluations =
+            HashMap::with_hasher(core::hash::BuildHasherDefault::<DefaultHasher>::default());
         for (&i, &v) in self.evaluations.iter().chain(rhs.evaluations.iter()) {
             *evaluations.entry(i).or_insert(R::zero()) += v;
         }
@@ -220,12 +233,12 @@ impl<'a, R: Ring> AddAssign<&'a SparseMultilinearExtension<R>> for SparseMultili
     }
 }
 impl<'a, R: Ring> AddAssign<(R, &'a SparseMultilinearExtension<R>)>
-for SparseMultilinearExtension<R> {
+    for SparseMultilinearExtension<R>
+{
     fn add_assign(&mut self, (r, other): (R, &SparseMultilinearExtension<R>)) {
         if !self.is_zero() && !other.is_zero() {
             assert_eq!(
-                other.num_vars,
-                self.num_vars,
+                other.num_vars, self.num_vars,
                 "trying to add non-zero polynomial with different number of variables"
             );
         }
@@ -290,7 +303,11 @@ impl<R: Ring> Index<usize> for SparseMultilinearExtension<R> {
     /// For Sparse multilinear polynomial, Lookup_evaluation takes log time to
     /// the size of polynomial.
     fn index(&self, index: usize) -> &Self::Output {
-        if let Some(v) = self.evaluations.get(&index) { v } else { &self.zero }
+        if let Some(v) = self.evaluations.get(&index) {
+            v
+        } else {
+            &self.zero
+        }
     }
 }
 
@@ -300,7 +317,7 @@ fn tuples_to_treemap<R: Ring>(tuples: &[(usize, R)]) -> BTreeMap<usize, R> {
 }
 
 fn treemap_to_hashmap<R: Ring>(
-    map: &BTreeMap<usize, R>
+    map: &BTreeMap<usize, R>,
 ) -> HashMap<usize, R, core::hash::BuildHasherDefault<DefaultHasher>> {
     HashMap::from_iter(map.iter().map(|(i, v)| (*i, *v)))
 }
@@ -311,7 +328,7 @@ fn hashmap_to_treemap<R: Ring, S>(map: &HashMap<usize, R, S>) -> BTreeMap<usize,
 // precompute  f(x) = eq(g,x)
 fn precompute_eq<R: Ring>(g: &[R]) -> Vec<R> {
     let dim = g.len();
-    let mut dp = vec![R::zero(); 1<<dim];
+    let mut dp = vec![R::zero(); 1 << dim];
     dp[0] = R::one() - g[0];
     dp[1] = g[0];
     for i in 1..dim {
