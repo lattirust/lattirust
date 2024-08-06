@@ -148,6 +148,20 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
         .collect()
 }
 
+pub fn decompose_balanced_slice_polyring<R: PolyRing>(
+    v: &[R],
+    b: u128,
+    padding_size: Option<usize>,
+) -> Vec<Vec<R>> {
+    let decomp: Vec<Vec<R>> = v
+        .par_iter()
+        .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
+        .collect(); // v.len() x decomp_size
+    pad_and_transpose(decomp)
+        .into_par_iter()
+        .collect() // decomp_size x v.len()
+}
+
 /// Returns the balanced decomposition of a slice of [`PolyRing`] elements as a Vec of [`Vector`] of [`PolyRing`] elements.
 ///
 /// # Arguments
