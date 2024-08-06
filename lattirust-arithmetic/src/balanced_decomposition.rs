@@ -219,7 +219,7 @@ pub fn decompose_matrix<F: ConvertibleRing>(
     )
 }
 
-pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
+pub fn recompose<A, B>(v: &[A], b: B) -> A
 where
     A: std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
     B: Field,
