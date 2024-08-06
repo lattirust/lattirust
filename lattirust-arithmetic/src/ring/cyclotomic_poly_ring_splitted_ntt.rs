@@ -14,6 +14,7 @@ use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
+use crate::challenge_set::latticefold_challenge_set::OverField;
 use crate::linear_algebra::SVector;
 use crate::partial_ntt::PartialNTT;
 use crate::ring::PolyRing;
@@ -723,6 +724,22 @@ impl<
             array[i * D] = scalar;
         }
         Self::from_array(array)
+    }
+}
+
+impl<
+        const Q: u64,
+        const ROU: u64,
+        const N: usize,
+        const D: usize,
+        const Z: usize,
+        const PHI_Z: usize,
+    > OverField for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
+{
+    type F = Zq<Q>;
+
+    fn field_to_base_ring(f: &Self::F) -> Self::BaseRing {
+        *f
     }
 }
 
