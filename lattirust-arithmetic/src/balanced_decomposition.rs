@@ -3,13 +3,13 @@ use std::ops::Mul;
 
 use ark_ff::Field;
 use nalgebra::{ClosedAdd, ClosedMul, Scalar};
-use num_traits::{One, Zero};
+use num_traits::{One, Pow, Zero};
 use rayon::prelude::*;
 use rounded_div::RoundedDiv;
 
 use crate::linear_algebra::{Matrix, SymmetricMatrix};
 use crate::linear_algebra::{RowVector, Vector};
-use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
+use crate::ring::{ConvertibleRing, PolyRing, Ring, SignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
@@ -222,7 +222,7 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 pub fn recompose<A, B>(v: &[A], b: B) -> A
 where
     A: std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
-    B: Field,
+    B: Ring
 {
     v.par_iter()
         .enumerate()
