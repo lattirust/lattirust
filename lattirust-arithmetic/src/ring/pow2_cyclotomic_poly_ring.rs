@@ -21,7 +21,6 @@ use crate::traits::{
 };
 
 use super::poly_ring::WithRot;
-use super::{Pow2CyclotomicPolyRingNTT, Zq};
 
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
@@ -106,15 +105,6 @@ impl<BaseRing: ConvertibleRing, const N: usize> CanonicalSerialize
 impl<BaseRing: ConvertibleRing, const N: usize> Valid for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn check(&self) -> Result<(), SerializationError> {
         self.0.check()
-    }
-}
-
-impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRingNTT<Q, N>>
-    for Pow2CyclotomicPolyRing<Zq<Q>, N>
-{
-    fn from(value: Pow2CyclotomicPolyRingNTT<Q, N>) -> Self {
-        let coeffs: [Zq<Q>; N] = value.coeffs().try_into().unwrap();
-        Self(SVector::const_from_array(coeffs))
     }
 }
 
