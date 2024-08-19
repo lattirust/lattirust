@@ -294,13 +294,13 @@ impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     }
 }
 
-impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Zq<Q>, N>>
-    for Pow2CyclotomicPolyRingNTT<Q, N>
-{
-    fn into(self) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
-        Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(self.coeffs())
-    }
-}
+// impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Zq<Q>, N>>
+//     for Pow2CyclotomicPolyRingNTT<Q, N>
+// {
+//     fn into(self) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
+//         Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(self.coeffs())
+//     }
+// }
 
 impl<const Q: u64, const N: usize> Mul<Zq<Q>> for Pow2CyclotomicPolyRingNTT<Q, N> {
     type Output = Self;

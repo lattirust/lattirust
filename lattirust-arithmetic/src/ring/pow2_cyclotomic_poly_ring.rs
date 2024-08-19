@@ -21,6 +21,7 @@ use crate::traits::{
 };
 
 use super::poly_ring::WithRot;
+use super::{Pow2CyclotomicPolyRingNTT, Zq};
 
 #[derive(
     Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
@@ -48,7 +49,8 @@ impl<BaseRing: ConvertibleRing, const N: usize> From<[BaseRing; N]>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn from(value: [BaseRing; N]) -> Self {
-        Self(Self::Inner::const_from_array(value))
+        // Directly call the constructor or conversion function without invoking From recursively
+        Pow2CyclotomicPolyRing(Self::Inner::const_from_array(value))
     }
 }
 
@@ -105,6 +107,15 @@ impl<BaseRing: ConvertibleRing, const N: usize> CanonicalSerialize
 impl<BaseRing: ConvertibleRing, const N: usize> Valid for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn check(&self) -> Result<(), SerializationError> {
         self.0.check()
+    }
+}
+
+impl<const Q: u64, const N: usize> From<Pow2CyclotomicPolyRingNTT<Q, N>>
+    for Pow2CyclotomicPolyRing<Zq<Q>, N>
+{
+    fn from(value: Pow2CyclotomicPolyRingNTT<Q, N>) -> Self {
+        let coeffs: [Zq<Q>; N] = value.coeffs().try_into().unwrap();
+        Self(SVector::const_from_array(coeffs))
     }
 }
 
@@ -419,7 +430,8 @@ impl<BaseRing: ConvertibleRing, const N: usize> From<Vec<BaseRing>>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn from(value: Vec<BaseRing>) -> Self {
-        Self::try_from(value).unwrap()
+        let mut array = TryInto::<[BaseRing; N]>::try_into(value).unwrap();
+        Self(Self::Inner::const_from_array(array))
     }
 }
 
