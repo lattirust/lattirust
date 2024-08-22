@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::ConstraintSystem;
+use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
 use log::debug;
 use nimue::{Merlin, ProofError};
 
@@ -18,7 +18,7 @@ use crate::verifier::verify_principal_relation;
 
 pub fn verify_binary_r1cs<R: PolyRing>(
     merlin: &mut Merlin,
-    cs: &ConstraintSystem<Z2>,
+    cs: &ConstraintSystemRef<Z2>,
     crs: &BinaryR1CSCRS<R>,
 ) -> Result<(), ProofError>
 where
@@ -31,8 +31,8 @@ where
 
     let d = R::dimension();
     let (k, n) = (
-        cs.num_constraints,
-        cs.num_instance_variables + 1 + cs.num_witness_variables,
+        cs.num_constraints(),
+        cs.num_instance_variables() + cs.num_witness_variables(),
     );
 
     let t = merlin.next_vector(crs.m.div_ceil(d))?;

@@ -1,4 +1,10 @@
+use std::ops::Add;
+use ark_r1cs_std::alloc::AllocVar;
+use ark_r1cs_std::boolean::Boolean;
+use ark_r1cs_std::eq::EqGadget;
 use ark_relations::lc;
+use ark_relations::r1cs::LinearCombination;
+use indicatif::ProgressBar;
 use log::debug;
 use nimue::IOPattern;
 use num_traits::One;
@@ -26,30 +32,43 @@ fn init() {
 fn test_prove_binary_r1cs() {
     init();
 
-    let m: usize = 1 << 15; //(R::modulus().next_power_of_two().ilog2() * 2) as usize;
-    let k = m * D;
+    let num_r1cs_constraints = 1 << 10;
+    let k = (num_r1cs_constraints / D) * D;
 
     debug!("Constructing constraint system...");
-    let mut cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new();
-    for _ in 0..k {
-        let v = cs.new_witness_variable(|| Ok(Z2::one())).unwrap();
-        cs.enforce_constraint(lc!() + v, lc!() - v, lc!() + v)
-            .unwrap();
+    /// Generate a dummy constraint system with num_r1cs_constraints constraints and variables. 
+    let mut cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new_ref();
+    let pb = ProgressBar::new(k as u64);
+    let v = Boolean::new_witness(cs.clone(), || Ok(true)).unwrap();
+    cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
+    for i in 2..k {
+        let v = Boolean::new_witness(cs.clone(), || Ok(i % 2 == 0)).unwrap();
+        // cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
+        // v.enforce_equal(&v).unwrap();
+        pb.inc(1);
     }
+    cs.finalize();
     let mats = cs.to_matrices().unwrap();
     debug!(
         "\t{} ≈ 2^{} constraints, {}+{} ≈ 2^{} variables, ({}, {}, {}) non-zero entries",
-        cs.num_constraints,
-        cs.num_constraints.next_power_of_two().ilog2(),
-        cs.num_instance_variables,
-        cs.num_witness_variables,
-        (cs.num_instance_variables + cs.num_witness_variables)
+        cs.num_constraints(),
+        cs.num_constraints().next_power_of_two().ilog2(),
+        cs.num_instance_variables(),
+        cs.num_witness_variables(),
+        (cs.num_instance_variables() + cs.num_witness_variables())
             .next_power_of_two()
             .ilog2(),
         mats.a_num_non_zero,
         mats.b_num_non_zero,
         mats.c_num_non_zero
     );
+    debug_assert_eq!(cs.num_constraints(), num_r1cs_constraints);
+    debug_assert_eq!(cs.num_instance_variables(), 1);
+    debug_assert_eq!(cs.num_witness_variables(), num_r1cs_constraints - 1);
+    // debug_assert!(mats.a_num_non_zero > 0);
+    // debug_assert!(mats.b_num_non_zero > 0);
+    // debug_assert!(mats.c_num_non_zero > 0);
+    debug_assert_eq!(cs.is_satisfied(), Ok(true));
 
     debug!("Constructing common reference string...");
     let crs = BinaryR1CSCRS::<R>::new(k, k);

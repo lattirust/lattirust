@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::ConstraintSystem;
+use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
 use ark_std::rand;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
@@ -17,7 +17,7 @@ use relations::principal_relation::{
 };
 
 use crate::common_reference_string::CommonReferenceString;
-use crate::util::{basis_vector, embed};
+use crate::util::{basis_vector, embed, msis_h_128_linf};
 
 const SECURITY_PARAMETER: usize = 128;
 
@@ -62,14 +62,17 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             norm: Norm::Linf,
         };
 
-        let m =
-            find_optimal_h(&msis, SECURITY_PARAMETER).expect("failed to find optimal n for MSIS");
-        debug_assert!(
-            msis.with_h(m).security_level() >= SECURITY_PARAMETER as f64,
-            "MSIS security level {} must be at least {} for soundness",
-            msis.security_level(),
-            SECURITY_PARAMETER
-        );
+
+        // TODO: switch back to lattice-estimator bound
+        let h: usize = msis_h_128_linf::<R>(msis.w, msis.length_bound).unwrap();
+        // let h =
+        //     find_optimal_h(&msis, SECURITY_PARAMETER).expect("failed to find optimal n for MSIS");
+        // debug_assert!(
+        //     msis.with_h(h).security_level() >= SECURITY_PARAMETER as f64,
+        //     "MSIS security level {} must be at least {} for soundness",
+        //     msis.security_level(),
+        //     SECURITY_PARAMETER
+        // );
         // TODO: fix lattice-estimator to not choke on inputs of this size
 
         let q = R::modulus();
@@ -87,19 +90,19 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         );
         assert!(
             BigUint::from(SECURITY_PARAMETER * (n + 3 * k)) < BigUint::from(15u32) * q.clone(),
-            "n + 3*k = {} must be less than 15q/128 = {} to be able to compose with Labrador-core",
+            "n + 3*k = {} must be less than 15q/{SECURITY_PARAMETER} = {} to be able to compose with Labrador-core",
             n + 3 * k,
-            (BigUint::from(15u32) * q).to_f64().unwrap() / 128.,
+            (BigUint::from(15u32) * q).to_f64().unwrap() / SECURITY_PARAMETER as f64,
         );
 
         let rng = &mut rand::rngs::OsRng;
 
         Self {
-            A: Matrix::<R>::rand(m.div_ceil(d), (3 * k + n).div_ceil(d), rng),
+            A: Matrix::<R>::rand(h.div_ceil(d), (3 * k + n).div_ceil(d), rng),
             num_constraints,
             num_variables,
-            m,
-            core_crs: Self::pr_crs(num_variables, m),
+            m: h,
+            core_crs: Self::pr_crs(num_variables, h),
             security_parameter: SECURITY_PARAMETER,
         }
     }
@@ -155,12 +158,12 @@ fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
 
 pub fn reduce<R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
-    cs: &ConstraintSystem<Z2>,
+    cs: &ConstraintSystemRef<Z2>,
     transcript: &BinaryR1CSTranscript<R>,
 ) -> PrincipalRelation<R> {
     let (k, n) = (
-        cs.num_constraints,
-        cs.num_instance_variables + cs.num_witness_variables,
+        cs.num_constraints(),
+        cs.num_instance_variables() + cs.num_witness_variables(),
     );
     let d = R::dimension();
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors

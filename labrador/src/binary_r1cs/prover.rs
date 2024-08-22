@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::ConstraintSystem;
+use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
+use ark_relations::r1cs::ConstraintSystemRef::CS;
 use log::debug;
 use nimue::{Arthur, ProofResult};
 
@@ -19,7 +20,7 @@ use crate::util::{ark_sparse_matrices, concat, embed, lift};
 pub fn prove_binary_r1cs<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
     arthur: &'a mut Arthur,
-    cs: &ConstraintSystem<Z2>,
+    cs: &ConstraintSystemRef<Z2>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
@@ -29,16 +30,18 @@ where
 
     //cs.set_mode(ark_relations::r1cs::SynthesisMode::Prove { construct_matrices: true });
     let (A, B, C) = ark_sparse_matrices(cs);
+    
+    let prover = cs.borrow().unwrap();
     let w = concat(
         vec![
-            cs.instance_assignment.as_slice(),
-            cs.witness_assignment.as_slice(),
+            prover.instance_assignment.as_slice(),
+            prover.witness_assignment.as_slice(),
         ]
         .as_slice(),
     );
     let (k, n) = (
-        cs.num_constraints,
-        cs.num_instance_variables + cs.num_witness_variables,
+        cs.num_constraints(),
+        cs.num_instance_variables() + cs.num_witness_variables(),
     );
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 
