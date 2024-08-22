@@ -417,7 +417,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> From<Vec<BaseRing>>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn from(value: Vec<BaseRing>) -> Self {
-        Self::try_from(value).unwrap()
+        Self(SVector::<BaseRing, N>::try_from(value).unwrap())
     }
 }
 
