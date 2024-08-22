@@ -21,10 +21,21 @@ pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
 }
 
 /// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
-pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
+pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>, padding_size: Option<usize>) -> Vec<Vec<F>> {
+    if v.is_empty() {
+        return vec![];
+    }
     let rows = v.len();
-    let cols = v.iter().map(|d_i| d_i.len()).max().unwrap();
-    // Pad each row to the same length `cols
+    let max_cols = v.iter().map(|d_i| d_i.len()).max().unwrap();
+    let cols = match padding_size {
+        None => max_cols,
+        Some(padding_length) => {
+            assert!(padding_length >= max_cols);
+            padding_length
+        }
+    };
+    
+    // Pad each row to the same length `cols`
     for row in &mut v {
         row.resize(cols, F::zero());
     }
@@ -124,7 +135,7 @@ pub fn decompose_balanced_vec<F: ConvertibleRing>(
         .par_iter()
         .map(|v_i| decompose_balanced(v_i, b, padding_size))
         .collect(); // v.len() x decomp_size
-    pad_and_transpose(decomp) // decomp_size x v.len()
+    pad_and_transpose(decomp, padding_size) // decomp_size x v.len()
 }
 
 /// Returns the balanced decomposition of a [`PolyRing`] element as a Vec of [`PolyRing`] elements.
@@ -168,7 +179,7 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
         .par_iter()
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
         .collect(); // v.len() x decomp_size
-    pad_and_transpose(decomp)
+    pad_and_transpose(decomp, padding_size)
         .into_par_iter()
         .map(Vector::from)
         .collect() // decomp_size x v.len()
