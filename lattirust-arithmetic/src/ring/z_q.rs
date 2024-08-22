@@ -42,15 +42,13 @@ impl<C: FpConfig<1>> From<Fp64<C>> for UnsignedRepresentative {
     }
 }
 
-/// Map [0, q[ to [-m, m] using [0, m] -> [0, m] and ]m, q[ -> [-m, 0[, where m = (q-1)/2, assuming q is odd
+/// Map [0, q) to (-h, h] using [0, h] -> [0, h] and (h, q) -> (-h, 0), where h = floor((q-1)/2)
 impl<C: FpConfig<1>> From<Fp64<C>> for SignedRepresentative {
     fn from(value: Fp64<C>) -> Self {
-        debug_assert!(Fp64::<C>::MODULUS.is_odd());
         let unsigned = UnsignedRepresentative::from(value).0 as i128;
         let v: BigInt<1> = value.into();
-        let q_half: BigInt<1> = Fp64::<C>::MODULUS_MINUS_ONE_DIV_TWO;
         let q = UnsignedRepresentative::from(Fp64::<C>::MODULUS).0 as i128;
-        if v > q_half {
+        if v > Fp64::<C>::MODULUS_MINUS_ONE_DIV_TWO {
             SignedRepresentative(unsigned - q)
         } else {
             SignedRepresentative(unsigned)
@@ -58,10 +56,9 @@ impl<C: FpConfig<1>> From<Fp64<C>> for SignedRepresentative {
     }
 }
 
-/// Map [-m, m] to [0, q[ using [0, m] -> [0, m] and [-m, 0[ -> [m, q[, where m = (q-1)/2, assuming q is odd
+/// Map (-h, h] to [0, q) using [0, h] -> [0, h] and (-h, 0) -> (h, q), where h = floor((q-1)/2)
 impl<C: FpConfig<1>> From<SignedRepresentative> for Fp64<C> {
     fn from(value: SignedRepresentative) -> Self {
-        debug_assert!(Fp64::<C>::MODULUS.is_odd());
         let q: i128 = UnsignedRepresentative::from(Fp64::<C>::MODULUS).0 as i128;
         if value.0 < 0 {
             Fp64::<C>::from((value.0 + q) as u128)
