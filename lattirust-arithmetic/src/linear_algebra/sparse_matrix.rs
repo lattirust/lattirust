@@ -1,9 +1,10 @@
-use std::ops::Mul;
+use std::ops::{AddAssign, Mul};
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
 use nalgebra_sparse;
+use nalgebra_sparse::CooMatrix;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
@@ -22,6 +23,21 @@ impl<R: Scalar> SparseMatrix<R> {
             #[into]
             pub fn transpose(&self) -> Self;
         }
+    }
+    pub fn zeros(nrows: usize, ncols: usize) -> Self {
+        nalgebra_sparse::CscMatrix::<R>::zeros(nrows, ncols).into()
+    }
+}
+
+impl<R: Scalar + Copy + ark_ff::Zero + AddAssign> SparseMatrix<R> {
+    pub fn from_ark_matrix(matrix: ark_relations::r1cs::Matrix<R>, nrows: usize, ncols: usize) -> Self {
+        assert_eq!(nrows,   matrix.len());
+        let iter = matrix.iter().enumerate().map(|(row_index, row)|  row.iter().map(move |(elem, col_index)| (row_index, col_index, elem))).flatten();
+        let (row_index, col_index, value_index) = itertools::multiunzip(iter);
+        let coo = CooMatrix::<R>::try_from_triplets(
+            nrows, ncols, row_index, col_index, value_index
+        ).unwrap();
+        SparseMatrix(nalgebra_sparse::CscMatrix::from(&coo))
     }
 }
 
