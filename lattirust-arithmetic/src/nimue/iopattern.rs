@@ -143,7 +143,7 @@ where
     }
 
     fn squeeze_binary_matrix(self, nrows: usize, ncols: usize, label: &'static str) -> Self {
-        todo!("{} {} {}", nrows, ncols, label)
+        self.challenge_bytes(nrows * ncols, label)
     }
 }
 

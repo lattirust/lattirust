@@ -1,5 +1,6 @@
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
+use crate::challenge_set::binary::BinaryChallengeSet;
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
@@ -88,7 +89,8 @@ where
         n_rows: usize,
         n_cols: usize,
     ) -> Result<Matrix<Zq<2>>, IOPatternError> {
-        todo!("{} {}", n_rows, n_cols)
+        // TODO: use more efficient sampling, this is currently using one byte where one bit would be enough
+        self.challenge_matrix::<Zq<2>, BinaryChallengeSet<Zq<2>>>(n_rows, n_cols)
     }
 }
 
