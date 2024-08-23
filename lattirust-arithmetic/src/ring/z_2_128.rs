@@ -127,11 +127,14 @@ impl CanonicalDeserialize for Z2_128 {
 }
 
 impl FromRandomBytes<Self> for Z2_128 {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+    fn needs_bytes() -> usize {
         8
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
         Some(Self(Wrapping(i128::from_be_bytes(bytes.try_into().ok()?))))
     }
 }

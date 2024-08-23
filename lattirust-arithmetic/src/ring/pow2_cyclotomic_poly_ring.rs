@@ -126,12 +126,11 @@ impl<BaseRing: ConvertibleRing, const N: usize> Ring for Pow2CyclotomicPolyRing<
 impl<BaseRing: ConvertibleRing, const N: usize> FromRandomBytes<Self>
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
-    fn byte_size() -> usize {
+    fn needs_bytes() -> usize {
         N * BaseRing::byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        assert_eq!(bytes.len(), Self::byte_size());
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
         let coeffs = core::array::from_fn(|i| {
             BaseRing::try_from_random_bytes(
                 &bytes[i * BaseRing::byte_size()..(i + 1) * BaseRing::byte_size()],

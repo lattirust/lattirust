@@ -100,11 +100,11 @@ impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {
-    fn byte_size() -> usize {
+    fn needs_bytes() -> usize {
         N * Zq::<Q>::byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
         assert_eq!(bytes.len(), Self::byte_size());
         let coeffs = core::array::from_fn(|i| {
             Zq::<Q>::try_from_random_bytes(

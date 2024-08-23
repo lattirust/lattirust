@@ -11,11 +11,15 @@ pub struct WeightedTernaryChallengeSet<R> {
 }
 
 impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>> {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+    
+    fn needs_bytes() -> usize {
         1
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Zq<Q>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Zq<Q>> {
         assert_eq!(bytes.len(), 1);
         let val = bytes[0] & 0b11; // Technically a u4 now
         if val == 0 || val == 3 {
@@ -33,11 +37,15 @@ impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>>
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>
 {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+    
+    fn needs_bytes() -> usize {
         N * WeightedTernaryChallengeSet::<Zq<Q>>::byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
         let b = WeightedTernaryChallengeSet::<Zq<Q>>::byte_size();
         Some(Pow2CyclotomicPolyRing::<Zq<Q>, N>::from_fn(|i| {
@@ -50,11 +58,15 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>>
     for WeightedTernaryChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>>
 {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+    
+    fn needs_bytes() -> usize {
         Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
         Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes).map(|x| x.into())
     }
 }

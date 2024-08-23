@@ -14,14 +14,12 @@ pub struct TernaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
 
-const SEC_PARAM: usize = 128;
-
 impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
-    fn byte_size() -> usize {
-        SEC_PARAM.next_power_of_two().ilog2() as usize + 2
+    fn needs_bytes() -> usize {
+        1
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<F> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<F> {
         assert_eq!(bytes.len(), Self::byte_size());
         let v = (bytes.last()? % 3) as i128;
         let s = SignedRepresentative(v - 1);
@@ -57,11 +55,11 @@ pub fn trit_to_field<F: Zero + One + Neg<Output = F>>(trit: Trit) -> F {
 }
 
 impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
-    fn byte_size() -> usize {
-        SEC_PARAM.next_power_of_two().ilog2() as usize + 2
+    fn needs_bytes() -> usize {
+        1
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Trit> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Trit> {
         assert_eq!(bytes.len(), Self::byte_size());
         let v = (bytes.last()? % 3) as i8;
         let res = match v - 1 {

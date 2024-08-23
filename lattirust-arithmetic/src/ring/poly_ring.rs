@@ -1,8 +1,6 @@
 use std::ops::Mul;
 
-use ark_ff::{Field, Fp, FpConfig};
-use ark_serialize::CanonicalSerialize;
-use num_traits::Zero;
+use ark_ff::Field;
 
 use crate::linear_algebra::Vector;
 use crate::ring::representatives::{SignedRepresentative, UnsignedRepresentative};
@@ -43,16 +41,6 @@ pub trait PolyRing:
     #[inline]
     fn x() -> Self {
         Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
-    }
-}
-
-impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
-    fn byte_size() -> usize {
-        Self::zero().uncompressed_size() + 9 // TODO: check if this is correct; this is inferred from Fp<C, N>::from_random_bytes()
-    }
-
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
-        Self::from_random_bytes(bytes)
     }
 }
 

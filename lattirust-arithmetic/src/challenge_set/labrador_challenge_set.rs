@@ -151,11 +151,11 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>>
     for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>
 {
-    fn byte_size() -> usize {
+    fn needs_bytes() -> usize {
         Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
         assert_eq!(bytes.len(), Self::byte_size());
         Some(Self::Field::from(
             Self::checked_coeffs_from_random_bytes(bytes).map(|c| {
@@ -200,11 +200,11 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
 impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>>
     for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>>
 {
-    fn byte_size() -> usize {
+    fn needs_bytes() -> usize {
         LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::byte_size()
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
         LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(bytes)
             .map(|x| x.into())
     }
