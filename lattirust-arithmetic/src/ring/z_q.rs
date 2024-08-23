@@ -1,4 +1,4 @@
-use ark_ff::{BigInt, BigInteger, Field, Fp, Fp64, FpConfig, MontBackend, MontConfig, PrimeField};
+use ark_ff::{BigInt, Field, Fp, Fp64, FpConfig, MontBackend, MontConfig, PrimeField};
 use num_bigint::{BigUint, ToBigUint};
 
 use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};

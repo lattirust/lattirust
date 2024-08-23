@@ -105,7 +105,6 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyR
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
-        assert_eq!(bytes.len(), Self::byte_size());
         let coeffs = core::array::from_fn(|i| {
             Zq::<Q>::try_from_random_bytes(
                 &bytes[i * Zq::<Q>::byte_size()..(i + 1) * Zq::<Q>::byte_size()],

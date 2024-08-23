@@ -1,7 +1,5 @@
 use std::ops::Mul;
 
-use ark_ff::Field;
-
 use crate::linear_algebra::Vector;
 use crate::ring::representatives::{SignedRepresentative, UnsignedRepresentative};
 use crate::ring::Ring;
