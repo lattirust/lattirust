@@ -181,7 +181,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
             .map(|i| {
                 let mut phi_i = Vector::<R>::zeros(crs.n);
                 for k in 0..instance.quad_dot_prod_funcs.len() {
-                    phi_i += &instance.ct_quad_dot_prod_funcs[k].phi[i] * alpha[k];
+                    phi_i += &instance.quad_dot_prod_funcs[k].phi[i] * alpha[k];
                 }
                 for k in 0..crs.num_aggregs {
                     phi_i += &phi__[k][i] * beta[k];
