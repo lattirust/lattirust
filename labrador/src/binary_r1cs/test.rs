@@ -1,14 +1,10 @@
-use std::ops::Add;
 use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::boolean::Boolean;
-use ark_r1cs_std::eq::EqGadget;
-use ark_relations::lc;
-use ark_relations::r1cs::LinearCombination;
 use indicatif::ProgressBar;
 use log::debug;
 use nimue::IOPattern;
-use num_traits::One;
-use pretty_env_logger::env_logger;
+use tracing_subscriber::fmt::format;
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use lattirust_arithmetic::ntt::ntt_modulus;
 use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
@@ -24,7 +20,12 @@ const D: usize = 64;
 type R = Pow2CyclotomicPolyRingNTT<Q, 64>;
 
 fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    // let _ = env_logger::builder().is_test(true).try_init();
+    tracing_subscriber::fmt::fmt()
+        .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
+        .event_format(format().compact())
+        .with_env_filter("none,labrador=trace")
+        .init();
 }
 
 #[test]
@@ -32,17 +33,17 @@ fn init() {
 fn test_prove_binary_r1cs() {
     init();
 
-    let num_r1cs_constraints = 1 << 10;
+    let num_r1cs_constraints = 1 << 12;
     let k = (num_r1cs_constraints / D) * D;
 
     debug!("Constructing constraint system...");
-    /// Generate a dummy constraint system with num_r1cs_constraints constraints and variables. 
-    let mut cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new_ref();
+    // Generate a dummy constraint system with num_r1cs_constraints constraints and variables.
+    let cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new_ref();
     let pb = ProgressBar::new(k as u64);
     let v = Boolean::new_witness(cs.clone(), || Ok(true)).unwrap();
     cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
     for i in 2..k {
-        let v = Boolean::new_witness(cs.clone(), || Ok(i % 2 == 0)).unwrap();
+        let _v = Boolean::new_witness(cs.clone(), || Ok(i % 2 == 0)).unwrap();
         // cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
         // v.enforce_equal(&v).unwrap();
         pb.inc(1);

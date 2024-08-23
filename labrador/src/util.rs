@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
+use ark_relations::r1cs::ConstraintSystemRef;
 use num_traits::{One, ToPrimitive, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, SparseMatrix, SymmetricMatrix, Vector};
@@ -122,10 +122,10 @@ pub fn basis_vector<R: PolyRing>(i: usize, n: usize) -> Vector<R> {
     Vector::<R>::from_vec(coeffs)
 }
 
+/// Convert R1CS matrices from arkworks to a tuple of `SparseMatrix`
 pub fn ark_sparse_matrices(
     cs: &ConstraintSystemRef<Z2>,
 ) -> (SparseMatrix<Z2>, SparseMatrix<Z2>, SparseMatrix<Z2>) {
-    /// Convert arkworks' dense matrix to sparse matrices
     let matrices = cs.to_matrices().unwrap();
     let nrows = cs.num_constraints();
     let ncols = cs.num_instance_variables() + cs.num_witness_variables();

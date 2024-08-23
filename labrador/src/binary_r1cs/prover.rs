@@ -1,9 +1,8 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
-use ark_relations::r1cs::ConstraintSystemRef::CS;
-use log::debug;
+use ark_relations::r1cs::{ConstraintSystemRef};
 use nimue::{Arthur, ProofResult};
+use tracing::{event, instrument, Level};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
@@ -11,33 +10,31 @@ use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use relations::principal_relation::Witness;
+use relations::principal_relation::{PrincipalRelation, Witness};
 
-use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript, Z2};
+use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::prover::prove_principal_relation;
 use crate::util::{ark_sparse_matrices, concat, embed, lift};
 
-pub fn prove_binary_r1cs<'a, R: PolyRing>(
+#[instrument(name="BinR1CS -> PR", level="info", skip(crs, arthur, cs))]
+pub fn reduce_binaryr1cs_labradorpr<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
     arthur: &'a mut Arthur,
     cs: &ConstraintSystemRef<Z2>,
-) -> ProofResult<&'a [u8]>
+) -> (PrincipalRelation<R>, Witness<R>)
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
-    debug!("labrador::binary_r1cs starting BinR1CS -> PrincipalRelation reduction");
-
-    //cs.set_mode(ark_relations::r1cs::SynthesisMode::Prove { construct_matrices: true });
     let (A, B, C) = ark_sparse_matrices(cs);
-    
+
     let prover = cs.borrow().unwrap();
     let w = concat(
         vec![
             prover.instance_assignment.as_slice(),
             prover.witness_assignment.as_slice(),
         ]
-        .as_slice(),
+            .as_slice(),
     );
     let (k, n) = (
         cs.num_constraints(),
@@ -51,7 +48,7 @@ where
     let b = &B * &w;
     let c = &C * &w;
 
-    debug!("labrador::binary_r1cs computed A*w, B*w, C*w");
+    event!(Level::DEBUG, "computing A*w, B*w, C*w");
 
     let a_R = lift::<R>(&a);
     let b_R = lift::<R>(&b);
@@ -68,22 +65,25 @@ where
 
     arthur.absorb_vector(&t).unwrap();
 
-    debug!(
-        "labrador::binary_r1cs squeeze alpha in {{0,1}}^{}x{k}",
+    event!(
+        Level::DEBUG,
+        "squeezing alpha in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
     let alpha = arthur
         .challenge_binary_matrix(crs.security_parameter, k)
         .unwrap();
-    debug!(
-        "labrador::binary_r1cs squeeze beta in {{0,1}}^{}x{k}",
+    event!(
+        Level::DEBUG,
+        "squeezing beta in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
     let beta = arthur
         .challenge_binary_matrix(crs.security_parameter, k)
         .unwrap();
-    debug!(
-        "labrador::binary_r1cs squeeze gamma in {{0,1}}^{}x{k}",
+    event!(
+        Level::DEBUG,
+        "squeezing gamma in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
     let gamma = arthur
@@ -115,8 +115,9 @@ where
         g.len(),
         crs.security_parameter
     );
-    debug!(
-        "labrador::binary_r1cs absorb g in R_q^{}",
+    event!(
+        Level::DEBUG,
+        "absorbing g in R_q^{}",
         crs.security_parameter
     );
     arthur.absorb_vector_canonical::<R::BaseRing>(&g).unwrap();
@@ -141,8 +142,21 @@ where
         s: vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde], // see definition of indices above
     };
 
+    (instance_pr, witness_pr)
+}
+
+pub fn prove_binary_r1cs<'a, R: PolyRing>(
+    crs: &BinaryR1CSCRS<R>,
+    arthur: &'a mut Arthur,
+    cs: &ConstraintSystemRef<Z2>,
+) -> ProofResult<&'a [u8]>
+where
+    LabradorChallengeSet<R>: FromRandomBytes<R>,
+    WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+{
+    let (instance_pr, witness_pr) = reduce_binaryr1cs_labradorpr(crs, arthur, cs);
+
     arthur.ratchet()?;
 
-    debug!("labrador::binary_r1cs finished BinR1CS -> PrincipalRelation reduction");
     prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.core_crs)
 }

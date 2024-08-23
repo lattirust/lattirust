@@ -21,4 +21,6 @@ num-traits = "0.2.18"
 pretty_env_logger = "0.5.0"
 rayon = "1.10.0"
 serde = "1.0.197"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 indicatif = "0.17.8"

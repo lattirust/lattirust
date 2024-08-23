@@ -1,4 +1,4 @@
-use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
+use ark_relations::r1cs::ConstraintSystemRef;
 use nimue::{DuplexHash, IOPattern};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
@@ -59,7 +59,11 @@ where
             .absorb_symmetric_matrix::<R>(crs.r, "prover message 5 (G)")
             .absorb_symmetric_matrix::<R>(crs.r, "prover message 5 (H)")
     }
-    fn labrador_binaryr1cs_io(self, r1cs: &ConstraintSystemRef<Z2>, crs: &BinaryR1CSCRS<R>) -> Self {
+    fn labrador_binaryr1cs_io(
+        self,
+        r1cs: &ConstraintSystemRef<Z2>,
+        crs: &BinaryR1CSCRS<R>,
+    ) -> Self {
         let k = r1cs.num_constraints();
         let secparam = crs.security_parameter;
         self.absorb_vector::<R>(crs.A.nrows(), "prover message 1 (t)")

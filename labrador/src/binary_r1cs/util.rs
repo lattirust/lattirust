@@ -1,11 +1,10 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
+use ark_relations::r1cs::ConstraintSystemRef;
 use ark_std::rand;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 
-use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::msis::MSIS;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
@@ -23,6 +22,7 @@ const SECURITY_PARAMETER: usize = 128;
 
 pub type Z2 = Zq<2>;
 
+#[derive(Clone, Debug)]
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
     pub num_constraints: usize,
@@ -61,7 +61,6 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             w: 2 * n + 6 * k,
             norm: Norm::Linf,
         };
-
 
         // TODO: switch back to lattice-estimator bound
         let h: usize = msis_h_128_linf::<R>(msis.w, msis.length_bound).unwrap();

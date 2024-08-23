@@ -8,7 +8,6 @@ use log::info;
 use num_traits::ToPrimitive;
 use serde::Serialize;
 
-use lattice_estimator::msis::security_estimates::*;
 use lattice_estimator::msis::MSIS;
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::balanced_decomposition::decompose_balanced_vec_polyring;
@@ -22,9 +21,10 @@ use relations::principal_relation::{
 };
 
 use crate::shared::BaseTranscript;
-use crate::util::{chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, msis_h_128_l2, mul_matrix_basescalar, shift_right};
-
-pub(crate) const SECURITY_PARAMETER: usize = 128;
+use crate::util::{
+    chunk_pad, concat, flatten_symmetric_matrix, flatten_vec_vector, msis_h_128_l2,
+    mul_matrix_basescalar, shift_right,
+};
 
 /// Common reference string for one round of the LaBRADOR protocol
 #[derive(Clone, Debug, Serialize)]
@@ -66,7 +66,8 @@ pub fn floor_to_even(x: f64) -> u128 {
 pub fn round_to_even(x: f64) -> u128 {
     if x.floor() as usize % 2 == 0 {
         x.floor() as u128
-    } else if x == x.trunc() { // x is an odd integer
+    } else if x == x.trunc() {
+        // x is an odd integer
         x.ceil() as u128 + 1
     } else {
         x.ceil() as u128
@@ -177,7 +178,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
             norm: Norm::L2,
         };
         let k1 = msis_h_128_l2::<R>(msis_2.length_bound).unwrap(); // TODO: Switch back to lattice estimator
-        // let k1 = find_optimal_h(&msis_2, SECURITY_PARAMETER).expect(format!("failed to find secure rank for {msis_2}. Are there enough constraints in your system?").as_str());
+                                                                   // let k1 = find_optimal_h(&msis_2, SECURITY_PARAMETER).expect(format!("failed to find secure rank for {msis_2}. Are there enough constraints in your system?").as_str());
         let k2 = k1;
         msis_2 = msis_2.with_h(k1).with_length_bound(2. * beta_prime(k));
         info!(

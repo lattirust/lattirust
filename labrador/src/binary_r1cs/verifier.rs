@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef};
+use ark_relations::r1cs::ConstraintSystemRef;
 use log::debug;
 use nimue::{Merlin, ProofError};
 
@@ -12,7 +12,7 @@ use lattirust_arithmetic::ring::{PolyRing, UnsignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
 use lattirust_util::{check, check_eq};
 
-use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript, Z2};
+use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::util::ark_sparse_matrices;
 use crate::verifier::verify_principal_relation;
 
