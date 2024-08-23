@@ -29,29 +29,45 @@ use crate::util::{
 /// Common reference string for one round of the LaBRADOR protocol
 #[derive(Clone, Debug, Serialize)]
 pub struct CommonReferenceString<R: PolyRing> {
+    /// Number of witness vectors
     pub r: usize,
+    /// Number of entries in a witness vector
     pub n: usize,
+    /// Dimension of the polynomial ring Z_q[X]/(X^d + 1)
     pub d: usize,
+    /// Square of the L2-norm bound on the concatenation of witness vectors
     pub norm_bound_squared: f64,
+    /// Size of the first-level commitment
     pub k: usize,
+    /// Size of the second-level commitment for elements decomposed in basis `b1`
     pub k1: usize,
+    /// Size of the second-level commitment for elements decomposed in basis `b2`
     pub k2: usize,
+    /// Length of decompositions in basis `b1`
     pub t1: usize,
+    /// Length of decompositions in basis `b2`
     pub t2: usize,
+    /// Number of aggregated constraints when reducing constant constraints, equal to  `security parameter / log(q)`
     pub num_aggregs: usize,
+    /// Number of quadratic-linear constraints
     pub num_constraints: usize,
+    /// Number of quadratic-linear constraints on constant coefficients
     pub num_constant_constraints: usize,
+    /// First-level commitment matrix, of size k x n
     pub A: Matrix<R>,
-    // k x n
+    /// Second-level commitment matrices for first decomposition basis, (r x t1) instances, each of size k1 x k
     pub B: Vec<Vec<Matrix<R>>>,
-    // (r x t1) x k1 x k
+    /// Second-level commitment matrices for second decomposition basis, (r x r x t2) instances, each of size k2 x 1
     pub C: Vec<Vec<Vec<Vector<R>>>>,
-    // (r x r x t2) x k2 x 1
+    /// Second-level commitment matrices for first decomposition basis, (r x r x t1) instances, each of size k2 x 1
     pub D: Vec<Vec<Vec<Vector<R>>>>,
-    // (r x r x t1) x k2 x 1
+    /// Decomposition basis for z-vectors, roughly equal to `b1` and `b2`
     pub b: u128,
+    /// Decomposition basis for first-level commitments (t-vectors), roughly equal to `b` and `b2`
     pub b1: u128,
+    /// Decomposition basis for inner product terms (g), roughly equal to `b1` and `b2`
     pub b2: u128,
+    /// A reference to the CRS for the next recursive round, or `None` if this is the CRS for the last round
     pub next_crs: Option<Box<CommonReferenceString<R>>>,
 }
 
