@@ -1,9 +1,9 @@
 use bitter::BitReader;
 
 use crate::linear_algebra::Matrix;
+use crate::ring::PolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use crate::ring::PolyRing;
 use crate::ring::Zq;
 use crate::traits::FromRandomBytes;
 
@@ -156,7 +156,6 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
-        assert_eq!(bytes.len(), Self::byte_size());
         Some(Self::Field::from(
             Self::checked_coeffs_from_random_bytes(bytes).map(|c| {
                 if c >= 0 {
@@ -212,14 +211,14 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, 
 
 #[cfg(test)]
 mod tests {
-    use ark_std::rand::{thread_rng, Rng};
     use ark_std::{test_rng, UniformRand};
+    use ark_std::rand::{Rng, thread_rng};
 
     use crate::linear_algebra::Matrix;
     use crate::linear_algebra::Vector;
     use crate::ntt::ntt_modulus;
-    use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::ring::PolyRing;
+    use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
     use crate::ring::Zq;
     use crate::traits::{FromRandomBytes, WithL2Norm};
 

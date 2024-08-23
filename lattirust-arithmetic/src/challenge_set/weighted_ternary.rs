@@ -20,7 +20,6 @@ impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>>
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Zq<Q>> {
-        assert_eq!(bytes.len(), 1);
         let val = bytes[0] & 0b11; // Technically a u4 now
         if val == 0 || val == 3 {
             Some(Zq::<Q>::zero())

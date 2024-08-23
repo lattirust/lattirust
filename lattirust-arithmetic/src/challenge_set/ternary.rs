@@ -20,7 +20,6 @@ impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<F> {
-        assert_eq!(bytes.len(), Self::byte_size());
         let v = (bytes.last()? % 3) as i128;
         let s = SignedRepresentative(v - 1);
         Some(Into::<F>::into(s))
@@ -60,7 +59,6 @@ impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Trit> {
-        assert_eq!(bytes.len(), Self::byte_size());
         let v = (bytes.last()? % 3) as i8;
         let res = match v - 1 {
             -1 => Trit::MinusOne,
