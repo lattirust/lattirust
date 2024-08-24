@@ -14,7 +14,7 @@ impl<const Q: u64> FromRandomBytes<Zq<Q>> for WeightedTernaryChallengeSet<Zq<Q>>
     fn has_no_bias() -> bool {
         true
     }
-    
+
     fn needs_bytes() -> usize {
         1
     }
@@ -39,7 +39,7 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>,
     fn has_no_bias() -> bool {
         true
     }
-    
+
     fn needs_bytes() -> usize {
         N * WeightedTernaryChallengeSet::<Zq<Q>>::byte_size()
     }
@@ -60,7 +60,7 @@ impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, 
     fn has_no_bias() -> bool {
         true
     }
-    
+
     fn needs_bytes() -> usize {
         Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size()
     }

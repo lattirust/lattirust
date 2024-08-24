@@ -13,7 +13,7 @@ use lattirust_arithmetic::traits::FromRandomBytes;
 use lattirust_util::{check, check_eq};
 use relations::principal_relation::PrincipalRelation;
 
-use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
+use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript, Z2};
 use crate::util::ark_sparse_matrices;
 use crate::verifier::verify_principal_relation;
 

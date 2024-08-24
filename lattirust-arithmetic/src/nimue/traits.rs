@@ -1,6 +1,6 @@
+use crate::challenge_set::binary::BinaryChallengeSet;
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
-use crate::challenge_set::binary::BinaryChallengeSet;
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;

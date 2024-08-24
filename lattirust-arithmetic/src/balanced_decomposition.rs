@@ -21,7 +21,10 @@ pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
 }
 
 /// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
-pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>, padding_size: Option<usize>) -> Vec<Vec<F>> {
+pub fn pad_and_transpose<F: Copy + Zero>(
+    mut v: Vec<Vec<F>>,
+    padding_size: Option<usize>,
+) -> Vec<Vec<F>> {
     if v.is_empty() {
         return vec![];
     }
@@ -34,7 +37,7 @@ pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>, padding_size: Optio
             padding_length
         }
     };
-    
+
     // Pad each row to the same length `cols`
     for row in &mut v {
         row.resize(cols, F::zero());

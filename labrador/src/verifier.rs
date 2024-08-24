@@ -18,7 +18,7 @@ use lattirust_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use lattirust_util::{check, check_eq};
 use relations::principal_relation::PrincipalRelation;
 
-use crate::common_reference_string::{CommonReferenceString, fold_instance};
+use crate::common_reference_string::{fold_instance, CommonReferenceString};
 use crate::shared::BaseTranscript;
 use crate::util::*;
 

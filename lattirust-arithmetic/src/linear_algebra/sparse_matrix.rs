@@ -30,13 +30,24 @@ impl<R: Scalar> SparseMatrix<R> {
 }
 
 impl<R: Scalar + Copy + ark_ff::Zero + AddAssign> SparseMatrix<R> {
-    pub fn from_ark_matrix(matrix: ark_relations::r1cs::Matrix<R>, nrows: usize, ncols: usize) -> Self {
-        assert_eq!(nrows,   matrix.len());
-        let iter = matrix.iter().enumerate().map(|(row_index, row)|  row.iter().map(move |(elem, col_index)| (row_index, col_index, elem))).flatten();
+    pub fn from_ark_matrix(
+        matrix: ark_relations::r1cs::Matrix<R>,
+        nrows: usize,
+        ncols: usize,
+    ) -> Self {
+        assert_eq!(nrows, matrix.len());
+        let iter = matrix
+            .iter()
+            .enumerate()
+            .map(|(row_index, row)| {
+                row.iter()
+                    .map(move |(elem, col_index)| (row_index, col_index, elem))
+            })
+            .flatten();
         let (row_index, col_index, value_index) = itertools::multiunzip(iter);
-        let coo = CooMatrix::<R>::try_from_triplets(
-            nrows, ncols, row_index, col_index, value_index
-        ).unwrap();
+        let coo =
+            CooMatrix::<R>::try_from_triplets(nrows, ncols, row_index, col_index, value_index)
+                .unwrap();
         SparseMatrix(nalgebra_sparse::CscMatrix::from(&coo))
     }
 }

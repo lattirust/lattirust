@@ -130,7 +130,7 @@ impl FromRandomBytes<Self> for Z2_64 {
     fn has_no_bias() -> bool {
         true
     }
-    
+
     fn needs_bytes() -> usize {
         8
     }
