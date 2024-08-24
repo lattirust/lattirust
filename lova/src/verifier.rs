@@ -1,5 +1,5 @@
 use log::debug;
-use nimue::{Merlin, ProofError, ProofResult};
+use nimue::{Arthur, ProofError, ProofResult};
 
 use lattirust_arithmetic::balanced_decomposition::{
     recompose_left_right_symmetric_matrix, recompose_matrix,
@@ -8,7 +8,7 @@ use lattirust_arithmetic::challenge_set::ternary::{
     mul_f_trit, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit,
 };
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::nimue::merlin::SerMerlin;
+use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 use lattirust_util::{check, check_eq};
@@ -22,7 +22,7 @@ pub struct Verifier<F: ConvertibleRing> {
 impl<F: ConvertibleRing> Verifier<F> {
     #[tracing::instrument]
     pub fn merge(
-        arthur: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
@@ -56,7 +56,7 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn reduce(
-        arthur: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance: Instance<F>,
     ) -> Result<Instance<F>, ProofError> {
@@ -115,7 +115,7 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn fold(
-        arthur: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,

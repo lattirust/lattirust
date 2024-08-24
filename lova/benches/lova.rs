@@ -8,7 +8,7 @@ use lattirust_arithmetic::ring::Z2_64;
 use lova::prover::Prover;
 use lova::util::OptimizationMode::{OptimizeForSpeed, OptimizeForSpeedWithCompletenessError};
 use lova::util::{
-    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern, OptimizationMode,
+    rand_matrix_with_bounded_column_norms, BaseRelation, Instance, LovaIOPattern,
     PublicParameters,
 };
 use lova::verifier::Verifier;

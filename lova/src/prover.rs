@@ -1,13 +1,13 @@
 use log::log_enabled;
 use log::Level::Debug;
-use nimue::{Arthur, ProofResult};
+use nimue::{Merlin, ProofResult};
 use tracing::debug;
 
 use lattirust_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::nimue::arthur::SerArthur;
+use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
 
@@ -20,7 +20,7 @@ pub struct Prover<F: ConvertibleRing> {
 impl<F: ConvertibleRing> Prover<F> {
     #[tracing::instrument]
     pub fn merge(
-        merlin: &mut Arthur,
+        merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         witness_1: Witness<F>,
         witness_2: Witness<F>,
@@ -44,7 +44,7 @@ impl<F: ConvertibleRing> Prover<F> {
 
     #[tracing::instrument]
     pub fn reduce(
-        merlin: &mut Arthur,
+        merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         witness: Witness<F>,
     ) -> ProofResult<Witness<F>> {
@@ -140,7 +140,7 @@ impl<F: ConvertibleRing> Prover<F> {
 
     #[tracing::instrument]
     pub fn fold(
-        merlin: &mut Arthur,
+        merlin: &mut Merlin,
         pp: &PublicParameters<F>,
         witness_1: Witness<F>,
         witness_2: Witness<F>,
