@@ -2,7 +2,7 @@
 
 use ark_relations::r1cs::ConstraintSystemRef;
 use log::debug;
-use nimue::{Merlin, ProofError};
+use nimue::{Merlin, ProofError, ProofResult};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
@@ -11,22 +11,17 @@ use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{PolyRing, UnsignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
 use lattirust_util::{check, check_eq};
+use relations::principal_relation::PrincipalRelation;
 
 use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::util::ark_sparse_matrices;
 use crate::verifier::verify_principal_relation;
 
-pub fn verify_binary_r1cs<R: PolyRing>(
+pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
     merlin: &mut Merlin,
     cs: &ConstraintSystemRef<Z2>,
     crs: &BinaryR1CSCRS<R>,
-) -> Result<(), ProofError>
-where
-    LabradorChallengeSet<R>: FromRandomBytes<R>,
-    WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
-{
-    //TODO: add crs and statement to transcript
-
+) -> ProofResult<PrincipalRelation<R>> {
     let (A, B, C) = ark_sparse_matrices(cs);
 
     let d = R::dimension();
@@ -60,6 +55,20 @@ where
         delta,
     };
     let instance_pr = reduce(crs, cs, &transcript);
+    Ok(instance_pr)
+}
+
+pub fn verify_binary_r1cs<R: PolyRing>(
+    merlin: &mut Merlin,
+    cs: &ConstraintSystemRef<Z2>,
+    crs: &BinaryR1CSCRS<R>,
+) -> Result<(), ProofError>
+where
+    LabradorChallengeSet<R>: FromRandomBytes<R>,
+    WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+{
+    //TODO: add crs and statement to transcript
+    let instance_pr = verify_reduction_binaryr1cs_labradorpr(merlin, cs, crs)?;
 
     merlin.ratchet()?;
 

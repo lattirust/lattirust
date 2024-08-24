@@ -17,7 +17,7 @@ use crate::prover::prove_principal_relation;
 use crate::util::{ark_sparse_matrices, concat, embed, lift};
 
 #[instrument(name="BinR1CS -> PR", level="info", skip(crs, arthur, cs))]
-pub fn reduce_binaryr1cs_labradorpr<'a, R: PolyRing>(
+pub fn prove_reduction_binaryr1cs_labradorpr<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
     arthur: &'a mut Arthur,
     cs: &ConstraintSystemRef<Z2>,
@@ -154,7 +154,7 @@ where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
-    let (instance_pr, witness_pr) = reduce_binaryr1cs_labradorpr(crs, arthur, cs);
+    let (instance_pr, witness_pr) = prove_reduction_binaryr1cs_labradorpr(crs, arthur, cs);
 
     arthur.ratchet()?;
 

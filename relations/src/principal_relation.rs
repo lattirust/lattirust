@@ -7,7 +7,7 @@ use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::PolyRing;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Witness<R: PolyRing> {
     pub s: Vec<Vector<R>>,
 }
@@ -21,7 +21,7 @@ impl<R: PolyRing> Witness<R> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
     pub A: Option<Matrix<R>>,
@@ -105,7 +105,7 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
     pub A: Option<Matrix<R>>,
     pub phi: Vec<Vector<R>>,
@@ -182,7 +182,7 @@ impl<R: PolyRing> ConstantQuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct PrincipalRelation<R: PolyRing> {
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,

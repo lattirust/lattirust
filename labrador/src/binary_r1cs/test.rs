@@ -1,5 +1,6 @@
 use ark_r1cs_std::alloc::AllocVar;
 use ark_r1cs_std::boolean::Boolean;
+use ark_relations::r1cs::ConstraintSystemRef;
 use indicatif::ProgressBar;
 use log::debug;
 use nimue::IOPattern;
@@ -9,40 +10,30 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use lattirust_arithmetic::ntt::ntt_modulus;
 use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
 
-use crate::binary_r1cs::prover::prove_binary_r1cs;
+use crate::binary_r1cs::prover::prove_reduction_binaryr1cs_labradorpr;
 use crate::binary_r1cs::util::{BinaryR1CSCRS, Z2};
-use crate::binary_r1cs::verifier::verify_binary_r1cs;
+use crate::binary_r1cs::verifier::verify_reduction_binaryr1cs_labradorpr;
 use crate::iopattern::LabradorIOPattern;
 
 const Q: u64 = ntt_modulus::<64>(32);
 const D: usize = 64;
 
-type R = Pow2CyclotomicPolyRingNTT<Q, 64>;
+type R = Pow2CyclotomicPolyRingNTT<Q, D>;
 
 fn init() {
-    // let _ = env_logger::builder().is_test(true).try_init();
-    tracing_subscriber::fmt::fmt()
+    let _ = tracing_subscriber::fmt::fmt()
         .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
         .event_format(format().compact())
         .with_env_filter("none,labrador=trace")
-        .init();
+        .try_init();
 }
 
-#[test]
-#[allow(non_snake_case)]
-fn test_prove_binary_r1cs() {
-    init();
-
-    let num_r1cs_constraints = 1 << 12;
-    let k = (num_r1cs_constraints / D) * D;
-
-    debug!("Constructing constraint system...");
-    // Generate a dummy constraint system with num_r1cs_constraints constraints and variables.
+fn valid_binr1cs_instance_witness(num_r1cs_constraints: usize) -> ConstraintSystemRef<Z2> {
     let cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new_ref();
-    let pb = ProgressBar::new(k as u64);
+    let pb = ProgressBar::new(num_r1cs_constraints as u64);
     let v = Boolean::new_witness(cs.clone(), || Ok(true)).unwrap();
     cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
-    for i in 2..k {
+    for i in 2..num_r1cs_constraints {
         let _v = Boolean::new_witness(cs.clone(), || Ok(i % 2 == 0)).unwrap();
         // cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
         // v.enforce_equal(&v).unwrap();
@@ -69,26 +60,120 @@ fn test_prove_binary_r1cs() {
     // debug_assert!(mats.a_num_non_zero > 0);
     // debug_assert!(mats.b_num_non_zero > 0);
     // debug_assert!(mats.c_num_non_zero > 0);
-    debug_assert_eq!(cs.is_satisfied(), Ok(true));
+    cs
+}
 
-    debug!("Constructing common reference string...");
-    let crs = BinaryR1CSCRS::<R>::new(k, k);
+fn invalid_binr1cs_instance_witness(num_r1cs_constraints: usize) -> ConstraintSystemRef<Z2> {
+    let cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new_ref();
+    let pb = ProgressBar::new(num_r1cs_constraints as u64);
+    let v = Boolean::new_witness(cs.clone(), || Ok(true)).unwrap();
+    cs.enforce_constraint(
+        v.lc(),
+        Boolean::constant(false).lc(),
+        Boolean::constant(true).lc(),
+    )
+    .unwrap(); // v * 0 == 1 cannot be satisfied
+    for i in 2..num_r1cs_constraints {
+        let _v = Boolean::new_witness(cs.clone(), || Ok(i % 2 == 0)).unwrap();
+        // cs.enforce_constraint(v.lc(), v.lc(), v.lc()).unwrap();
+        // v.enforce_equal(&v).unwrap();
+        pb.inc(1);
+    }
+    cs.finalize();
+    let mats = cs.to_matrices().unwrap();
+    debug!(
+        "\t{} ≈ 2^{} constraints, {}+{} ≈ 2^{} variables, ({}, {}, {}) non-zero entries",
+        cs.num_constraints(),
+        cs.num_constraints().next_power_of_two().ilog2(),
+        cs.num_instance_variables(),
+        cs.num_witness_variables(),
+        (cs.num_instance_variables() + cs.num_witness_variables())
+            .next_power_of_two()
+            .ilog2(),
+        mats.a_num_non_zero,
+        mats.b_num_non_zero,
+        mats.c_num_non_zero
+    );
+    debug_assert_eq!(cs.num_constraints(), num_r1cs_constraints);
+    debug_assert_eq!(cs.num_instance_variables(), 1);
+    debug_assert_eq!(cs.num_witness_variables(), num_r1cs_constraints - 1);
+    // debug_assert!(mats.a_num_non_zero > 0);
+    // debug_assert!(mats.b_num_non_zero > 0);
+    // debug_assert!(mats.c_num_non_zero > 0);
+    cs
+}
 
-    debug!("Setting IOPattern...");
-    let io = IOPattern::new("labrador_binaryr1cs")
-        .labrador_binaryr1cs_io(&cs, &crs)
-        .ratchet()
-        // .labrador_crs(&crs.pr_crs())
-        // .ratchet()
-        // .labrador_instance(&PrincipalRelation::<R>::new_empty(&crs.pr_crs()))
-        // .ratchet()
-        .labrador_io(&crs.core_crs);
+#[test]
+fn test_reduction_binaryr1cs_principalrelation_completeness() {
+    init();
+
+    let mut num_r1cs_constraints = 1 << 12;
+    num_r1cs_constraints = (num_r1cs_constraints / D) * D;
+
+    let cs = valid_binr1cs_instance_witness(num_r1cs_constraints);
+    debug_assert_eq!(
+        cs.is_satisfied(),
+        Ok(true),
+        "generated R1CS is not satisfied, aborting test"
+    );
+
+    let crs = BinaryR1CSCRS::<R>::new(num_r1cs_constraints, num_r1cs_constraints);
+
+    let io = IOPattern::new("labrador_binaryr1cs").labrador_binaryr1cs_io(&cs, &crs);
+
     let mut arthur = io.to_arthur();
+    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut arthur, &cs);
 
-    debug!("Proving...");
-    let proof = prove_binary_r1cs(&crs, &mut arthur, &cs).unwrap();
+    debug_assert!(pr_instance.is_valid_witness(&pr_witness), "reduction is not complete; the output PrincipalRelation witness is not a valid witness for the output instance");
+
+    let proof = arthur.transcript();
     debug!("Finished proving, proof size = {} bytes", proof.len());
 
     let mut merlin = io.to_merlin(proof);
-    verify_binary_r1cs(&mut merlin, &cs, &crs).unwrap();
+    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut merlin, &cs, &crs);
+
+    debug_assert!(
+        verifier_res.is_ok(),
+        "reduction is not complete; the verifier rejected the proof"
+    );
+    debug_assert_eq!(
+        verifier_res.unwrap(),
+        pr_instance,
+        "reduction is not complete; the prover and verifier output different instances"
+    );
+}
+
+#[test]
+fn test_reduction_binaryr1cs_principalrelation_soundness() {
+    init();
+
+    let mut num_r1cs_constraints = 1 << 12;
+    num_r1cs_constraints = (num_r1cs_constraints / D) * D;
+
+    let cs = invalid_binr1cs_instance_witness(num_r1cs_constraints);
+    debug_assert_eq!(
+        cs.is_satisfied(),
+        Ok(false),
+        "generated R1CS instance is satisfied, aborting test"
+    );
+
+    let crs = BinaryR1CSCRS::<R>::new(num_r1cs_constraints, num_r1cs_constraints);
+
+    let io = IOPattern::new("labrador_binaryr1cs").labrador_binaryr1cs_io(&cs, &crs);
+
+    let mut arthur = io.to_arthur();
+    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut arthur, &cs);
+
+    debug_assert!(!pr_instance.is_valid_witness(&pr_witness), "reduction is not sound; the output PrincipalRelation witness is a valid witness for the output instance");
+
+    let proof = arthur.transcript();
+    debug!("Finished proving, proof size = {} bytes", proof.len());
+
+    let mut merlin = io.to_merlin(proof);
+    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut merlin, &cs, &crs);
+
+    debug_assert!(
+        verifier_res.is_err(),
+        "reduction is not sound; the verifier accepted the proof"
+    );
 }
