@@ -1470,6 +1470,7 @@ version = "0.0.1-alpha"
 dependencies = [
  "ark-std",
  "lattirust-arithmetic",
+ "nimue",
  "serde",
 ]
 

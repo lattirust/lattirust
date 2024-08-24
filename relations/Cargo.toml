@@ -8,4 +8,5 @@ edition = "2021"
 [dependencies]
 lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
 ark-std = "0.4.0"
+nimue = "0.1.0"
 serde = { version = "1.0.197", features = ["derive"] }
