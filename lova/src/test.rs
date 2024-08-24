@@ -54,9 +54,9 @@ fn test() {
     let io = IOPattern::new("lova").fold(&pp);
 
     // Prove folding
-    let mut arthur = io.to_arthur();
-    let new_witness = Prover::fold(&mut arthur, &pp, witness_1.clone(), witness_2.clone()).unwrap();
-    let folding_proof = arthur.transcript();
+    let mut merlin = io.to_merlin();
+    let new_witness = Prover::fold(&mut merlin, &pp, witness_1.clone(), witness_2.clone()).unwrap();
+    let folding_proof = merlin.transcript();
 
     info!(
         "Actual proof size:      {}",
@@ -64,8 +64,8 @@ fn test() {
     );
 
     // Verify folding
-    let mut merlin = io.to_merlin(folding_proof);
-    let new_instance = Verifier::fold(&mut merlin, &pp, instance_1, instance_2).unwrap();
+    let mut arthur = io.to_arthur(folding_proof);
+    let new_instance = Verifier::fold(&mut arthur, &pp, instance_1, instance_2).unwrap();
 
     // Check that the folded instance and witness are in the relation
     assert!(BaseRelation::is_satisfied(&pp, &new_instance, &new_witness));

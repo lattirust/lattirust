@@ -22,7 +22,7 @@ pub struct Verifier<F: ConvertibleRing> {
 impl<F: ConvertibleRing> Verifier<F> {
     #[tracing::instrument]
     pub fn merge(
-        merlin: &mut Merlin,
+        arthur: &mut Merlin,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
@@ -31,13 +31,13 @@ impl<F: ConvertibleRing> Verifier<F> {
         debug_assert_eq!(instance_1.commitment.ncols(), pp.inner_security_parameter);
         debug_assert_eq!(instance_2.commitment.ncols(), pp.inner_security_parameter);
 
-        let cross_terms = merlin
+        let cross_terms = arthur
             .next_matrix::<SignedRepresentative>(
                 pp.inner_security_parameter,
                 pp.inner_security_parameter,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
         let mut commitment = instance_1.commitment;
         commitment.extend(instance_2.commitment.column_iter());
@@ -56,34 +56,34 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn reduce(
-        merlin: &mut Merlin,
+        arthur: &mut Merlin,
         pp: &PublicParameters<F>,
         instance: Instance<F>,
     ) -> Result<Instance<F>, ProofError> {
         debug!("┌ Verifier::reduce");
         debug_assert_eq!(instance.commitment.ncols(), 2 * pp.inner_security_parameter);
-        let committed_decomp_witness = merlin
+        let committed_decomp_witness = arthur
             .next_matrix(
                 pp.commitment_mat.nrows(),
                 2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
-        let inner_products_decomp = merlin
+        let inner_products_decomp = arthur
             .next_symmetric_matrix::<SignedRepresentative>(
                 2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
-        let challenge = merlin
+        let challenge = arthur
             .challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
                 2 * pp.inner_security_parameter * pp.decomposition_length,
                 pp.inner_security_parameter,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
         // Check G^T * inner_products_decomp * G == instance.inner_products (over the integers)
         let inner_products_recomp: SymmetricMatrix<SignedRepresentative> =
@@ -115,13 +115,13 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn fold(
-        merlin: &mut Merlin,
+        arthur: &mut Merlin,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
     ) -> ProofResult<Instance<F>> {
-        let merged_instance = Self::merge(merlin, pp, instance_1, instance_2).unwrap();
-        let folded_instance = Self::reduce(merlin, pp, merged_instance).unwrap();
+        let merged_instance = Self::merge(arthur, pp, instance_1, instance_2).unwrap();
+        let folded_instance = Self::reduce(arthur, pp, merged_instance).unwrap();
         Ok(folded_instance)
     }
 }

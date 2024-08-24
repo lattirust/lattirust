@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use nimue::{Arthur, ProofResult};
+use nimue::{Merlin, ProofResult};
 use rayon::prelude::*;
 
 use lattirust_arithmetic::balanced_decomposition::{
@@ -10,7 +10,7 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::linear_algebra::inner_products::{inner_products, inner_products2};
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::nimue::arthur::SerArthur;
+use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{PolyRing, SignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
@@ -240,7 +240,7 @@ impl<'a, R: PolyRing> Prover<'a, R> {
 }
 
 pub fn prove_principal_relation<'a, R: PolyRing>(
-    arthur: &'a mut Arthur,
+    merlin: &'a mut Merlin,
     instance: &PrincipalRelation<R>,
     witness: &Witness<R>,
     crs: &CommonReferenceString<R>,
@@ -258,10 +258,10 @@ where
 
     // Initialize Fiat-Shamir transcript
     // TODO: add the following, but at the moment this causes a stack overflow somewhere in nimue/keccak
-    // arthur.absorb_crs(&crs)?;
-    // arthur.ratchet()?;
-    // arthur.absorb_instance(&instance)?;
-    // arthur.ratchet()?;
+    // merlin.absorb_crs(&crs)?;
+    // merlin.ratchet()?;
+    // merlin.absorb_instance(&instance)?;
+    // merlin.ratchet()?;
 
     // Prove
     let num_constraints = instance.quad_dot_prod_funcs.len();
@@ -270,25 +270,25 @@ where
 
     prover.prove_1();
     let u_1 = prover.transcript.u_1.as_ref().unwrap();
-    arthur
+    merlin
         .absorb_vector(u_1)
         .expect("error absorbing prover message 1");
 
-    let pis = arthur
+    let pis = merlin
         .challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r)
         .expect("error squeezing verifier message 1");
     prover.transcript.Pi.replace(pis);
 
     prover.prove_2();
     let p = prover.transcript.p.as_ref().unwrap();
-    arthur
+    merlin
         .absorb_vector_canonical::<R::BaseRing>(p)
         .expect("error absorbing prover message 2");
 
-    let psi = arthur
+    let psi = merlin
         .challenge_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs)
         .expect("error squeezing verifier message 2 (psi)");
-    let omega = arthur
+    let omega = merlin
         .challenge_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs)
         .expect("error squeezing verifier message 2 (omega)");
     prover.transcript.psi.replace(psi);
@@ -296,14 +296,14 @@ where
 
     prover.prove_3();
     let b__ = prover.transcript.b__.as_ref().unwrap();
-    arthur
+    merlin
         .absorb_vec(b__)
         .expect("error absorbing prover message 3");
 
-    let alpha = arthur
+    let alpha = merlin
         .challenge_vector::<R, R>(num_constraints)
         .expect("error squeezing verifier message 3 (alpha)");
-    let beta = arthur
+    let beta = merlin
         .challenge_vector::<R, R>(crs.num_aggregs)
         .expect("error squeezing verifier message 3 (beta)");
     prover.transcript.alpha.replace(alpha);
@@ -311,11 +311,11 @@ where
 
     prover.prove_4();
     let u_2 = prover.transcript.u_2.as_ref().unwrap();
-    arthur
+    merlin
         .absorb_vector(u_2)
         .expect("error absorbing prover message 4");
 
-    let c = arthur
+    let c = merlin
         .challenge_vec::<R, LabradorChallengeSet<R>>(crs.r)
         .expect("error squeezing verifier message 4");
     prover.transcript.c.replace(c);
@@ -327,7 +327,7 @@ where
         // Fold relation and recurse
         let (instance_next, witness_next) = fold_instance(&prover.transcript, true);
         prove_principal_relation(
-            arthur,
+            merlin,
             &instance_next,
             &witness_next.unwrap(),
             crs.next_crs.as_ref().unwrap(),
@@ -340,19 +340,19 @@ where
         let G = prover.transcript.G.as_ref().unwrap();
         let H = prover.transcript.H.as_ref().unwrap();
 
-        arthur
+        merlin
             .absorb_vector(z)
             .expect("error absorbing prover message 5 (z)");
-        arthur
+        merlin
             .absorb_vectors(t)
             .expect("error absorbing prover message 5 (t)");
-        arthur
+        merlin
             .absorb_symmetric_matrix(G)
             .expect("error absorbing prover message 5 (G)");
-        arthur
+        merlin
             .absorb_symmetric_matrix(H)
             .expect("error absorbing prover message 5 (H)");
 
-        Ok(arthur.transcript())
+        Ok(merlin.transcript())
     }
 }

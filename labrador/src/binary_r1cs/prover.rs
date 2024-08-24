@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::{ConstraintSystemRef};
-use nimue::{Arthur, ProofResult};
+use ark_relations::r1cs::ConstraintSystemRef;
+use nimue::{Merlin, ProofResult};
 use tracing::{event, instrument, Level};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::nimue::arthur::SerArthur;
+use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
@@ -16,10 +16,10 @@ use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
 use crate::prover::prove_principal_relation;
 use crate::util::{ark_sparse_matrices, concat, embed, lift};
 
-#[instrument(name="BinR1CS -> PR", level="info", skip(crs, arthur, cs))]
+#[instrument(name = "BinR1CS -> PR", level = "info", skip(crs, merlin, cs))]
 pub fn prove_reduction_binaryr1cs_labradorpr<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
-    arthur: &'a mut Arthur,
+    merlin: &'a mut Merlin,
     cs: &ConstraintSystemRef<Z2>,
 ) -> (PrincipalRelation<R>, Witness<R>)
 where
@@ -34,7 +34,7 @@ where
             prover.instance_assignment.as_slice(),
             prover.witness_assignment.as_slice(),
         ]
-            .as_slice(),
+        .as_slice(),
     );
     let (k, n) = (
         cs.num_constraints(),
@@ -63,14 +63,14 @@ where
     ]);
     let t = &crs.A * &v;
 
-    arthur.absorb_vector(&t).unwrap();
+    merlin.absorb_vector(&t).unwrap();
 
     event!(
         Level::DEBUG,
         "squeezing alpha in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
-    let alpha = arthur
+    let alpha = merlin
         .challenge_binary_matrix(crs.security_parameter, k)
         .unwrap();
     event!(
@@ -78,7 +78,7 @@ where
         "squeezing beta in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
-    let beta = arthur
+    let beta = merlin
         .challenge_binary_matrix(crs.security_parameter, k)
         .unwrap();
     event!(
@@ -86,7 +86,7 @@ where
         "squeezing gamma in {{0,1}}^{}x{k}",
         crs.security_parameter
     );
-    let gamma = arthur
+    let gamma = merlin
         .challenge_binary_matrix(crs.security_parameter, k)
         .unwrap();
 
@@ -120,7 +120,7 @@ where
         "absorbing g in R_q^{}",
         crs.security_parameter
     );
-    arthur.absorb_vector_canonical::<R::BaseRing>(&g).unwrap();
+    merlin.absorb_vector_canonical::<R::BaseRing>(&g).unwrap();
 
     let a_tilde = R::sigma_vec(&a_R);
     let b_tilde = R::sigma_vec(&b_R);
@@ -147,16 +147,16 @@ where
 
 pub fn prove_binary_r1cs<'a, R: PolyRing>(
     crs: &BinaryR1CSCRS<R>,
-    arthur: &'a mut Arthur,
+    merlin: &'a mut Merlin,
     cs: &ConstraintSystemRef<Z2>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
-    let (instance_pr, witness_pr) = prove_reduction_binaryr1cs_labradorpr(crs, arthur, cs);
+    let (instance_pr, witness_pr) = prove_reduction_binaryr1cs_labradorpr(crs, merlin, cs);
 
-    arthur.ratchet()?;
+    merlin.ratchet()?;
 
-    prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.core_crs)
+    prove_principal_relation(merlin, &instance_pr, &witness_pr, &crs.core_crs)
 }

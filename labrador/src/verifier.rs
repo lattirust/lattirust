@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use log::debug;
-use nimue::{Merlin, ProofError, ProofResult};
+use nimue::{Arthur, ProofError, ProofResult};
 use rayon::prelude::*;
 
 use lattirust_arithmetic::balanced_decomposition::{
@@ -11,14 +11,14 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::nimue::merlin::SerMerlin;
+use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use lattirust_util::{check, check_eq};
 use relations::principal_relation::PrincipalRelation;
 
-use crate::common_reference_string::{fold_instance, CommonReferenceString};
+use crate::common_reference_string::{CommonReferenceString, fold_instance};
 use crate::shared::BaseTranscript;
 use crate::util::*;
 
@@ -220,7 +220,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
 pub fn verify_core<'a, R: PolyRing>(
     crs: &'a CommonReferenceString<R>,
     instance: &'a PrincipalRelation<R>,
-    merlin: &mut Merlin,
+    arthur: &mut Arthur,
 ) -> ProofResult<BaseTranscript<'a, R>>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
@@ -230,15 +230,15 @@ where
     let num_constraints = instance.quad_dot_prod_funcs.len();
     let num_ct_constraints = instance.ct_quad_dot_prod_funcs.len();
 
-    let u_1 = merlin
+    let u_1 = arthur
         .next_vector(crs.k1)
         .expect("error extracting prover message 1 from transcript");
 
-    let Pi = merlin
+    let Pi = arthur
         .challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, n, r)
         .expect("error extracting verifier message 1 from transcript");
 
-    let p = merlin
+    let p = arthur
         .next_vector_canonical::<R::BaseRing>(256)
         .expect("error extracting prover message 2 from transcript");
     let norm_p_sq = p.l2_norm_squared();
@@ -251,14 +251,14 @@ where
         )
     );
 
-    let psi = merlin
+    let psi = arthur
         .challenge_vectors::<R::BaseRing, R::BaseRing>(num_ct_constraints, crs.num_aggregs)
         .expect("error extracting verifier message 2 (psi) from transcript");
-    let omega = merlin
+    let omega = arthur
         .challenge_vectors::<R::BaseRing, R::BaseRing>(256, crs.num_aggregs)
         .expect("error extracting verifier message 2 (omega) from transcript");
 
-    let b__ = merlin
+    let b__ = arthur
         .next_vec::<R>(crs.num_aggregs)
         .expect("error extracting prover message 3 from transcript");
 
@@ -270,18 +270,18 @@ where
         check_eq!(b__[k].coeffs()[0], rhs_k);
     }
 
-    let alpha = merlin
+    let alpha = arthur
         .challenge_vector::<R, R>(num_constraints)
         .expect("error extracting verifier message 3 (alpha) from transcript");
-    let beta = merlin
+    let beta = arthur
         .challenge_vector::<R, R>(crs.num_aggregs)
         .expect("error extracting verifier message 3 (beta) from transcript");
 
-    let u_2 = merlin
+    let u_2 = arthur
         .next_vector(crs.k2)
         .expect("error extracting prover message 4 from transcript");
 
-    let c = merlin
+    let c = arthur
         .challenge_vec::<R, LabradorChallengeSet<R>>(crs.r)
         .expect("error extracting verifier message 4 from transcript");
 
@@ -316,7 +316,7 @@ where
 }
 
 pub fn verify_principal_relation<R: PolyRing>(
-    merlin: &mut Merlin,
+    arthur: &mut Arthur,
     instance: &PrincipalRelation<R>,
     crs: &CommonReferenceString<R>,
 ) -> Result<(), ProofError>
@@ -326,13 +326,13 @@ where
 {
     // Init Fiat-Shamir transcript
     // TODO: add public statement
-    // merlin.ratchet()?;
+    // arthur.ratchet()?;
 
     let mut transcript: BaseTranscript<R>;
     let mut instance = instance.to_owned();
     let mut crs = crs.to_owned();
     loop {
-        transcript = verify_core(&crs, &instance, merlin)?;
+        transcript = verify_core(&crs, &instance, arthur)?;
         let recurse = crs.next_crs.is_some();
         if recurse {
             (instance, _) = fold_instance(&transcript, false);
@@ -343,16 +343,16 @@ where
     }
 
     // Final checks
-    let z = merlin
+    let z = arthur
         .next_vector(crs.n)
         .expect("error extracting prover message 5 (z) from transcript");
-    let t = merlin
+    let t = arthur
         .next_vectors(crs.k, crs.r)
         .expect("error extracting prover message 5 (t) from transcript");
-    let G = merlin
+    let G = arthur
         .next_symmetric_matrix(crs.r)
         .expect("error extracting prover message 5 (G) from transcript");
-    let H = merlin
+    let H = arthur
         .next_symmetric_matrix(crs.r)
         .expect("error extracting prover message 5 (H) from transcript");
     transcript.z.replace(z);

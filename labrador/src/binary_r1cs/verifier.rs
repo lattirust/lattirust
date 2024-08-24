@@ -2,11 +2,11 @@
 
 use ark_relations::r1cs::ConstraintSystemRef;
 use log::debug;
-use nimue::{Merlin, ProofError, ProofResult};
+use nimue::{Arthur, ProofError, ProofResult};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::nimue::merlin::SerMerlin;
+use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::{PolyRing, UnsignedRepresentative};
 use lattirust_arithmetic::traits::FromRandomBytes;
@@ -18,7 +18,7 @@ use crate::util::ark_sparse_matrices;
 use crate::verifier::verify_principal_relation;
 
 pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
-    merlin: &mut Merlin,
+    arthur: &mut Arthur,
     cs: &ConstraintSystemRef<Z2>,
     crs: &BinaryR1CSCRS<R>,
 ) -> ProofResult<PrincipalRelation<R>> {
@@ -30,16 +30,16 @@ pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
         cs.num_instance_variables() + cs.num_witness_variables(),
     );
 
-    let t = merlin.next_vector(crs.m.div_ceil(d))?;
+    let t = arthur.next_vector(crs.m.div_ceil(d))?;
 
-    let alpha = merlin.challenge_binary_matrix(crs.security_parameter, k)?;
-    let beta = merlin.challenge_binary_matrix(crs.security_parameter, n)?;
-    let gamma = merlin.challenge_binary_matrix(crs.security_parameter, n)?;
+    let alpha = arthur.challenge_binary_matrix(crs.security_parameter, k)?;
+    let beta = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
+    let gamma = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
 
     // delta_i is computed mod 2, i.e., over Z2
     let delta = &alpha * &A + &beta * &B + &gamma * &C;
 
-    let g = merlin.next_vector_canonical::<R::BaseRing>(crs.security_parameter)?;
+    let g = arthur.next_vector_canonical::<R::BaseRing>(crs.security_parameter)?;
 
     for i in 0..g.len() {
         // Check that all g_i's are even
@@ -59,7 +59,7 @@ pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
 }
 
 pub fn verify_binary_r1cs<R: PolyRing>(
-    merlin: &mut Merlin,
+    arthur: &mut Arthur,
     cs: &ConstraintSystemRef<Z2>,
     crs: &BinaryR1CSCRS<R>,
 ) -> Result<(), ProofError>
@@ -68,9 +68,9 @@ where
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
 {
     //TODO: add crs and statement to transcript
-    let instance_pr = verify_reduction_binaryr1cs_labradorpr(merlin, cs, crs)?;
+    let instance_pr = verify_reduction_binaryr1cs_labradorpr(arthur, cs, crs)?;
 
-    merlin.ratchet()?;
+    arthur.ratchet()?;
 
-    verify_principal_relation(merlin, &instance_pr, &crs.core_crs)
+    verify_principal_relation(arthur, &instance_pr, &crs.core_crs)
 }

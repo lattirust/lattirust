@@ -20,7 +20,7 @@ pub struct Prover<F: ConvertibleRing> {
 impl<F: ConvertibleRing> Prover<F> {
     #[tracing::instrument]
     pub fn merge(
-        arthur: &mut Arthur,
+        merlin: &mut Arthur,
         pp: &PublicParameters<F>,
         witness_1: Witness<F>,
         witness_2: Witness<F>,
@@ -33,8 +33,8 @@ impl<F: ConvertibleRing> Prover<F> {
         let witness_2_int = witness_2.map(|x| Into::<SignedRepresentative>::into(x));
         let witness_1_int = witness_1.map(|x| Into::<SignedRepresentative>::into(x));
         let cross_terms = &witness_2_int.transpose() * &witness_1_int;
-        arthur.absorb_matrix::<SignedRepresentative>(&cross_terms)?;
-        arthur.ratchet()?;
+        merlin.absorb_matrix::<SignedRepresentative>(&cross_terms)?;
+        merlin.ratchet()?;
 
         let mut witness = witness_1;
         witness.extend(witness_2.column_iter());
@@ -44,7 +44,7 @@ impl<F: ConvertibleRing> Prover<F> {
 
     #[tracing::instrument]
     pub fn reduce(
-        arthur: &mut Arthur,
+        merlin: &mut Arthur,
         pp: &PublicParameters<F>,
         witness: Witness<F>,
     ) -> ProofResult<Witness<F>> {
@@ -90,8 +90,8 @@ impl<F: ConvertibleRing> Prover<F> {
         );
 
         // Add to FS transcript
-        arthur.absorb_matrix::<F>(&committed_decomp_witness)?;
-        arthur.ratchet()?;
+        merlin.absorb_matrix::<F>(&committed_decomp_witness)?;
+        merlin.ratchet()?;
 
         // Compute inner products over the integers
         let decomp_witness_int = &to_integers(&decomp_witness);
@@ -103,15 +103,15 @@ impl<F: ConvertibleRing> Prover<F> {
         );
 
         // Add to FS transcript
-        arthur.absorb_symmetric_matrix::<SignedRepresentative>(&inner_products_decomp)?;
-        arthur.ratchet()?;
+        merlin.absorb_symmetric_matrix::<SignedRepresentative>(&inner_products_decomp)?;
+        merlin.ratchet()?;
 
         // Get challenge
-        let challenge = arthur.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
+        let challenge = merlin.challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
             2 * pp.inner_security_parameter * pp.decomposition_length,
             pp.inner_security_parameter,
         )?;
-        arthur.ratchet()?;
+        merlin.ratchet()?;
 
         // Compute next witness
         // TODO: We don't actually have to do this mod q, but with the current implementation we're barely doing modular arithmetic, not sure if it makes sense to work over the integers instead here.
@@ -140,14 +140,14 @@ impl<F: ConvertibleRing> Prover<F> {
 
     #[tracing::instrument]
     pub fn fold(
-        arthur: &mut Arthur,
+        merlin: &mut Arthur,
         pp: &PublicParameters<F>,
         witness_1: Witness<F>,
         witness_2: Witness<F>,
     ) -> ProofResult<Witness<F>> {
         debug!("┌ Prover::fold");
-        let merged_witness = Prover::merge(arthur, pp, witness_1, witness_2)?;
-        let folded_witness = Prover::reduce(arthur, pp, merged_witness)?;
+        let merged_witness = Prover::merge(merlin, pp, witness_1, witness_2)?;
+        let folded_witness = Prover::reduce(merlin, pp, merged_witness)?;
         debug!("└ Stop  Prover::fold");
         Ok(folded_witness)
     }

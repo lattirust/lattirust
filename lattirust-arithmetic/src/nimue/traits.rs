@@ -94,6 +94,6 @@ where
     }
 }
 
-impl<H: DuplexHash<u8>> ChallengeFromRandomBytes for Merlin<'_, H, u8> {}
+impl<H: DuplexHash<u8>> ChallengeFromRandomBytes for Arthur<'_, H, u8> {}
 
-impl<H: DuplexHash<u8>, R: RngCore + CryptoRng> ChallengeFromRandomBytes for Arthur<H, u8, R> {}
+impl<H: DuplexHash<u8>, R: RngCore + CryptoRng> ChallengeFromRandomBytes for Merlin<H, u8, R> {}

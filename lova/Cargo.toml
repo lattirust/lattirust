@@ -16,7 +16,7 @@ derive_more = "0.99.17"
 env_logger = "0.11.3"
 humansize = "2.0.0"
 log = "0.4.21"
-nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
+nimue = "0.1.0"
 serde = { version = "1.0.197", features = ["derive"] }
 num-traits = "0.2.18"
 num-bigint = "0.4.4"

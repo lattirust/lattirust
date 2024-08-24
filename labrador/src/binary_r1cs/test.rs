@@ -121,16 +121,16 @@ fn test_reduction_binaryr1cs_principalrelation_completeness() {
 
     let io = IOPattern::new("labrador_binaryr1cs").labrador_binaryr1cs_io(&cs, &crs);
 
-    let mut arthur = io.to_arthur();
-    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut arthur, &cs);
+    let mut merlin = io.to_merlin();
+    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut merlin, &cs);
 
     debug_assert!(pr_instance.is_valid_witness(&pr_witness), "reduction is not complete; the output PrincipalRelation witness is not a valid witness for the output instance");
 
-    let proof = arthur.transcript();
+    let proof = merlin.transcript();
     debug!("Finished proving, proof size = {} bytes", proof.len());
 
-    let mut merlin = io.to_merlin(proof);
-    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut merlin, &cs, &crs);
+    let mut arthur = io.to_arthur(proof);
+    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut arthur, &cs, &crs);
 
     debug_assert!(
         verifier_res.is_ok(),
@@ -161,16 +161,16 @@ fn test_reduction_binaryr1cs_principalrelation_soundness() {
 
     let io = IOPattern::new("labrador_binaryr1cs").labrador_binaryr1cs_io(&cs, &crs);
 
-    let mut arthur = io.to_arthur();
-    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut arthur, &cs);
+    let mut merlin = io.to_merlin();
+    let (pr_instance, pr_witness) = prove_reduction_binaryr1cs_labradorpr(&crs, &mut merlin, &cs);
 
     debug_assert!(!pr_instance.is_valid_witness(&pr_witness), "reduction is not sound; the output PrincipalRelation witness is a valid witness for the output instance");
 
-    let proof = arthur.transcript();
+    let proof = merlin.transcript();
     debug!("Finished proving, proof size = {} bytes", proof.len());
 
-    let mut merlin = io.to_merlin(proof);
-    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut merlin, &cs, &crs);
+    let mut arthur = io.to_arthur(proof);
+    let verifier_res = verify_reduction_binaryr1cs_labradorpr(&mut arthur, &cs, &crs);
 
     debug_assert!(
         verifier_res.is_err(),
