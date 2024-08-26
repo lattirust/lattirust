@@ -12,7 +12,7 @@ use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 use zeroize::Zeroize;
 
 use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};
@@ -207,6 +207,30 @@ impl UniformRand for Z2_64 {
 impl Ring for Z2_64 {
     const ZERO: Self = Self(Wrapping(0));
     const ONE: Self = Self(Wrapping(1));
+
+    fn inverse(&self) -> Option<Self> {
+        if self.0 .0 % 2 == 0 {
+            None
+        } else {
+            let q_half = 1u64 >> 63;
+            let self_unsigned = if self.0 .0 < 0 {
+                BigUint::from((self.0 .0 + q_half as i64) as u64)
+            } else {
+                BigUint::from(self.0 .0 as u64)
+            };
+            let inv_unsigned_bigint = self_unsigned.modinv(&Self::modulus()).unwrap();
+            let inv_unsigned = inv_unsigned_bigint.to_u64().unwrap();
+            let inv_signed = if inv_unsigned > q_half {
+                inv_unsigned - q_half
+            } else {
+                inv_unsigned
+            };
+            let inv = Self::from(inv_signed);
+            debug_assert_eq!(*self * &inv, Self::one());
+
+            Some(inv)
+        }
+    }
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`

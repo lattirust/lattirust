@@ -206,6 +206,10 @@ impl UniformRand for Z2_128 {
 impl Ring for Z2_128 {
     const ZERO: Self = Self(Wrapping(0));
     const ONE: Self = Self(Wrapping(1));
+
+    fn inverse(&self) -> Option<Self> {
+        todo!()
+    }
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`

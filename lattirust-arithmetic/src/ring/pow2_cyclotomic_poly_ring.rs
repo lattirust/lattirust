@@ -121,6 +121,10 @@ impl<BaseRing: ConvertibleRing, const N: usize> CanonicalDeserialize
 impl<BaseRing: ConvertibleRing, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
     const ZERO: Self = Self::const_from_element(BaseRing::ZERO);
     const ONE: Self = Self::const_from_element(BaseRing::ONE);
+
+    fn inverse(&self) -> Option<Self> {
+        todo!()
+    }
 }
 
 impl<BaseRing: ConvertibleRing, const N: usize> FromRandomBytes<Self>

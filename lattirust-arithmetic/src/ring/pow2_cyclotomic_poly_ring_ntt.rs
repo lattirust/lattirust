@@ -97,6 +97,10 @@ impl<const Q: u64, const N: usize> CanonicalDeserialize for Pow2CyclotomicPolyRi
 impl<const Q: u64, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Q, N> {
     const ZERO: Self = Self(vec_from_element(<Zq<Q> as Ring>::ZERO));
     const ONE: Self = Self(vec_from_element(<Zq<Q> as Ring>::ONE));
+
+    fn inverse(&self) -> Option<Self> {
+        todo!()
+    }
 }
 
 impl<const Q: u64, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPolyRingNTT<Q, N> {

@@ -1,15 +1,17 @@
+use std::error::Error;
 use std::ops::{AddAssign, Mul};
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
-use nalgebra::{Dim, RawStorage};
+use nalgebra::{Dim, Dyn, RawStorage};
 use nalgebra_sparse;
 use nalgebra_sparse::CooMatrix;
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
-use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
+use crate::linear_algebra::{Matrix, Vector};
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.
@@ -29,26 +31,35 @@ impl<R: Scalar> SparseMatrix<R> {
     }
 }
 
-impl<R: Scalar + Copy + ark_ff::Zero + AddAssign> SparseMatrix<R> {
+impl<R: Scalar + Copy + Zero + AddAssign> SparseMatrix<R> {
     pub fn from_ark_matrix(
         matrix: ark_relations::r1cs::Matrix<R>,
         nrows: usize,
         ncols: usize,
     ) -> Self {
         assert_eq!(nrows, matrix.len());
-        let iter = matrix
+        let triplets = matrix
             .iter()
             .enumerate()
             .map(|(row_index, row)| {
                 row.iter()
-                    .map(move |(elem, col_index)| (row_index, col_index, elem))
+                    .map(move |(elem, col_index)| (row_index, *col_index, *elem))
             })
-            .flatten();
-        let (row_index, col_index, value_index) = itertools::multiunzip(iter);
+            .flatten()
+            .collect();
+        let res = Self::try_from_triplets(nrows, ncols, triplets).unwrap();
+        res
+    }
+
+    pub fn try_from_triplets(
+        nrows: usize,
+        ncols: usize,
+        triplets: Vec<(usize, usize, R)>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (row_index, col_index, value_index) = itertools::multiunzip(triplets);
         let coo =
-            CooMatrix::<R>::try_from_triplets(nrows, ncols, row_index, col_index, value_index)
-                .unwrap();
-        SparseMatrix(nalgebra_sparse::CscMatrix::from(&coo))
+            CooMatrix::<R>::try_from_triplets(nrows, ncols, row_index, col_index, value_index)?;
+        Ok(SparseMatrix(nalgebra_sparse::CscMatrix::from(&coo)))
     }
 }
 
@@ -78,24 +89,40 @@ impl<
         'b,
         Lhs: Scalar,
         Rhs: Scalar,
-        RRhs: Dim,
-        CRhs: Dim,
-        SRhs: RawStorage<Rhs, RRhs, CRhs>,
+        SRhs: RawStorage<Rhs, Dyn, Dyn>,
         Out: Scalar,
         ROut: Dim,
         COut: Dim,
         SOut: RawStorage<Out, ROut, COut>,
-    > Mul<&'b GenericMatrix<Rhs, RRhs, CRhs, SRhs>> for &'a SparseMatrix<Lhs>
+    > Mul<&'b GenericMatrix<Rhs, Dyn, Dyn, SRhs>> for &'a SparseMatrix<Lhs>
 where
     &'a nalgebra_sparse::CscMatrix<Lhs>: Mul<
-        &'b nalgebra::Matrix<Rhs, RRhs, CRhs, SRhs>,
+        &'b nalgebra::Matrix<Rhs, Dyn, Dyn, SRhs>,
         Output = nalgebra::Matrix<Out, ROut, COut, SOut>,
     >,
 {
     type Output = GenericMatrix<Out, ROut, COut, SOut>;
 
-    fn mul(self, rhs: &'b GenericMatrix<Rhs, RRhs, CRhs, SRhs>) -> Self::Output {
+    fn mul(self, rhs: &'b GenericMatrix<Rhs, Dyn, Dyn, SRhs>) -> Self::Output {
         self.0.mul(&rhs.0).into()
+    }
+}
+
+/// SparseMatrix * Vector multiplication
+impl<'a, 'b, Lhs: Scalar, Rhs: Scalar, Out: Scalar> Mul<&'b Vector<Rhs>> for &'a SparseMatrix<Lhs>
+where
+    Lhs: Mul<Rhs, Output = Out>,
+    Out: Zero + AddAssign,
+{
+    type Output = Vector<Out>;
+
+    fn mul(self, rhs: &'b Vector<Rhs>) -> Self::Output {
+        self.0
+            .triplet_iter()
+            .fold(Vector::zeros(self.nrows()), |mut acc, (row, col, value)| {
+                acc[row] += value.clone() * rhs[col].clone();
+                acc
+            })
     }
 }
 
@@ -125,7 +152,7 @@ where
     type Output = Matrix<Out>;
 
     fn mul(self, rhs: &'a SparseMatrix<Rhs>) -> Self::Output {
-        // TODO: nalgebra-sparse only supports sparse-dense multiplication
+        // nalgebra-sparse only supports sparse-dense multiplication
         let self_transpose = self.0.transpose();
         let rhs_transpose = rhs.0.transpose();
         let dense = rhs_transpose * self_transpose;

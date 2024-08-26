@@ -143,4 +143,6 @@ pub trait Ring:
         }
         Some(res)
     }
+    
+     fn inverse(&self) -> Option<Self>;
 }

@@ -28,6 +28,10 @@ pub const fn const_fq_from<const Q: u64>(val: u64) -> Zq<Q> {
 impl<const Q: u64> Ring for Zq<Q> {
     const ZERO: Self = <Zq<Q> as Field>::ZERO;
     const ONE: Self = <Zq<Q> as Field>::ONE;
+
+    fn inverse(&self) -> Option<Self> {
+        ark_ff::Field::inverse(&self)
+    }
 }
 
 impl From<BigInt<1>> for UnsignedRepresentative {
