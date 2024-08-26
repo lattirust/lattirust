@@ -1469,8 +1469,11 @@ name = "relations"
 version = "0.0.1-alpha"
 dependencies = [
  "ark-std",
+ "lattice-estimator",
  "lattirust-arithmetic",
+ "log",
  "nimue",
+ "num-traits",
  "serde",
 ]
 
