@@ -9,9 +9,9 @@ use nalgebra_sparse::CooMatrix;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
+use crate::linear_algebra::{Matrix, Vector};
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Scalar;
-use crate::linear_algebra::{Matrix, Vector};
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.
@@ -157,5 +157,32 @@ where
         let rhs_transpose = rhs.0.transpose();
         let dense = rhs_transpose * self_transpose;
         dense.transpose().into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NUM_ROWS: usize = 1024;
+    const NUM_COLS: usize = 2048;
+    type R = u128;
+    #[test]
+    fn test_sparsematrix_vector_mul() {
+        let triplets = Vec::from_iter((0..NUM_ROWS).map(|i| (i, i % NUM_COLS, R::from(i as u128))));
+        let sparse_mat =
+            SparseMatrix::<R>::try_from_triplets(NUM_ROWS, NUM_COLS, triplets).unwrap();
+        let dense_mat = Matrix::from_fn(NUM_ROWS, NUM_COLS, |i, j| {
+            if j == i % NUM_COLS {
+                R::from(i as u128)
+            } else {
+                0
+            }
+        });
+        let vec = Vector::from_fn(NUM_COLS, |i, _j| R::from((NUM_COLS - i) as u128));
+
+        let res = &sparse_mat * &vec;
+        let expected = &dense_mat * &vec;
+        assert_eq!(res, expected);
     }
 }
