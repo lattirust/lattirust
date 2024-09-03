@@ -84,6 +84,16 @@ where
     }
 }
 
+impl<R: Scalar + Zero> Into<Matrix<R>> for SparseMatrix<R> {
+    fn into(self) -> Matrix<R> {
+        let mut dense = Matrix::<R>::zeros(self.nrows(), self.ncols());
+        for (row, col, value) in self.0.triplet_iter() {
+            dense[(row, col)] = value.clone();
+        }
+        dense
+    }
+}
+
 impl<
         'a,
         'b,

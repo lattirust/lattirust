@@ -7,22 +7,25 @@ use rayon::prelude::*;
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::SymmetricMatrix;
-use crate::ring::{ConvertibleRing, SignedRepresentative};
+use crate::ring::Ring;
 use crate::traits::FromRandomBytes;
 
 pub struct TernaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
 
-impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
+impl<F: Ring> FromRandomBytes<F> for TernaryChallengeSet<F> {
     fn needs_bytes() -> usize {
         1
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<F> {
-        let v = (bytes.last()? % 3) as i128;
-        let s = SignedRepresentative(v - 1);
-        Some(Into::<F>::into(s))
+        Some(match bytes.last()? % 3 {
+            0 => F::zero(),
+            1 => F::one(),
+            2 => -F::one(),
+            _ => unreachable!(),
+        })
     }
 }
 
@@ -187,13 +190,13 @@ where
 mod tests {
     use ark_std::test_rng;
 
-    use crate::ring::Zq;
+    use crate::ring::Zq1;
 
     use super::*;
 
     const Q: u64 = 65537;
 
-    type F = Zq<Q>;
+    type F = Zq1<Q>;
 
     const M: usize = 64;
     const N: usize = 128;

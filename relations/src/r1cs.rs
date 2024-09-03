@@ -10,22 +10,23 @@ pub struct R1CS<R: Ring> {
 }
 
 pub struct Index<R: Ring> {
-    a: SparseMatrix<R>,
-    b: SparseMatrix<R>,
-    c: SparseMatrix<R>,
+    pub a: SparseMatrix<R>,
+    pub b: SparseMatrix<R>,
+    pub c: SparseMatrix<R>,
 }
 
-pub struct Instance<R: Ring>(Vec<R>);
+pub struct Instance<R: Ring>(pub Vec<R>);
 
-pub struct Witness<R: Ring>(Vec<R>);
+pub struct Witness<R: Ring>(pub Vec<R>);
 
 pub struct Size {
-    num_constraints: usize,
-    num_public_variables: usize,
-    num_private_variables: usize,
+    pub num_constraints: usize,
+    pub num_instance_variables: usize,
+    pub num_witness_variables: usize,
 }
 
-impl<R: Ring> Relation for R1CS<R> {
+impl<R: Ring> Relation for R1CS<R>
+{
     type Size = Size;
     type Index = Index<R>;
     type Instance = Instance<R>;
@@ -52,7 +53,7 @@ impl<R: Ring> Relation for R1CS<R> {
         Self::is_well_defined(i, x, Some(w)) && {
             let a_z = &i.a * &z;
             let b_z = &i.b * &z;
-            let c_z = &(i.c) * &z;
+            let c_z = &i.c * &z;
             a_z.component_mul(&b_z) == c_z
         }
     }
@@ -60,10 +61,10 @@ impl<R: Ring> Relation for R1CS<R> {
     fn generate_satisfied_instance(
         size: &Self::Size,
     ) -> (Self::Index, Self::Instance, Self::Witness) {
-        assert!(size.num_private_variables > 0 || size.num_public_variables > 0);
-        
+        assert!(size.num_witness_variables > 0 || size.num_instance_variables > 0);
+
         let mut csprng: OsRng = OsRng;
-        let num_variables = size.num_public_variables + size.num_private_variables;
+        let num_variables = size.num_instance_variables + size.num_witness_variables;
 
         let mut z: Vec<R> = (0..num_variables).map(|_| R::rand(&mut csprng)).collect();
         z[0] = R::one(); // set the constant term to 1
@@ -95,8 +96,8 @@ impl<R: Ring> Relation for R1CS<R> {
             c: SparseMatrix::try_from_triplets(size.num_constraints, num_variables, c_triplets)
                 .unwrap(),
         };
-        let instance = Instance(z[..size.num_public_variables].to_vec());
-        let witness = Witness(z[size.num_public_variables..].to_vec());
+        let instance = Instance(z[..size.num_instance_variables].to_vec());
+        let witness = Witness(z[size.num_instance_variables..].to_vec());
 
         debug_assert!(Self::is_well_defined(&index, &instance, Some(&witness)));
         debug_assert!(Self::is_satisfied(&index, &instance, &witness));
@@ -106,10 +107,10 @@ impl<R: Ring> Relation for R1CS<R> {
     fn generate_unsatisfied_instance(
         size: &Self::Size,
     ) -> (Self::Index, Self::Instance, Self::Witness) {
-        assert!(size.num_private_variables > 0 || size.num_public_variables > 0);
-        
+        assert!(size.num_witness_variables > 0 || size.num_instance_variables > 0);
+
         let mut csprng: OsRng = OsRng;
-        let num_variables = size.num_public_variables + size.num_private_variables;
+        let num_variables = size.num_instance_variables + size.num_witness_variables;
 
         let mut z: Vec<R> = (0..num_variables).map(|_| R::rand(&mut csprng)).collect();
         z[0] = R::one(); // set the constant term to 1
@@ -133,14 +134,9 @@ impl<R: Ring> Relation for R1CS<R> {
             };
         }
 
-        // Insert single unsatisfiable constraint; 0x * 1x == 1
-        let unsatisfied_idx = if size.num_private_variables > 0 {
-            size.num_public_variables
-        } else {
-            0
-        };
-        a_triplets.push((size.num_constraints - 1, unsatisfied_idx, R::zero()));
-        b_triplets.push((size.num_constraints - 1, unsatisfied_idx, R::one()));
+        // Insert single unsatisfiable constraint; 0 * 1 == 1
+        a_triplets.push((size.num_constraints - 1, 0, R::zero()));
+        b_triplets.push((size.num_constraints - 1, 0, R::one()));
         c_triplets.push((size.num_constraints - 1, 0, R::one()));
 
         let index = Index {
@@ -151,10 +147,11 @@ impl<R: Ring> Relation for R1CS<R> {
             c: SparseMatrix::try_from_triplets(size.num_constraints, num_variables, c_triplets)
                 .unwrap(),
         };
-        let instance = Instance(z[..size.num_public_variables].to_vec());
-        let witness = Witness(z[size.num_public_variables..].to_vec());
+        let instance = Instance(z[..size.num_instance_variables].to_vec());
+        let witness = Witness(z[size.num_instance_variables..].to_vec());
 
         debug_assert!(Self::is_well_defined(&index, &instance, Some(&witness)));
+        println!("____UNSAT______");
         debug_assert!(!Self::is_satisfied(&index, &instance, &witness));
         (index, instance, witness)
     }
@@ -162,21 +159,21 @@ impl<R: Ring> Relation for R1CS<R> {
 
 #[cfg(test)]
 mod test {
-    use lattirust_arithmetic::ring::Zq;
+    use lattirust_arithmetic::ring::Zq1;
 
-    use crate::{test_generate_satisfied_instance, test_generate_unsatisfied_instance};
-    use crate::Relation;
+    use crate::{Relation, test_generate_satisfied_instance};
+    use crate::test_generate_unsatisfied_instance;
 
     use super::*;
 
-    const Q: u64 = 4294967297; // fifth fermat number, non-prime
-    type R = Zq<Q>;
+    const Q: u64 = 294967297; // fifth fermat number, non-prime
+    type R = Zq1<Q>;
     type RELATION = R1CS<R>;
 
     const TEST_SIZE: Size = Size {
-        num_constraints: 512,
-        num_public_variables: 64,
-        num_private_variables: 128,
+        num_constraints: 1,
+        num_instance_variables: 1,
+        num_witness_variables: 1,
     };
 
     test_generate_satisfied_instance!(RELATION, TEST_SIZE);

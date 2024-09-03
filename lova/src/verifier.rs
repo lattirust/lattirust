@@ -1,3 +1,4 @@
+use std::ops::Mul;
 use log::debug;
 use nimue::{Arthur, ProofError, ProofResult};
 
@@ -7,19 +8,23 @@ use lattirust_arithmetic::balanced_decomposition::{
 use lattirust_arithmetic::challenge_set::ternary::{
     mul_f_trit, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit,
 };
+use lattirust_arithmetic::linear_algebra::Scalar;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::Ring;
 use lattirust_util::{check, check_eq};
 
 use crate::util::{Instance, PublicParameters};
 
-pub struct Verifier<F: ConvertibleRing> {
+pub struct Verifier<F: Ring> {
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ConvertibleRing> Verifier<F> {
+impl<F: Ring + WithSignedRepresentative> Verifier<F>
+where for<'a> &'a F: Mul<&'a F, Output = F>,
+{
     #[tracing::instrument]
     pub fn merge(
         arthur: &mut Arthur,
@@ -32,7 +37,7 @@ impl<F: ConvertibleRing> Verifier<F> {
         debug_assert_eq!(instance_2.commitment.ncols(), pp.inner_security_parameter);
 
         let cross_terms = arthur
-            .next_matrix::<SignedRepresentative>(
+            .next_matrix::<F>(
                 pp.inner_security_parameter,
                 pp.inner_security_parameter,
             )
@@ -71,7 +76,7 @@ impl<F: ConvertibleRing> Verifier<F> {
         arthur.ratchet().unwrap();
 
         let inner_products_decomp = arthur
-            .next_symmetric_matrix::<SignedRepresentative>(
+            .next_symmetric_matrix::<F>(
                 2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
@@ -86,7 +91,7 @@ impl<F: ConvertibleRing> Verifier<F> {
         arthur.ratchet().unwrap();
 
         // Check G^T * inner_products_decomp * G == instance.inner_products (over the integers)
-        let inner_products_recomp: SymmetricMatrix<SignedRepresentative> =
+        let inner_products_recomp: SymmetricMatrix<F> =
             recompose_left_right_symmetric_matrix(
                 &inner_products_decomp,
                 pp.powers_of_basis_int().as_slice(),

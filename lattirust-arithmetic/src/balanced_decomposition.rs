@@ -1,26 +1,27 @@
 use std::iter::Sum;
-use std::ops::Mul;
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
-use ark_ff::Field;
 use nalgebra::{ClosedAdd, ClosedMul, Scalar};
-use num_traits::{One, Zero};
+use num_bigint::BigUint;
+use num_traits::{One, Signed, ToPrimitive, Zero};
 use rayon::prelude::*;
 use rounded_div::RoundedDiv;
 
 use crate::linear_algebra::{Matrix, SymmetricMatrix};
 use crate::linear_algebra::{RowVector, Vector};
-use crate::ring::{ConvertibleRing, PolyRing, SignedRepresentative};
+use crate::ring::{PolyRing, Ring};
+use crate::ring::representatives::WithSignedRepresentative;
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
-pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
-    if max == 0 {
+pub fn balanced_decomposition_max_length(b: u128, max: BigUint) -> usize {
+    if max.is_zero() {
         0
     } else {
-        (max as f64).log(b as f64).floor() as usize + 1 + 1 // +1 because we are using balanced decomposition
+        max.to_f64().unwrap().log(b as f64).floor() as usize + 1 + 1 // +1 because we are using balanced decomposition
     }
 }
 
-/// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
+/// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensions `l` times `v.len()`.
 pub fn pad_and_transpose<F: Copy + Zero>(
     mut v: Vec<Vec<F>>,
     padding_size: Option<usize>,
@@ -49,6 +50,32 @@ pub fn pad_and_transpose<F: Copy + Zero>(
         .collect()
 }
 
+pub trait DecompositionFriendlySignedRepresentative:
+    Clone
+    + Zero
+    + Signed
+    + RoundedDiv<Output = Self>
+    + Div<Self, Output = Self>
+    + Rem<Self, Output = Self>
+    + Add<Self, Output = Self>
+    + Sub<Self, Output = Self>
+    + PartialOrd
+{
+}
+
+impl<T> DecompositionFriendlySignedRepresentative for T where
+    T: Clone
+        + Zero
+        + Signed
+        + RoundedDiv<Output = Self>
+        + Div<Self, Output = Self>
+        + Rem<Self, Output = Self>
+        + Add<Self, Output = Self>
+        + Sub<Self, Output = Self>
+        + PartialOrd
+{
+}
+
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
 ///
 /// # Arguments
@@ -59,38 +86,41 @@ pub fn pad_and_transpose<F: Copy + Zero>(
 /// # Output
 /// Returns `d`, the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
 /// $\texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced<R: ConvertibleRing>(
-    v: &R,
-    b: u128,
-    padding_size: Option<usize>,
-) -> Vec<R> {
+pub fn decompose_balanced<R: Ring>(v: &R, basis: u128, padding_size: Option<usize>) -> Vec<R>
+where
+    R: WithSignedRepresentative,
+    R::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
     assert!(
-        !b.is_zero() && !b.is_one(),
+        !basis.is_zero() && !basis.is_one(),
         "cannot decompose in basis 0 or 1"
     );
     // TODO: not sure if this really necessary, but having b be even allow for more efficient divisions/remainders
-    assert_eq!(b % 2, 0, "decomposition basis must be even");
+    assert_eq!(basis % 2, 0, "decomposition basis must be even");
 
-    let b_half_floor = b.div_euclid(2);
-    let b = b as i128;
-    let mut decomp_bal_signed = Vec::<i128>::new();
-    let mut curr = Into::<SignedRepresentative>::into(*v).0;
+    let basis_half_floor = basis.div_euclid(2);
+    let b = R::SignedRepresentative::try_from(basis as i128).unwrap();
+    let b_half_floor = R::SignedRepresentative::try_from(basis_half_floor as i128).unwrap();
+
+    let mut decomp_bal_signed = Vec::<R>::new();
+    let mut curr = Into::<R::SignedRepresentative>::into(*v);
     loop {
-        let rem = curr % b; // rem = curr % b is in [-(b-1), (b-1)]
+        let rem = curr.clone() % b.clone(); // rem = curr % b is in [-(b-1), (b-1)]
 
         // Ensure digit is in [-b/2, b/2]
-        if rem.unsigned_abs() <= b_half_floor {
-            decomp_bal_signed.push(rem);
-            curr /= b; // Rust integer division rounds towards zero
+        if rem.abs() <= b_half_floor {
+            decomp_bal_signed.push(R::try_from(rem).unwrap());
+            curr = curr.clone() / b.clone(); // Rust integer division rounds towards zero
         } else {
             // The next element in the decomposition is sign(rem) * (|rem| - b)
-            if rem < 0 {
-                decomp_bal_signed.push(rem + b);
+            let digit = if rem.is_negative() {
+                rem.clone() + b.clone()
             } else {
-                decomp_bal_signed.push(rem - b);
-            }
-            let carry = rem.rounded_div(b); // Round toward nearest integer, not towards 0
-            curr = (curr / b) + carry;
+                rem.clone() - b.clone()
+            };
+            decomp_bal_signed.push(R::try_from(digit).unwrap());
+            let carry = rem.rounded_div(b.clone()); // Round toward nearest integer, not towards 0
+            curr = curr / b.clone() + carry;
         }
 
         if curr.is_zero() {
@@ -105,18 +135,15 @@ pub fn decompose_balanced<R: ConvertibleRing>(
             padding_size,
             decomp_bal_signed.len(),
         );
-        decomp_bal_signed.resize(padding_size, 0);
+        decomp_bal_signed.resize(padding_size, R::zero());
     } else {
         // Strip trailing zeros
-        while decomp_bal_signed.last() == Some(&0) {
+        while decomp_bal_signed.last().is_some_and(|last| last.is_zero()) {
             decomp_bal_signed.pop();
         }
     }
 
     decomp_bal_signed
-        .into_par_iter()
-        .map(|x| Into::<R>::into(SignedRepresentative(x)))
-        .collect::<Vec<R>>()
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -129,12 +156,12 @@ pub fn decompose_balanced<R: ConvertibleRing>(
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
 /// for all $i \in \[l\]: \texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[i\]\[j\]$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced_vec<F: ConvertibleRing>(
-    v: &[F],
-    b: u128,
-    padding_size: Option<usize>,
-) -> Vec<Vec<F>> {
-    let decomp: Vec<Vec<F>> = v
+pub fn decompose_balanced_vec<R: Ring>(v: &[R], b: u128, padding_size: Option<usize>) -> Vec<Vec<R>>
+where
+    R: WithSignedRepresentative,
+    R::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
+    let decomp: Vec<Vec<R>> = v
         .par_iter()
         .map(|v_i| decompose_balanced(v_i, b, padding_size))
         .collect(); // v.len() x decomp_size
@@ -151,14 +178,19 @@ pub fn decompose_balanced_vec<F: ConvertibleRing>(
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
 /// for all $\texttt{v} = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced_polyring<R: PolyRing>(
-    v: &R,
+pub fn decompose_balanced_polyring<PR: PolyRing>(
+    v: &PR,
     b: u128,
     padding_size: Option<usize>,
-) -> Vec<R> {
-    decompose_balanced_vec::<R::BaseRing>(v.coeffs().as_slice(), b, padding_size)
+) -> Vec<PR>
+where
+    PR::BaseRing: WithSignedRepresentative,
+    <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+{
+    decompose_balanced_vec::<PR::BaseRing>(v.coeffs().as_slice(), b, padding_size)
         .into_par_iter()
-        .map(|v_i| R::from(v_i))
+        .map(|v_i| PR::from(v_i))
         .collect()
 }
 
@@ -172,12 +204,17 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, with each item being a Vec of length `l`, i.e.,
 /// for all $i \in \[l\]: \texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[i\]\[j\]$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced_vec_polyring<R: PolyRing>(
-    v: &Vector<R>,
+pub fn decompose_balanced_vec_polyring<PR: PolyRing>(
+    v: &Vector<PR>,
     b: u128,
     padding_size: Option<usize>,
-) -> Vec<Vector<R>> {
-    let decomp: Vec<Vec<R>> = v
+) -> Vec<Vector<PR>>
+where
+    PR::BaseRing: WithSignedRepresentative,
+    <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+{
+    let decomp: Vec<Vec<PR>> = v
         .as_slice()
         .par_iter()
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
@@ -198,15 +235,19 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Matrix of dimensions `m × (k * n)`, i.e.,
 /// $\texttt{mat} = \texttt{d} \times G_\texttt{n}$ where $G_\texttt{n} = I_\texttt{n} \otimes (1, \texttt{b}, \ldots, \texttt{b}^k) \in R^{\texttt{k}\texttt{n} \times \texttt{n}}$ and $|\texttt{d}\[i\]\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_matrix<F: ConvertibleRing>(
-    mat: &Matrix<F>,
+pub fn decompose_matrix<R: Ring>(
+    mat: &Matrix<R>,
     decomposition_basis: u128,
     decomposition_length: usize,
-) -> Matrix<F> {
-    Matrix::<F>::from_rows(
+) -> Matrix<R>
+where
+    R: WithSignedRepresentative,
+    R::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
+    Matrix::<R>::from_rows(
         mat.par_row_iter()
             .map(|s_i| {
-                RowVector::<F>::from(
+                RowVector::<R>::from(
                     s_i.map(|s_ij| {
                         decompose_balanced(&s_ij, decomposition_basis, Some(decomposition_length))
                     })
@@ -219,14 +260,14 @@ pub fn decompose_matrix<F: ConvertibleRing>(
     )
 }
 
-pub fn recompose<A, B>(v: &Vec<A>, b: B) -> A
+pub fn recompose<A, B>(vec: &Vec<A>, basis: B) -> A
 where
     A: Mul<B, Output = A> + Copy + Sum + Send + Sync,
-    B: Field,
+    B: Ring,
 {
-    v.par_iter()
+    vec.par_iter()
         .enumerate()
-        .map(|(i, v_i)| *v_i * b.pow([i as u64]))
+        .map(|(i, v_i)| *v_i * basis.pow([i as u64]))
         .sum()
 }
 
@@ -291,50 +332,48 @@ where
 mod tests {
     use ark_std::test_rng;
 
-    use crate::ntt::ntt_modulus;
     use crate::ring;
+    use crate::ring::ntt::ntt_prime;
     use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-    use crate::ring::Zq;
+    use crate::ring::util::powers_of_basis;
+    use crate::ring::Zq1;
+    use crate::traits::WithLinfNorm;
 
     use super::*;
 
     const N: usize = 128;
-    const Q: u64 = ntt_modulus::<N>(16);
+    const Q: u64 = ntt_prime::<N>(12);
     const VEC_LENGTH: usize = 32;
     const BASIS_TEST_RANGE: [u128; 5] = [2, 4, 8, 16, 32];
 
-    type R = Zq<Q>;
-    type PolyR = Pow2CyclotomicPolyRingNTT<Q, N>;
+    type R = Zq1<Q>;
+    type PolyR = Pow2CyclotomicPolyRingNTT<R, N>;
 
     #[test]
     fn test_decompose_balanced() {
-        let vs: Vec<R> = (0..Q).map(|v| R::from(v)).collect();
+        let vs: Vec<R> = (0..Q).map(|v| R::try_from(v).unwrap()).collect();
         for b in BASIS_TEST_RANGE {
-            let b_half = R::from(b / 2);
             for v in &vs {
                 let decomp = decompose_balanced(v, b, None);
 
                 // Check that the decomposition length is correct
-                let max = SignedRepresentative::from(*v).0.abs() as u128;
+                let max = v.linf_norm();
                 let max_decomp_length = balanced_decomposition_max_length(b, max);
                 assert!(decomp.len() <= max_decomp_length);
 
                 // Check that all entries are smaller than b/2
                 for v_i in &decomp {
-                    assert!(*v_i <= b_half || *v_i >= -b_half);
+                    assert!(v_i.linf_norm() <= BigUint::from(b.div_floor(2)));
                 }
 
                 // Check that the decomposition is correct
-                assert_eq!(*v, recompose(&decomp, R::from(b)));
+                assert_eq!(*v, recompose(&decomp, R::try_from(b).unwrap()));
             }
         }
     }
 
-    fn get_test_vec() -> Vec<R> {
-        (0..(N as u64) * Q)
-            .step_by((Q / (N as u64)) as usize)
-            .map(|x| R::from(x))
-            .collect()
+    fn get_test_vec() -> [R; N] {
+        core::array::from_fn(|i| R::try_from((i as u64 * Q) / (N as u64)).unwrap())
     }
 
     #[test]
@@ -345,73 +384,68 @@ mod tests {
             let decomp = decompose_balanced_vec(&v, b, None);
 
             // Check that the decomposition length is correct
-            let max = v
-                .iter()
-                .map(|x| SignedRepresentative::from(*x).0.abs() as u128)
-                .max()
-                .unwrap();
+            let max = v.linf_norm();
             let max_decomp_length = balanced_decomposition_max_length(b, max);
             assert!(decomp.len() <= max_decomp_length);
 
             // Check that all entries are smaller than b/2 in absolute value
             for d_i in &decomp {
                 for d_ij in d_i {
-                    let s_ij = SignedRepresentative::from(*d_ij).0;
-                    assert!(s_ij.abs() as u128 <= b_half);
+                    assert!(d_ij.linf_norm() <= b_half.into());
                 }
             }
 
             for i in 0..decomp.len() {
                 // Check that the decomposition is correct
                 let decomp_i = decomp.iter().map(|d_j| d_j[i]).collect::<Vec<_>>();
-                assert_eq!(v[i], recompose(&decomp_i, R::from(b)));
+                assert_eq!(v[i], recompose(&decomp_i, R::try_from(b).unwrap()));
             }
         }
     }
 
     #[test]
     fn test_decompose_balanced_polyring() {
-        let v = PolyR::from(get_test_vec());
+        let v = PolyR::from_coefficient_array(get_test_vec());
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
-            let decomp = decompose_balanced_polyring(&v, b, None);
+            let decomp: Vec<PolyR> = decompose_balanced_polyring(&v, b, None);
 
             for d_i in &decomp {
                 for d_ij in d_i.coeffs() {
-                    let s_ij = SignedRepresentative::from(d_ij).0;
-                    assert!(s_ij.abs() as u128 <= b_half);
+                    assert!(d_ij.linf_norm() <= b_half.into());
                 }
             }
 
-            assert_eq!(v, recompose(&decomp, R::from(b)));
+            assert_eq!(v, recompose(&decomp, R::try_from(b).unwrap()));
         }
     }
 
     #[test]
     fn test_decompose_balanced_vec_polyring() {
         let v = Vector::<PolyR>::from_fn(VEC_LENGTH, |i, _| {
-            PolyR::from(
-                (0..(N as u64) * Q)
-                    .step_by((Q / (N as u64)) as usize)
-                    .map(|x| R::from(x + i as u64))
-                    .collect::<Vec<_>>(),
+            PolyR::from_coefficients(
+                get_test_vec()
+                    .into_iter()
+                    .map(|v| v + R::try_from(i as u64).unwrap())
+                    .collect::<Vec<_>>().as_slice(),
             )
         });
         for b in BASIS_TEST_RANGE {
-            let b_half = R::from(b / 2);
+            let b_half = b / 2;
             let decomp = decompose_balanced_vec_polyring::<PolyR>(&v, b, None);
 
             for v_i in &decomp {
                 for v_ij in v_i.as_slice() {
                     for v_ijk in v_ij.coeffs() {
-                        assert!(v_ijk <= b_half || v_ijk >= -b_half);
+                        assert!(v_ijk.linf_norm() <= b_half.into());
                     }
                 }
             }
 
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
-                recomposed += v_i * PolyR::from_scalar(ring::Ring::pow(&R::from(b), &[i as u64]));
+                recomposed +=
+                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), &[i as u64]));
             }
             assert_eq!(v, recomposed);
         }
@@ -428,17 +462,16 @@ mod tests {
         for b in BASIS_TEST_RANGE {
             let b_half = b.div_floor(2);
 
-            let decomp_size = balanced_decomposition_max_length(b, (Q - 1) as u128);
+            let decomp_size = balanced_decomposition_max_length(b, ((Q - 1) as u128).into());
+
             let decomp = decompose_matrix(&mat, b, decomp_size);
             assert_eq!(decomp.nrows(), mat.nrows());
             assert_eq!(decomp.ncols(), mat.ncols() * decomp_size);
             for d_ij in decomp.iter() {
-                assert!(Into::<SignedRepresentative>::into(*d_ij).0.abs() <= b_half as i128);
+                assert!(d_ij.as_signed_representative().0.abs() <= b_half.into());
             }
 
-            let pows_b = (0..decomp_size)
-                .map(|i| R::from(b.pow(i as u32)))
-                .collect::<Vec<_>>();
+            let pows_b = ring::util::powers_of_basis(R::try_from(b).unwrap(), decomp_size);
             let recomp = recompose_matrix(&decomp, &pows_b);
 
             assert_eq!(mat, recomp);
@@ -463,11 +496,9 @@ mod tests {
         let rng = &mut test_rng();
 
         for b in BASIS_TEST_RANGE {
-            let decomp_size = balanced_decomposition_max_length(b, (Q - 1) as u128);
+            let decomp_size = balanced_decomposition_max_length(b, (Q - 1).into());
 
-            let pows_b = (0..decomp_size)
-                .map(|i| R::from(b.pow(i as u32)))
-                .collect::<Vec<_>>();
+            let pows_b = powers_of_basis(R::try_from(b).unwrap(), decomp_size);
             let mat = SymmetricMatrix::<R>::rand(SIZE * decomp_size, rng);
 
             let expected: SymmetricMatrix<R> = recompose_matrix(

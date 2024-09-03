@@ -1,23 +1,31 @@
-use log::log_enabled;
+
 use log::Level::Debug;
+use log::log_enabled;
 use nimue::{Merlin, ProofResult};
 use tracing::debug;
 
-use lattirust_arithmetic::balanced_decomposition::{decompose_matrix, recompose_matrix};
+use lattirust_arithmetic::balanced_decomposition::{
+    decompose_matrix, DecompositionFriendlySignedRepresentative, recompose_matrix,
+};
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
-use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
+use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
+use lattirust_arithmetic::linear_algebra::Scalar;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::Ring;
 
-use crate::util::{norm_l2_columnwise, to_integers, PublicParameters, Witness};
+use crate::util::{norm_l2_columnwise, PublicParameters, to_integers, Witness};
 
-pub struct Prover<F: ConvertibleRing> {
+pub struct Prover<F: Ring> {
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ConvertibleRing> Prover<F> {
+impl<F: Ring + WithSignedRepresentative> Prover<F>
+where
+    F::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
     #[tracing::instrument]
     pub fn merge(
         merlin: &mut Merlin,
@@ -30,10 +38,12 @@ impl<F: ConvertibleRing> Prover<F> {
         debug_assert_eq!(witness_2.ncols(), pp.inner_security_parameter);
 
         // Compute cross inner products witness_2^T * witness_1 (over the integers)
-        let witness_2_int = witness_2.map(|x| Into::<SignedRepresentative>::into(x));
-        let witness_1_int = witness_1.map(|x| Into::<SignedRepresentative>::into(x));
-        let cross_terms = &witness_2_int.transpose() * &witness_1_int;
-        merlin.absorb_matrix::<SignedRepresentative>(&cross_terms)?;
+        let witness_2_int = witness_2.map(|x| Into::<F::SignedRepresentative>::into(x));
+        let witness_1_int = witness_1.map(|x| Into::<F::SignedRepresentative>::into(x));
+        // TODO: we could do the multiplication over the integers, but we're not doing it right now because we typically work over Z_2^64 anyway, and getting all the type bounds is a bit cumbersome at the moment.
+        // let cross_terms = &witness_2_int.transpose() * &witness_1_int;
+        let cross_terms = &witness_2.transpose() * &witness_1;
+        merlin.absorb_matrix_ser::<F>(&cross_terms)?;
         merlin.ratchet()?;
 
         let mut witness = witness_1;
@@ -84,8 +94,8 @@ impl<F: ConvertibleRing> Prover<F> {
         let committed_decomp_witness = &pp.commitment_mat * &decomp_witness;
         debug_assert_eq!(
             recompose_matrix(&committed_decomp_witness, pp.powers_of_basis().as_slice())
-                .map(|x| Into::<SignedRepresentative>::into(x).0),
-            (&pp.commitment_mat * &witness).map(|x| Into::<SignedRepresentative>::into(x).0),
+                .map(|x| x.as_signed_representative()),
+            (&pp.commitment_mat * &witness).map(|x| x.as_signed_representative()),
             "commitments match"
         );
 
@@ -95,15 +105,14 @@ impl<F: ConvertibleRing> Prover<F> {
 
         // Compute inner products over the integers
         let decomp_witness_int = &to_integers(&decomp_witness);
-        let inner_products_decomp: SymmetricMatrix<SignedRepresentative> =
-            inner_products_mat(decomp_witness_int);
+        let inner_products_decomp: SymmetricMatrix<F> = inner_products_mat(&decomp_witness); // TODO: work over the integers
         debug_assert_eq!(
             inner_products_decomp.size(),
             witness.ncols() * pp.decomposition_length
         );
 
         // Add to FS transcript
-        merlin.absorb_symmetric_matrix::<SignedRepresentative>(&inner_products_decomp)?;
+        merlin.absorb_symmetric_matrix::<F>(&inner_products_decomp)?;
         merlin.ratchet()?;
 
         // Get challenge

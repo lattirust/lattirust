@@ -5,6 +5,7 @@ use std::cmp::{max, max_by};
 use ark_std::rand;
 use ark_std::rand::thread_rng;
 use log::info;
+use num_bigint::BigUint;
 use num_traits::{One, ToPrimitive, Zero};
 use serde::Serialize;
 
@@ -356,7 +357,7 @@ impl<R: PolyRing> Index<R> {
                 .s
                 .iter()
                 .map(|s_i| s_i.l2_norm_squared())
-                .sum::<u128>() as f64
+                .sum::<BigUint>().to_f64().unwrap()
                 <= self.norm_bound_squared
     }
 }
@@ -589,7 +590,10 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
     ) -> (Self::Index, Self::Instance, Self::Witness) {
         assert!(size.num_witnesses > 0, "Need at least one witness");
         assert!(size.witness_size > 0, "Need positive witness size");
-        assert!(size.num_constraints > 0 || size.num_constant_constraints > 0, "Need at least one constraint");
+        assert!(
+            size.num_constraints > 0 || size.num_constant_constraints > 0,
+            "Need at least one constraint"
+        );
 
         // TODO: implement a more interesting satisfied relation
         let index = Index::<R>::new(
@@ -630,7 +634,10 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
     ) -> (Self::Index, Self::Instance, Self::Witness) {
         assert!(size.num_witnesses > 0, "Need at least one witness");
         assert!(size.witness_size > 0, "Need positive witness size");
-        assert!(size.num_constraints > 0 || size.num_constant_constraints > 0, "Need at least one constraint");
+        assert!(
+            size.num_constraints > 0 || size.num_constant_constraints > 0,
+            "Need at least one constraint"
+        );
 
         // TODO: implement a more interesting satisfied relation
         let index = Index::<R>::new(
@@ -661,7 +668,7 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
                 })
                 .collect(),
         };
-        
+
         // Add single unsatisfied constraint
         instance.ct_quad_dot_prod_funcs.last_mut().unwrap().b = R::BaseRing::one();
 
@@ -672,17 +679,18 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
 
 #[cfg(test)]
 mod test {
-    use lattirust_arithmetic::ntt::ntt_modulus;
-    use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
+    use lattirust_arithmetic::ring::ntt::ntt_prime;
+    use lattirust_arithmetic::ring::{Pow2CyclotomicPolyRingNTT, Zq1};
 
     use crate::{test_generate_satisfied_instance, test_generate_unsatisfied_instance};
-    use crate::principal_relation::{Instance, PrincipalRelation, Size};
+    use crate::principal_relation::{PrincipalRelation, Size};
     use crate::Relation;
 
-    const Q: u64 = ntt_modulus::<64>(32);
+    const Q: u64 = ntt_prime::<64>(32);
     const D: usize = 64;
 
-    type R = Pow2CyclotomicPolyRingNTT<Q, D>;
+    type BaseRing = Zq1<Q>;
+    type R = Pow2CyclotomicPolyRingNTT<BaseRing, D>;
     type RELATION = PrincipalRelation<R>;
 
     const TEST_SIZE: Size = Size {

@@ -2,16 +2,17 @@ use ark_ff::UniformRand;
 use ark_std::rand;
 use ark_std::rand::Rng;
 use delegate::delegate;
-use nalgebra::allocator::Allocator;
 use nalgebra::{
     self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
     ViewStorage,
 };
+use nalgebra::allocator::Allocator;
+use num_bigint::BigUint;
 use num_traits::Zero;
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Scalar;
-use crate::ring::SignedRepresentative;
+use crate::ring::representatives::WithSignedRepresentative;
 use crate::traits::{WithL2Norm, WithLinfNorm};
 
 pub type GenericVector<T, R, S> = GenericMatrix<T, R, Const<1>, S>;
@@ -103,7 +104,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
 
     pub fn rand_vector_with_bounded_norm(n: usize, norm_bound: i128, rng: &mut impl Rng) -> Self
     where
-        T: From<SignedRepresentative>,
+        T: WithSignedRepresentative,
     {
         loop {
             let mut vec = Vector::<f64>::rand(n, rng);
@@ -112,7 +113,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
 
             vec = vec.map(|x| x.round());
             if vec.0.norm() <= norm_bound as f64 {
-                return vec.map(|x| T::from(SignedRepresentative(x as i128)));
+                return vec.map(|x| T::SignedRepresentative::try_from(x as i128).unwrap().into());
             }
         }
     }
@@ -121,7 +122,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
 impl<T: Scalar + WithL2Norm, R: Dim, S: RawStorage<T, R, Const<1>>> WithL2Norm
     for GenericVector<T, R, S>
 {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.into_iter()
             .cloned()
             .collect::<Vec<_>>()
@@ -132,7 +133,7 @@ impl<T: Scalar + WithL2Norm, R: Dim, S: RawStorage<T, R, Const<1>>> WithL2Norm
 impl<T: Scalar + WithLinfNorm, R: Dim, S: RawStorage<T, R, Const<1>>> WithLinfNorm
     for GenericVector<T, R, S>
 {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.into_iter().cloned().collect::<Vec<_>>().linf_norm()
     }
 }

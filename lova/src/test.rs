@@ -3,7 +3,7 @@ use log::{debug, info, LevelFilter};
 use nimue::IOPattern;
 
 use lattirust_arithmetic::ring::Z2_64;
-use relations::traits::Relation;
+use relations::Relation;
 
 use crate::prover::Prover;
 use crate::util::{

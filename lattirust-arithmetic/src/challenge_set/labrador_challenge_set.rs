@@ -1,10 +1,9 @@
 use bitter::BitReader;
 
 use crate::linear_algebra::Matrix;
+use crate::ring::{NttRing, PolyRing, Ring};
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-use crate::ring::PolyRing;
-use crate::ring::Zq;
 use crate::traits::FromRandomBytes;
 
 pub struct LabradorChallengeSet<R: PolyRing> {
@@ -34,7 +33,7 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     pub const VARIANCE_SUM_COEFFS: f64 = (Self::NUM_PM_ONES + 2 * Self::NUM_PM_TWOS) as f64; // 51
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<BaseRing: Ring, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<BaseRing, N>> {
     const CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES: usize = 64;
     // TODO: find a value with a solid theoretical justification
     // TODO: is there a way to sample vectors with bounded operator norm without rejection sampling?
@@ -148,27 +147,27 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<Zq<Q>, N>>
-    for LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>>
+impl<BaseRing: Ring, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<BaseRing, N>>
+    for LabradorChallengeSet<Pow2CyclotomicPolyRing<BaseRing, N>>
 {
     fn needs_bytes() -> usize {
         Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
-    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<BaseRing, N>> {
         Some(Self::Field::from(
-            Self::checked_coeffs_from_random_bytes(bytes).map(|c| {
+            Self::checked_coeffs_from_random_bytes(bytes).try_map(|c| {
                 if c >= 0 {
-                    Self::BaseRing::from(c as u32)
+                    Self::BaseRing::try_from(c as u32).ok()
                 } else {
-                    -Self::BaseRing::from(-c as u32)
+                    Self::BaseRing::try_from(-c as u32).ok().map(|x| -x)
                 }
-            }),
+            })?,
         ))
     }
 }
 
-impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Zq<Q>, N>> {
+impl<BaseRing: Ring, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<BaseRing, N>> {
     fn challenge_to_matrix(c: &[i8]) -> Matrix<f64> {
         assert_eq!(c.len(), N);
 
@@ -196,38 +195,38 @@ impl<const Q: u64, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing<Z
     }
 }
 
-impl<const Q: u64, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<Q, N>>
-    for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<Q, N>>
+impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<BaseRing, N>>
+    for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<BaseRing, N>>
 {
     fn needs_bytes() -> usize {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::byte_size()
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<BaseRing, N>>::byte_size()
     }
 
-    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<Q, N>> {
-        LabradorChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(bytes)
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRingNTT<BaseRing, N>> {
+        LabradorChallengeSet::<Pow2CyclotomicPolyRing<BaseRing, N>>::try_from_random_bytes(bytes)
             .map(|x| x.into())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use ark_std::rand::{thread_rng, Rng};
     use ark_std::{test_rng, UniformRand};
+    use ark_std::rand::{Rng, thread_rng};
+    use num_traits::ToPrimitive;
 
     use crate::linear_algebra::Matrix;
     use crate::linear_algebra::Vector;
-    use crate::ntt::ntt_modulus;
+    use crate::ring::{PolyRing, Zq1};
+    use crate::ring::ntt::ntt_prime;
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::PolyRing;
-    use crate::ring::Zq;
     use crate::traits::{FromRandomBytes, WithL2Norm};
 
     use super::LabradorChallengeSet;
 
-    const Q: u64 = ntt_modulus::<64>(32);
+    const Q: u64 = ntt_prime::<64>(32);
     const D: usize = 64;
 
-    type R = Zq<Q>;
+    type R = Zq1<Q>;
 
     type PolyR = Pow2CyclotomicPolyRing<R, 64>;
     type LabCS = LabradorChallengeSet<PolyR>;
@@ -251,18 +250,18 @@ mod tests {
 
         let c_poly = PolyR::from_fn(|i| {
             if c[i] >= 0 {
-                R::from(c[i] as u32)
+                R::try_from(c[i] as u32).unwrap()
             } else {
-                -R::from(-c[i] as u32)
+                -R::try_from(-c[i] as u32).unwrap()
             }
         });
 
         let c_mat_int = LabCS::challenge_to_matrix(&c.to_vec());
         let c_mat = Matrix::<R>::from_fn(D, D, |i, j| {
             if c_mat_int[(i, j)] >= 0. {
-                R::from(c_mat_int[(i, j)] as u32)
+                R::try_from(c_mat_int[(i, j)] as u32).unwrap()
             } else {
-                -R::from(-c_mat_int[(i, j)] as u32)
+                -R::try_from(-c_mat_int[(i, j)] as u32).unwrap()
             }
         });
 
@@ -302,9 +301,9 @@ mod tests {
         assert_eq!(c.len(), c_poly.coeffs().len());
         for i in 0..c.len() {
             let val = if c[i] >= 0 {
-                R::from(c[i] as u32)
+                R::try_from(c[i] as u32).unwrap()
             } else {
-                -R::from(-c[i] as u32)
+                -R::try_from(-c[i] as u32).unwrap()
             };
             assert_eq!(val, c_poly.coeffs()[i]);
         }
@@ -315,13 +314,13 @@ mod tests {
             let r = PolyR::rand(&mut thread_rng());
             let l2 = (c_poly * r).l2_norm();
             assert!(
-                (c_poly * r).l2_norm_squared() as f64
-                    <= (op_norm * op_norm * r.l2_norm_squared() as f64) + TOLERANCE,
+                (c_poly * r).l2_norm_squared().to_f64().unwrap()
+                    <= (op_norm * op_norm * r.l2_norm_squared().to_f64().unwrap()) + TOLERANCE,
                 "||cr||_2^2 = {}  is not <= ||c||_op^2 * ||r||_2^2 = {} * {} = {}",
                 (c_poly * r).l2_norm_squared(),
                 op_norm * op_norm,
                 r.l2_norm_squared(),
-                op_norm * op_norm * (r.l2_norm_squared() as f64)
+                op_norm * op_norm * (r.l2_norm_squared().to_f64().unwrap())
             );
             assert!(
                 l2 / r.l2_norm() <= op_norm + TOLERANCE,

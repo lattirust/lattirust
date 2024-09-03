@@ -1,26 +1,23 @@
 #![allow(non_snake_case)]
 
-use ark_relations::r1cs::ConstraintSystemRef;
+use std::fmt::Debug;
+
 use ark_std::rand;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 
-use lattice_estimator::msis::MSIS;
+use lattice_estimator::msis::{MSIS, msis_h_128_linf};
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::ring::PolyRing;
-use lattirust_arithmetic::ring::Zq;
+use lattirust_arithmetic::ring::{PolyRing, Z2};
 use relations::principal_relation::{
-    ConstantQuadDotProdFunction, PrincipalRelation, QuadDotProdFunction,
+    ConstantQuadDotProdFunction, Index, Instance, QuadDotProdFunction,
 };
 
-use crate::common_reference_string::CommonReferenceString;
-use crate::util::{basis_vector, embed, msis_h_128_linf};
+use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
-
-pub type Z2 = Zq<2>;
 
 #[derive(Clone, Debug)]
 pub struct BinaryR1CSCRS<R: PolyRing> {
@@ -28,7 +25,7 @@ pub struct BinaryR1CSCRS<R: PolyRing> {
     pub num_constraints: usize,
     pub num_variables: usize,
     pub m: usize,
-    pub core_crs: CommonReferenceString<R>,
+    pub core_crs: Index<R>,
     pub security_parameter: usize,
 }
 
@@ -63,7 +60,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         };
 
         // TODO: switch back to lattice-estimator bound
-        let h: usize = msis_h_128_linf::<R>(msis.w, msis.length_bound).unwrap();
+        let h: usize = msis_h_128_linf(&msis).unwrap();
         // let h =
         //     find_optimal_h(&msis, SECURITY_PARAMETER).expect("failed to find optimal n for MSIS");
         // debug_assert!(
@@ -106,7 +103,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         }
     }
 
-    pub fn pr_crs(num_variables: usize, m: usize) -> CommonReferenceString<R> {
+    pub fn pr_crs(num_variables: usize, m: usize) -> Index<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = num_variables.div_ceil(d);
@@ -116,7 +113,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
 
         let rng = &mut rand::rngs::OsRng;
-        CommonReferenceString::<R>::new(
+        Index::<R>::new(
             r_pr,
             n_pr,
             norm_bound,
@@ -137,7 +134,7 @@ pub struct BinaryR1CSTranscript<R: PolyRing> {
 }
 
 /// Express the constraint <alpha_i, a> = 0 as a constraint on the polynomial <alphaR_i, a_R> = 0, where alphaR_i is the element of R such that the constant term of alphaR_i * a_R (as polynomial multiplication over R) is equal to <alpha_i, a>
-fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector<R> {
+fn embed_Zqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: usize) -> Vector<R> {
     let mut phi_a_idx = Vec::<R>::with_capacity(n_pr);
     let d = R::dimension();
     let k_ = k.div_ceil(d);
@@ -156,14 +153,14 @@ fn embed_Fqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
 }
 
 pub fn reduce<R: PolyRing>(
-    crs: &BinaryR1CSCRS<R>,
-    cs: &ConstraintSystemRef<Z2>,
+    pp: &BinaryR1CSCRS<R>,
     transcript: &BinaryR1CSTranscript<R>,
-) -> PrincipalRelation<R> {
-    let (k, n) = (
-        cs.num_constraints(),
-        cs.num_instance_variables() + cs.num_witness_variables(),
-    );
+) -> Instance<R>
+where
+
+
+{
+    let (k, n) = (pp.num_constraints, pp.num_variables);
     let d = R::dimension();
     assert_eq!(k, n, "the current implementation only support k = n"); // TODO: remove this restriction by splitting a,b,c or w into multiple vectors
 
@@ -183,14 +180,13 @@ pub fn reduce<R: PolyRing>(
     // F_1 = {A_i * (a || b || c || w) = t_i}_{i in [m/d]}
     let mut quad_dot_prod_funcs = Vec::<QuadDotProdFunction<R>>::with_capacity(t.len() + 3 * n_pr);
     for i in 0..t.len() {
-        let mut phi = crs
-            .A
-            .row(i)
-            .transpose()
-            .as_slice()
-            .chunks(n_pr)
-            .map(|v| Vector::<R>::from_slice(v))
-            .collect::<Vec<Vector<R>>>();
+        let mut phi =
+            pp.A.row(i)
+                .transpose()
+                .as_slice()
+                .chunks(n_pr)
+                .map(|v| Vector::<R>::from_slice(v))
+                .collect::<Vec<Vector<R>>>();
         phi.append(&mut vec![Vector::<R>::zeros(n_pr); r_pr / 2]); // pad with zeros for "tilde witnesses"
         quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new(
             Matrix::<R>::zeros(r_pr, r_pr),
@@ -226,7 +222,7 @@ pub fn reduce<R: PolyRing>(
 
     // F_2
     let mut ct_quad_dot_prod_funcs =
-        Vec::<ConstantQuadDotProdFunction<R>>::with_capacity(5 + crs.security_parameter);
+        Vec::<ConstantQuadDotProdFunction<R>>::with_capacity(5 + pp.security_parameter);
     // <a, ã - 1> = 0 <=>
     // <a, ã> + <ã, a> - <2, a> = 0
     for (idx, tilde_idx) in [
@@ -239,7 +235,8 @@ pub fn reduce<R: PolyRing>(
         A[(idx, tilde_idx)] = R::one();
         A[(tilde_idx, idx)] = R::one();
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
-        phi[idx] = Vector::<R>::from_element(n_pr, -R::from_scalar(R::BaseRing::from(2u128)));
+        phi[idx] =
+            Vector::<R>::from_element(n_pr, -R::from_scalar(R::BaseRing::try_from(2u128).unwrap()));
         ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
             A,
             phi,
@@ -251,9 +248,9 @@ pub fn reduce<R: PolyRing>(
     // <a, ã> + <a, ~b> -2*<a, ~c> + <-1, a> +
     // <b, ã> + <b, ~b> -2*<b, ~c> + <-1, b> +
     // -2*<c, ã> -2*<c, ~b> +4*<c, ~c> + <2, c> = 0
-    // => double everything to make sure A is symmetric
+    // => double everything to make sure a is symmetric
     let mut A = Matrix::<R>::zeros(r_pr, r_pr);
-    let min_two = -R::from(2u128);
+    let min_two = -R::try_from(2u128).unwrap();
     let vals = [
         (a_idx, a_tilde_idx, R::one()),
         (a_idx, b_tilde_idx, R::one()),
@@ -263,7 +260,7 @@ pub fn reduce<R: PolyRing>(
         (b_idx, c_tilde_idx, min_two),
         (c_idx, a_tilde_idx, min_two),
         (c_idx, b_tilde_idx, min_two),
-        (c_idx, c_tilde_idx, R::from(4u128)),
+        (c_idx, c_tilde_idx, R::try_from(4u128).unwrap()),
     ];
     for (i, j, v) in vals {
         debug_assert!(A[(i, j)].is_zero());
@@ -274,20 +271,20 @@ pub fn reduce<R: PolyRing>(
     let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
     phi[a_idx] = Vector::<R>::from_element(n_pr, min_two);
     phi[b_idx] = Vector::<R>::from_element(n_pr, min_two);
-    phi[c_idx] = Vector::<R>::from_element(n_pr, R::from(4u128));
+    phi[c_idx] = Vector::<R>::from_element(n_pr, R::try_from(4u128).unwrap());
     ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
         A,
         phi,
         R::BaseRing::zero(),
     ));
 
-    for i in 0..crs.security_parameter {
+    for i in 0..pp.security_parameter {
         // Constrain <alpha_i, a_i> + <beta_i, b_i> + <gamma_i, c_i> - <delta_i, w_i> = g_i (over the constant coefficients)
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
-        phi[a_idx] = embed_Fqlinear_Rqlinear(&alpha.row(i).transpose(), k, n_pr);
-        phi[b_idx] = embed_Fqlinear_Rqlinear(&beta.row(i).transpose(), k, n_pr);
-        phi[c_idx] = embed_Fqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
-        phi[w_idx] = -embed_Fqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
+        phi[a_idx] = embed_Zqlinear_Rqlinear(&alpha.row(i).transpose(), k, n_pr);
+        phi[b_idx] = embed_Zqlinear_Rqlinear(&beta.row(i).transpose(), k, n_pr);
+        phi[c_idx] = embed_Zqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
+        phi[w_idx] = -embed_Zqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
 
         ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
             Matrix::<R>::zeros(r_pr, r_pr),
@@ -296,7 +293,7 @@ pub fn reduce<R: PolyRing>(
         ));
     }
 
-    PrincipalRelation::<R> {
+    Instance::<R> {
         quad_dot_prod_funcs,
         ct_quad_dot_prod_funcs,
     }

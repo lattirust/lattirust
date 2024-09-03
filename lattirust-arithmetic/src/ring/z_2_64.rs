@@ -15,7 +15,8 @@ use num_bigint::BigUint;
 use num_traits::{One, ToPrimitive, Zero};
 use zeroize::Zeroize;
 
-use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};
+use crate::ring::representatives::WithSignedRepresentative;
+use crate::ring::Ring;
 use crate::traits::{FromRandomBytes, Modulus};
 
 #[derive(
@@ -61,6 +62,14 @@ impl Zero for Z2_64 {
 impl One for Z2_64 {
     fn one() -> Self {
         Self(Wrapping(1))
+    }
+}
+
+impl<'a> Mul<&'a Z2_64> for &'a Z2_64 {
+    type Output = Z2_64;
+
+    fn mul(self, rhs: &'a Z2_64) -> Self::Output {
+        Z2_64(self.0 * rhs.0)
     }
 }
 
@@ -234,23 +243,23 @@ impl Ring for Z2_64 {
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
-impl From<SignedRepresentative> for Z2_64 {
-    fn from(value: SignedRepresentative) -> Self {
-        Self(Wrapping(value.0 as i64))
+impl From<i64> for Z2_64 {
+    fn from(value: i64) -> Self {
+        Self(Wrapping(value))
     }
 }
 
 /// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
-impl From<Z2_64> for SignedRepresentative {
+impl From<Z2_64> for i64 {
     fn from(value: Z2_64) -> Self {
-        SignedRepresentative(value.0 .0 as i128)
+        value.0 .0
     }
 }
 
-impl From<Z2_64> for UnsignedRepresentative {
-    fn from(val: Z2_64) -> Self {
-        unimplemented!("{}", val) // Not sure if this should really be used anywhere
+impl WithSignedRepresentative for Z2_64 {
+    type SignedRepresentative = i64;
+
+    fn as_signed_representative(&self) -> Self::SignedRepresentative {
+        self.0 .0
     }
 }
-
-impl ConvertibleRing for Z2_64 {}

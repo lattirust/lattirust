@@ -1,16 +1,14 @@
 #![allow(non_snake_case)]
 
-use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix};
+use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::PolyRing;
-use relations::principal_relation::PrincipalRelation;
-
-use crate::common_reference_string::CommonReferenceString;
+use relations::principal_relation::{Index, Instance};
 
 /// A (subset of a) transcript of one execution of the core Labrador protocol, as needed to compute the next instance/crs/witness for recursion
 pub struct BaseTranscript<'a, R: PolyRing> {
-    pub instance: &'a PrincipalRelation<R>,
-    pub crs: &'a CommonReferenceString<R>,
+    pub instance: &'a Instance<R>,
+    pub crs: &'a Index<R>,
     pub(crate) u_1: Option<Vector<R>>,
     pub(crate) Pi: Option<Vec<Matrix<R>>>,
     pub(crate) p: Option<Vector<R::BaseRing>>,
@@ -31,10 +29,7 @@ pub struct BaseTranscript<'a, R: PolyRing> {
 }
 
 impl<'a, R: PolyRing> BaseTranscript<'a, R> {
-    pub fn init(
-        crs: &'a CommonReferenceString<R>,
-        instance: &'a PrincipalRelation<R>,
-    ) -> BaseTranscript<'a, R> {
+    pub fn init(crs: &'a Index<R>, instance: &'a Instance<R>) -> BaseTranscript<'a, R> {
         BaseTranscript {
             instance,
             crs,
@@ -57,8 +52,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
     }
 
     pub fn new_core(
-        crs: &'a CommonReferenceString<R>,
-        instance: &'a PrincipalRelation<R>,
+        crs: &'a Index<R>,
+        instance: &'a Instance<R>,
         u_1: Vector<R>,
         Pi: Vec<Matrix<R>>,
         psi: Vec<Vector<R::BaseRing>>,
@@ -92,8 +87,8 @@ impl<'a, R: PolyRing> BaseTranscript<'a, R> {
     }
 
     pub fn new(
-        crs: &'a CommonReferenceString<R>,
-        instance: &'a PrincipalRelation<R>,
+        crs: &'a Index<R>,
+        instance: &'a Instance<R>,
         u_1: Vector<R>,
         Pi: Vec<Matrix<R>>,
         p: Vector<R::BaseRing>,

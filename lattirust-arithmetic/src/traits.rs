@@ -1,39 +1,61 @@
 use num_bigint::BigUint;
+use num_traits::{Signed, ToPrimitive};
 
 use crate::linear_algebra::Vector;
+use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::PolyRing;
 
 pub trait WithL2Norm {
     fn l2_norm(&self) -> f64 {
-        (self.l2_norm_squared() as f64).sqrt()
+        self.l2_norm_squared().to_f64().unwrap().sqrt()
     }
-    fn l2_norm_squared(&self) -> u128;
+    fn l2_norm_squared(&self) -> BigUint;
+}
+
+impl<R: WithSignedRepresentative> WithL2Norm for R
+where
+    R::SignedRepresentative: Signed + Into<num_bigint::BigInt>,
+{
+    fn l2_norm_squared(&self) -> BigUint {
+        let signed: num_bigint::BigInt = self.as_signed_representative().into();
+        BigUint::try_from(&signed * &signed).unwrap()
+    }
 }
 
 impl<R: WithL2Norm> WithL2Norm for [R] {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.iter().map(|x| x.l2_norm_squared()).sum()
     }
 }
 
 impl<R: WithL2Norm> WithL2Norm for Vec<R> {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.as_slice().l2_norm_squared()
     }
 }
 
 pub trait WithLinfNorm {
-    fn linf_norm(&self) -> u128;
+    fn linf_norm(&self) -> BigUint;
+}
+
+impl<R: WithSignedRepresentative> WithLinfNorm for R
+where
+    R::SignedRepresentative: Signed + Into<num_bigint::BigInt>,
+{
+    fn linf_norm(&self) -> BigUint {
+        let abs: num_bigint::BigInt = self.as_signed_representative().abs().into();
+        abs.try_into().unwrap()
+    }
 }
 
 impl<R: WithLinfNorm> WithLinfNorm for [R] {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.iter().map(|x| x.linf_norm()).max().unwrap()
     }
 }
 
 impl<R: WithLinfNorm> WithLinfNorm for Vec<R> {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.as_slice().linf_norm()
     }
 }

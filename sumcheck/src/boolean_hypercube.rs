@@ -1,12 +1,14 @@
 use ark_ff::Field;
 
-pub struct BooleanHypercube<F: Field> {
+use lattirust_arithmetic::ring::Ring;
+
+pub struct BooleanHypercube<F: Ring> {
     dim: u8,
     current: u128,
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: Field> BooleanHypercube<F> {
+impl<F: Ring> BooleanHypercube<F> {
     pub fn new(dim: u8) -> BooleanHypercube<F> {
         assert!(
             dim < 128,
@@ -20,7 +22,7 @@ impl<F: Field> BooleanHypercube<F> {
     }
 }
 
-impl<F: Field> Iterator for BooleanHypercube<F> {
+impl<F: Ring> Iterator for BooleanHypercube<F> {
     type Item = Vec<F>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -29,7 +31,7 @@ impl<F: Field> Iterator for BooleanHypercube<F> {
             None
         } else {
             let res = (0..self.dim)
-                .map(|i| F::from((self.current >> i) & 1))
+                .map(|i| F::try_from((self.current >> i) & 1).unwrap())
                 .collect();
             self.current += 1;
             Some(res)
@@ -39,16 +41,18 @@ impl<F: Field> Iterator for BooleanHypercube<F> {
 
 #[cfg(test)]
 mod tests {
-    use super::BooleanHypercube;
     use ark_ff::{One, Zero};
-    use lattirust_arithmetic::ring::Zq;
 
-    type F = Zq<655357>;
+    use lattirust_arithmetic::ring::Zq1;
+
+    use super::BooleanHypercube;
+
+    type F = Zq1<655357>;
 
     #[test]
     pub fn test_boolean_hypercube() {
         let n: u8 = 16;
-        let pows = (0..n).map(|i| F::from(2u128.pow(i as u32)));
+        let pows = (0..n).map(|i| F::try_from(2u128.pow(i as u32)).unwrap());
         assert!(BooleanHypercube::<F>::new(n).enumerate().all(|(i, b)| b
             .iter()
             .all(|b_i| b_i.is_zero() || b_i.is_one())
@@ -56,6 +60,6 @@ mod tests {
                 .zip(pows.to_owned())
                 .map(|(b_i, t_i)| b_i * &t_i)
                 .sum::<F>()
-                == F::from(i as u128)));
+                == F::try_from(i as u128).unwrap()));
     }
 }

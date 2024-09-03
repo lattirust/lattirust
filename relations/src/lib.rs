@@ -3,6 +3,7 @@
 pub mod ajtai_cm;
 pub mod principal_relation;
 pub mod r1cs;
+pub mod reduction;
 
 pub trait Relation {
     type Size;

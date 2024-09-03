@@ -1,29 +1,32 @@
 use std::marker::PhantomData;
 
-use ark_std::rand::thread_rng;
 use ark_std::{One, UniformRand};
+use ark_std::rand::thread_rng;
 use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
+use num_traits::real::Real;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use labrador::common_reference_string::floor_to_even;
 use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
-use lattirust_arithmetic::balanced_decomposition::balanced_decomposition_max_length;
+use lattirust_arithmetic::balanced_decomposition::{
+    balanced_decomposition_max_length, DecompositionFriendlySignedRepresentative,
+};
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
-use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::Ring;
 use lattirust_arithmetic::traits::WithL2Norm;
-use relations::traits::Relation;
+use relations::Relation;
 
 const COMPLETENESS_ERROR: usize = 128;
 
@@ -35,7 +38,7 @@ pub enum OptimizationMode {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct PublicParameters<F: ConvertibleRing> {
+pub struct PublicParameters<F: Ring> {
     pub commitment_mat: Matrix<F>,
     pub norm_bound: f64,
     pub decomposition_basis: u128,
@@ -48,7 +51,16 @@ pub struct PublicParameters<F: ConvertibleRing> {
 fn pretty_print(param: f64) -> String {
     format!("{param} = 2^{}", param.log2())
 }
-impl<F: ConvertibleRing> PublicParameters<F> {
+
+pub fn floor_to_even(x: f64) -> u128 {
+    if x.floor() as usize % 2 == 0 {
+        x.floor() as u128
+    } else {
+        x.floor() as u128 - 1
+    }
+}
+
+impl<F: Ring> PublicParameters<F> {
     /// Return the lowest norm bound such that folding is norm-preserving for a given `basis`, witness length `n`, and inner security parameter `security_parameter` (t in the paper).
     fn norm_lower_bound(basis: u128, n: usize, security_parameter: usize) -> f64 {
         // beta >= 2 * security_parameter * k * norm_decomp = 2 * security_parameter * k * b/2 * sqrt(n)
@@ -135,7 +147,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 let basis = floor_to_even(norm_bound.sqrt());
                 // Ensure that the constant 4 used to choose norm_bound above is correct.
                 debug_assert_eq!(
-                    balanced_decomposition_max_length(basis, norm_bound.floor() as u128),
+                    balanced_decomposition_max_length(basis, (norm_bound.floor() as u128).into()),
                     4,
                     "assumption on decomposition length used to set norm_bound is violated"
                 );
@@ -150,7 +162,10 @@ impl<F: ConvertibleRing> PublicParameters<F> {
                 let basis = floor_to_even(norm_bound.sqrt());
                 // Ensure that the constant 4 used to choose norm_bound above is correct.
                 debug_assert_eq!(
-                    balanced_decomposition_max_length(basis, norm_bound.floor() as u128),
+                    balanced_decomposition_max_length(
+                        basis,
+                        BigUint::from(norm_bound.floor() as u128)
+                    ),
                     4,
                     "assumption on decomposition length used to set norm_bound is violated"
                 );
@@ -173,8 +188,10 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             }
         };
 
-        let decomposition_length: usize =
-            balanced_decomposition_max_length(decomposition_basis, norm_bound as u128);
+        let decomposition_length: usize = balanced_decomposition_max_length(
+            decomposition_basis,
+            BigUint::from(norm_bound as u128),
+        );
         info!(
             "    decomposition_length = {}",
             pretty_print(decomposition_length as f64)
@@ -293,18 +310,18 @@ impl<F: ConvertibleRing> PublicParameters<F> {
     }
 }
 
-impl<F: ConvertibleRing> PublicParameters<F> {
+impl<F: Ring + WithSignedRepresentative> PublicParameters<F> {
     pub fn powers_of_basis(&self) -> Vec<F> {
         self.powers_of_basis_int()
-            .iter()
-            .map(|&x| F::from(x))
+            .into_iter()
+            .map(|x| Into::<F>::into(x))
             .collect()
     }
 
-    pub fn powers_of_basis_int(&self) -> Vec<SignedRepresentative> {
-        let mut pows = Vec::<SignedRepresentative>::with_capacity(self.decomposition_length);
-        pows.push(SignedRepresentative::one());
-        let basis = SignedRepresentative(self.decomposition_basis as i128);
+    pub fn powers_of_basis_int(&self) -> Vec<F> {
+        let mut pows = Vec::<F>::with_capacity(self.decomposition_length);
+        pows.push(F::one());
+        let basis = F::try_from(self.decomposition_basis).unwrap();
         assert!(
             F::modulus()
                 .to_f64()
@@ -314,43 +331,44 @@ impl<F: ConvertibleRing> PublicParameters<F> {
             "ring must be large enough to support basis^i for i = 0..decomposition_length"
         );
         for i in 1..self.decomposition_length {
-            pows.push(pows[i - 1] * basis);
+            pows.push(pows[i - 1].clone() * basis.clone());
         }
         pows
     }
 }
 
-#[derive(Clone, Debug, Serialize, PartialEq)]
-pub struct Instance<F: ConvertibleRing> {
+#[derive(Clone, Debug, PartialEq)]
+pub struct Instance<F: Ring + WithSignedRepresentative> {
     pub commitment: Matrix<F>,
-    pub inner_products: SymmetricMatrix<SignedRepresentative>,
+    pub inner_products: SymmetricMatrix<F>,
 }
 
-impl<F: ConvertibleRing> Instance<F> {
+impl<F: Ring + WithSignedRepresentative> Instance<F> {
     pub fn new(pp: &PublicParameters<F>, w: &Witness<F>) -> Instance<F> {
         Instance {
             commitment: &pp.commitment_mat * w,
-            inner_products: inner_products_mat(&to_integers(w)),
+            // inner_products: inner_products_mat(&to_integers(w)),
+            inner_products: inner_products_mat(w),
         }
     }
 }
 
 pub type Witness<F> = Matrix<F>;
 
-pub struct BaseRelation<F: ConvertibleRing> {
+pub struct BaseRelation<F: Ring> {
     _marker: PhantomData<F>,
 }
 
-impl<F: ConvertibleRing> Relation for BaseRelation<F> {
-    type PublicParameters = PublicParameters<F>;
+impl<F: Ring + WithSignedRepresentative> Relation for BaseRelation<F>
+where
+    F::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
+    type Size = usize;
+    type Index = PublicParameters<F>;
     type Instance = Instance<F>;
     type Witness = Witness<F>;
 
-    fn is_well_defined(
-        pp: &Self::PublicParameters,
-        x: &Self::Instance,
-        w: Option<&Self::Witness>,
-    ) -> bool {
+    fn is_well_defined(pp: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> bool {
         let mut is_well_defined = pp.commitment_mat.nrows() == x.commitment.nrows();
         if let Some(w) = w {
             is_well_defined = is_well_defined
@@ -361,9 +379,9 @@ impl<F: ConvertibleRing> Relation for BaseRelation<F> {
         is_well_defined
     }
 
-    fn is_satisfied(pp: &Self::PublicParameters, x: &Self::Instance, w: &Self::Witness) -> bool {
+    fn is_satisfied(pp: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> bool {
         let norm_bound_sq = pp.norm_bound * pp.norm_bound;
-        let w_int = to_integers(w);
+        let w_int = w; // TODO: work over the integers; to_integers(w);
 
         let commitments_match = &pp.commitment_mat * w == x.commitment; // mod q
         debug!("  commitments match:      {commitments_match} (pp.commitment_mat * w == x.commitment (mod q))");
@@ -371,11 +389,10 @@ impl<F: ConvertibleRing> Relation for BaseRelation<F> {
         let inner_products_match = inner_products_mat(&w_int) == x.inner_products; // over the integers
         debug!("  inner products match:   {inner_products_match} (w_int.transpose() * w_int == x.inner_products (over the integers))");
 
-        let inner_products_are_small = x
-            .inner_products
-            .diag()
-            .into_iter()
-            .all(|inner_product_ii| inner_product_ii.0 as f64 <= norm_bound_sq);
+        let inner_products_are_small =
+            x.inner_products.diag().into_iter().all(|inner_product_ii| {
+                inner_product_ii.linf_norm().to_f64().unwrap() <= norm_bound_sq
+            });
         debug!("  inner products bounded: {inner_products_are_small} (x.inner_products()[i][i] <= norm_bound_sq)");
 
         Self::is_well_defined(pp, x, Some(w))
@@ -383,26 +400,40 @@ impl<F: ConvertibleRing> Relation for BaseRelation<F> {
             && inner_products_match
             && inner_products_are_small
     }
+
+    fn generate_satisfied_instance(
+        size: &Self::Size,
+    ) -> (Self::Index, Self::Instance, Self::Witness) {
+        todo!()
+    }
+
+    fn generate_unsatisfied_instance(
+        size: &Self::Size,
+    ) -> (Self::Index, Self::Instance, Self::Witness) {
+        todo!()
+    }
 }
 
-pub fn norm_l2_squared_columnwise<F: ConvertibleRing>(mat: &Matrix<F>) -> Vec<u128> {
+pub fn norm_l2_squared_columnwise<F: Ring>(mat: &Matrix<F>) -> Vec<BigUint> {
     mat.column_iter().map(|c| c.l2_norm_squared()).collect()
 }
 
-pub fn norm_l2_columnwise<F: ConvertibleRing>(mat: &Matrix<F>) -> Vec<f64> {
+pub fn norm_l2_columnwise<F: Ring>(mat: &Matrix<F>) -> Vec<f64> {
     mat.column_iter().map(|c| c.l2_norm()).collect()
 }
 
-pub fn to_integers<F: ConvertibleRing>(mat: &Matrix<F>) -> Matrix<SignedRepresentative> {
-    mat.map(|x| Into::<SignedRepresentative>::into(x))
+pub fn to_integers<F: Ring + WithSignedRepresentative>(
+    mat: &Matrix<F>,
+) -> Matrix<F::SignedRepresentative> {
+    mat.map(|x| Into::<F::SignedRepresentative>::into(x))
 }
 
-pub trait LovaIOPattern
+pub trait LovaIOPattern<R: Ring + WithSignedRepresentative>
 where
     Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern,
 {
-    fn merge<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
-        self.absorb_matrix::<SignedRepresentative>(
+    fn merge(self, pp: &PublicParameters<R>) -> Self {
+        self.absorb_matrix::<R>(
             pp.inner_security_parameter,
             pp.inner_security_parameter,
             "cross inner products",
@@ -410,14 +441,14 @@ where
         .ratchet()
     }
 
-    fn reduce<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
-        self.absorb_matrix::<F>(
+    fn reduce(self, pp: &PublicParameters<R>) -> Self {
+        self.absorb_matrix::<R>(
             pp.commitment_mat.nrows(),
             2 * pp.inner_security_parameter * pp.decomposition_length,
             "commitment",
         )
         .ratchet()
-        .absorb_symmetric_matrix::<SignedRepresentative>(
+        .absorb_symmetric_matrix::<R>(
             2 * pp.inner_security_parameter * pp.decomposition_length,
             "inner products",
         )
@@ -430,15 +461,15 @@ where
         .ratchet()
     }
 
-    fn fold<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
+    fn fold(self, pp: &PublicParameters<R>) -> Self {
         self.merge(pp).reduce(pp)
     }
 }
 
-impl<H: DuplexHash<u8>> LovaIOPattern for IOPattern<H> {}
+impl<R: Ring + WithSignedRepresentative, H: DuplexHash<u8>> LovaIOPattern<R> for IOPattern<H> {}
 
 pub fn rand_matrix_with_bounded_column_norms<
-    F: UniformRand + Scalar + From<SignedRepresentative> + Send + Sync,
+    F: UniformRand + Scalar + WithSignedRepresentative + Send + Sync,
 >(
     nrows: usize,
     ncols: usize,

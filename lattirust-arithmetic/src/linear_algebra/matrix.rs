@@ -2,16 +2,16 @@
 
 use std::ops::Neg;
 
-use ark_std::rand::prelude::SliceRandom;
 use ark_std::{rand, UniformRand};
+use ark_std::rand::prelude::SliceRandom;
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
-use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::{Scalar, SymmetricMatrix};
+use crate::linear_algebra::generic_matrix::GenericMatrix;
 
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
 
@@ -118,11 +118,11 @@ mod tests {
     use ark_std::test_rng;
 
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::Zq;
+    use crate::ring::Zq1;
 
     use super::*;
 
-    type R = Pow2CyclotomicPolyRing<Zq<3>, 20>;
+    type R = Pow2CyclotomicPolyRing<Zq1<3>, 20>;
 
     #[test]
     fn test_sample_uniform() {

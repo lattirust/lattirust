@@ -1,11 +1,11 @@
-use crate::ring::{ConvertibleRing, SignedRepresentative};
+use crate::ring::Ring;
 use crate::traits::FromRandomBytes;
 
 pub struct BinaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
 
-impl<F: ConvertibleRing> FromRandomBytes<F> for BinaryChallengeSet<F> {
+impl<F: Ring> FromRandomBytes<F> for BinaryChallengeSet<F> {
     fn has_no_bias() -> bool {
         true
     }
@@ -15,8 +15,7 @@ impl<F: ConvertibleRing> FromRandomBytes<F> for BinaryChallengeSet<F> {
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<F> {
-        let v = (bytes.last()? & 1) as i128;
-        let s = SignedRepresentative(v);
-        Some(Into::<F>::into(s))
+        let v = (bytes.last()? & 1) != 0;
+        Some(F::from(v))
     }
 }

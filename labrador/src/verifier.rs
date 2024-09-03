@@ -2,10 +2,13 @@
 
 use log::debug;
 use nimue::{Arthur, ProofError, ProofResult};
+use num_bigint::BigUint;
+use num_traits::{ToPrimitive, Zero};
 use rayon::prelude::*;
 
 use lattirust_arithmetic::balanced_decomposition::{
     decompose_balanced_polyring, decompose_balanced_vec_polyring,
+    DecompositionFriendlySignedRepresentative,
 };
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
@@ -14,16 +17,22 @@ use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use lattirust_util::{check, check_eq};
-use relations::principal_relation::PrincipalRelation;
+use relations::principal_relation::{Index, Instance};
 
-use crate::common_reference_string::{fold_instance, CommonReferenceString};
+use crate::common_reference_string::fold_instance;
 use crate::shared::BaseTranscript;
 use crate::util::*;
 
 /// Verify the final dot product constraints and consolidated norm check, used in the last step of the recursion
-pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<()> {
+pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<()>
+where
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
+    <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+{
     let (instance, crs) = (transcript.instance, transcript.crs);
     let (r, num_aggregs, num_constraints, num_ct_constraints) = (
         crs.r,
@@ -40,11 +49,11 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
     let H = transcript.H.as_ref().expect("H not available");
 
     // Decompose z, t, G, H
-    let mut sum_norm_sq = 0u128;
+    let mut sum_norm_sq = BigUint::zero();
 
     let z_decomp = decompose_balanced_vec_polyring(z, crs.b, Some(2usize));
     assert_eq!(z_decomp.len(), 2);
-    check!(&z_decomp[0].linf_norm() * 2 <= crs.b);
+    check!(&z_decomp[0].linf_norm() * BigUint::from(2u64) <= BigUint::from(crs.b));
 
     for z_i in z_decomp.iter() {
         sum_norm_sq += z_i.l2_norm_squared();
@@ -57,7 +66,7 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
     for t_i in t_decomp.iter() {
         assert_eq!(t_i.len(), crs.t1);
         for k in 0..crs.t1 - 1 {
-            check!(&t_i[k].linf_norm() * 2 <= crs.b1);
+            check!(&t_i[k].linf_norm() * BigUint::from(2u64) <= BigUint::from(crs.b1));
             sum_norm_sq += &t_i[k].l2_norm_squared();
         }
     }
@@ -75,12 +84,14 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
         for j in 0..i + 1 {
             assert_eq!(G_decomp[i][j].len(), crs.t2);
             for k in 0..crs.t2 {
-                check!(&G_decomp[i][j][k].linf_norm() * 2 <= crs.b2);
+                check!(
+                    &G_decomp[i][j][k].linf_norm() * BigUint::from(2u64) <= BigUint::from(crs.b2)
+                );
                 if i == j {
                     sum_norm_sq += G_decomp[i][j][k].l2_norm_squared();
                 } else {
                     // account for (i,j) and (j, i)
-                    sum_norm_sq += 2 * G_decomp[i][j][k].l2_norm_squared();
+                    sum_norm_sq += BigUint::from(2u64) * G_decomp[i][j][k].l2_norm_squared();
                 }
             }
         }
@@ -99,26 +110,23 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
         for j in 0..i + 1 {
             assert_eq!(H_decomp[i][j].len(), crs.t1);
             for k in 0..crs.t1 {
-                check!(&H_decomp[i][j][k].linf_norm() * 2 <= crs.b2);
+                check!(
+                    &H_decomp[i][j][k].linf_norm() * BigUint::from(2u64) <= BigUint::from(crs.b2)
+                );
                 if i == j {
                     sum_norm_sq += H_decomp[i][j][k].l2_norm_squared();
                 } else {
                     // account for (i,j) and (j, i)
-                    sum_norm_sq += 2 * H_decomp[i][j][k].l2_norm_squared();
+                    sum_norm_sq += BigUint::from(2u64) * H_decomp[i][j][k].l2_norm_squared();
                 }
             }
         }
     }
 
     // Consolidated norm check
-    let beta_prime_sq = CommonReferenceString::<R>::next_norm_bound_sq(
-        r,
-        crs.n,
-        crs.norm_bound_squared,
-        crs.k,
-        crs.b,
-    );
-    check!(sum_norm_sq as f64 <= beta_prime_sq);
+    let beta_prime_sq =
+        Index::<R>::next_norm_bound_sq(r, crs.n, crs.norm_bound_squared, crs.k, crs.b);
+    check!(sum_norm_sq.to_f64().unwrap() <= beta_prime_sq);
 
     // Check Az = c1 * t1 + ... + c_r * t_r
     let Az = &crs.A * z;
@@ -218,8 +226,8 @@ pub fn verify_final<R: PolyRing>(transcript: &BaseTranscript<R>) -> ProofResult<
 
 /// Verify consistency for one instance of the core Labrador protocol, used in each step of the recursion
 pub fn verify_core<'a, R: PolyRing>(
-    crs: &'a CommonReferenceString<R>,
-    instance: &'a PrincipalRelation<R>,
+    crs: &'a Index<R>,
+    instance: &'a Instance<R>,
     arthur: &mut Arthur,
 ) -> ProofResult<BaseTranscript<'a, R>>
 where
@@ -244,7 +252,7 @@ where
     let norm_p_sq = p.l2_norm_squared();
     let p_norm_bound_sq = 128f64 * crs.norm_bound_squared;
     check!(
-        norm_p_sq <= p_norm_bound_sq.floor() as u128,
+        norm_p_sq.to_f64().unwrap() <= p_norm_bound_sq,
         format!(
             "||p||_2^2 = {} is not <= 128*beta^2 = {}",
             norm_p_sq, p_norm_bound_sq
@@ -317,12 +325,15 @@ where
 
 pub fn verify_principal_relation<R: PolyRing>(
     arthur: &mut Arthur,
-    instance: &PrincipalRelation<R>,
-    crs: &CommonReferenceString<R>,
+    instance: &Instance<R>,
+    crs: &Index<R>,
 ) -> Result<(), ProofError>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
+    <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
 {
     // Init Fiat-Shamir transcript
     // TODO: add public statement

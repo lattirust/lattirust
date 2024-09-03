@@ -16,14 +16,14 @@ use lattirust_arithmetic::linear_algebra::Vector;
 use crate::r1cs::util::{R1CSCRS, R1CSInstance};
 use crate::util::{concat, flatten_vec_vector};
 
-#[derive(MontConfig)]
-#[modulus = "18446744073709551617"] // 2^64+1
-#[generator = "3"]
-pub struct FqConfig;
+// #[derive(MontConfig)]
+// #[modulus = "18446744073709551617"] // 2^64+1
+// #[generator = "3"]
+// pub struct FqConfig;
 
-pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
+// pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
 // pub type Z64 = Fq<18446744073709551617>;
-pub type Z64 = Zq<3>; // TODO
+pub type Z64 = Zq2<274177, 67280421310721>; // Q = 2^64+1
 
 fn enc<R: PolyRing>(vec: &Vector<Z64>) -> Vector<R> {
     todo!()

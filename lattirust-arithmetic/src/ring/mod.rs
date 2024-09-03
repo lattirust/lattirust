@@ -5,30 +5,35 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{BitIteratorBE, BitIteratorLE};
+use ark_ff::{BitIteratorBE, BitIteratorLE, Field};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
 
+pub use ntt::NttRing;
 // Exports
-pub use poly_ring::{ConvertibleRing, PolyRing};
+pub use poly_ring::PolyRing;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
-pub use representatives::{SignedRepresentative, UnsignedRepresentative};
+pub use z_2::*;
 pub use z_2_128::*;
 pub use z_2_64::*;
-pub use z_q::{const_fq_from, Zq};
+pub use z_q::*;
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
-use crate::traits::{FromRandomBytes, Modulus};
+use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
 
+pub mod ntt;
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
-mod representatives;
+pub mod representatives;
+mod z_2;
 mod z_2_128;
 mod z_2_64;
 mod z_q;
+pub(crate) mod z_q_signed_representative;
+pub mod util;
 
 pub trait Ring:
 'static
@@ -75,11 +80,11 @@ pub trait Ring:
 + Product<Self>
 + for<'a> Product<&'a Self>
 + Sum<Self>
-+ From<u128>
-+ From<u64>
-+ From<u32>
-+ From<u16>
-+ From<u8>
++ TryFrom<u128, Error: Debug>
++ TryFrom<u64, Error: Debug>
++ TryFrom<u32, Error: Debug>
++ TryFrom<u16, Error: Debug>
++ TryFrom<u8, Error: Debug>
 + From<bool>
 // Differs from arkworks
 + FromRandomBytes<Self>
@@ -88,6 +93,8 @@ pub trait Ring:
 + Modulus
 + CanonicalSerialize
 + CanonicalDeserialize
++ WithL2Norm
++ WithLinfNorm
 {
     /// The additive identity of the ring.
     const ZERO: Self;
@@ -143,6 +150,18 @@ pub trait Ring:
         }
         Some(res)
     }
-    
+
      fn inverse(&self) -> Option<Self>;
+}
+
+impl<T> Ring for T
+where
+    T: Field + Modulus + FromRandomBytes<T> + WithLinfNorm + WithL2Norm,
+{
+    const ZERO: Self = <Self as Field>::ZERO;
+    const ONE: Self = <Self as Field>::ONE;
+
+    fn inverse(&self) -> Option<Self> {
+        <Self as Field>::inverse(self)
+    }
 }

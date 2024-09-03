@@ -1,13 +1,11 @@
 #![allow(non_snake_case)]
 
 use ark_relations::r1cs::ConstraintSystemRef;
-use num_traits::{One, ToPrimitive, Zero};
+use num_traits::{One, Zero};
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, SparseMatrix, SymmetricMatrix, Vector};
-use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::{PolyRing, Z2};
 use lattirust_arithmetic::ring::Ring;
-
-use crate::binary_r1cs::util::Z2;
 
 pub fn commit<R: Ring>(A: &Matrix<R>, s: &Vector<R>) -> Vector<R> {
     A * s
@@ -134,26 +132,4 @@ pub fn ark_sparse_matrices(
         SparseMatrix::from_ark_matrix(matrices.b, nrows, ncols),
         SparseMatrix::from_ark_matrix(matrices.c.into(), nrows, ncols),
     )
-}
-
-const ROOT_HERMITE_FACTOR: f64 = 1.0045;
-
-pub fn msis_h_128_l2<R: PolyRing>(length_bound: f64) -> Option<usize> {
-    let q = R::modulus().to_f64().unwrap();
-    let log_q = q.log2();
-    let d = R::dimension();
-
-    if length_bound >= q / 2. {
-        return None;
-    }
-
-    let min_h = (f64::log2(2. * length_bound) / 2.).powi(2)
-        / (d as f64 * log_q * f64::log2(ROOT_HERMITE_FACTOR));
-    Some(min_h.ceil() as usize)
-}
-
-pub fn msis_h_128_linf<R: PolyRing>(w: usize, length_bound: f64) -> Option<usize> {
-    let d = R::dimension();
-
-    msis_h_128_l2::<R>(length_bound * ((d * w) as f64).sqrt())
 }

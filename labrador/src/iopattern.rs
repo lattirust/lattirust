@@ -6,10 +6,10 @@ use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChalle
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
-use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::{PolyRing, Z2};
 use lattirust_arithmetic::traits::FromRandomBytes;
 
-use crate::binary_r1cs::util::{BinaryR1CSCRS, Z2};
+use crate::binary_r1cs::util::{BinaryR1CSCRS};
 use crate::common_reference_string::CommonReferenceString;
 
 pub trait LabradorIOPattern<R, H>:

@@ -1,11 +1,11 @@
-use crate::challenge_set::binary::BinaryChallengeSet;
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
 
+use crate::challenge_set::binary::BinaryChallengeSet;
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
 use crate::linear_algebra::Vector;
-use crate::ring::Zq;
+use crate::ring::Z2;
 use crate::traits::FromRandomBytes;
 
 pub trait ChallengeFromRandomBytes
@@ -88,9 +88,9 @@ where
         &mut self,
         n_rows: usize,
         n_cols: usize,
-    ) -> Result<Matrix<Zq<2>>, IOPatternError> {
+    ) -> Result<Matrix<Z2>, IOPatternError> {
         // TODO: use more efficient sampling, this is currently using one byte where one bit would be enough
-        self.challenge_matrix::<Zq<2>, BinaryChallengeSet<Zq<2>>>(n_rows, n_cols)
+        self.challenge_matrix::<Z2, BinaryChallengeSet<Z2>>(n_rows, n_cols)
     }
 }
 

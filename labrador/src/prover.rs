@@ -1,10 +1,12 @@
 #![allow(non_snake_case)]
 
+use std::fmt::Debug;
 use nimue::{Merlin, ProofResult};
 use rayon::prelude::*;
 
 use lattirust_arithmetic::balanced_decomposition::{
     decompose_balanced_polyring, decompose_balanced_vec_polyring,
+    DecompositionFriendlySignedRepresentative,
 };
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
@@ -12,11 +14,12 @@ use lattirust_arithmetic::linear_algebra::inner_products::{inner_products, inner
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::{PolyRing, SignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use relations::principal_relation::{PrincipalRelation, Witness};
+use relations::principal_relation::{Index, Instance, Witness};
 
-use crate::common_reference_string::{fold_instance, CommonReferenceString};
+use crate::common_reference_string::fold_instance;
 use crate::shared::BaseTranscript;
 use crate::util::*;
 
@@ -26,12 +29,13 @@ pub struct Prover<'a, R: PolyRing> {
     pub(crate) phi__: Option<Vec<Vec<Vector<R>>>>,
 }
 
-impl<'a, R: PolyRing> Prover<'a, R> {
-    fn new(
-        instance: &'a PrincipalRelation<R>,
-        witness: &'a Witness<R>,
-        crs: &'a CommonReferenceString<R>,
-    ) -> Self {
+impl<'a, R: PolyRing> Prover<'a, R>
+where
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
+    <R::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+{
+    fn new(instance: &'a Instance<R>, witness: &'a Witness<R>, crs: &'a Index<R>) -> Self {
         Self {
             transcript: BaseTranscript::<R>::init(crs, instance),
             witness,
@@ -39,10 +43,10 @@ impl<'a, R: PolyRing> Prover<'a, R> {
         }
     }
 
-    fn instance(&self) -> &PrincipalRelation<R> {
+    fn instance(&self) -> &Instance<R> {
         self.transcript.instance
     }
-    fn crs(&self) -> &CommonReferenceString<R> {
+    fn crs(&self) -> &Index<R> {
         self.transcript.crs
     }
     fn witness(&self) -> &Witness<R> {
@@ -201,9 +205,10 @@ impl<'a, R: PolyRing> Prover<'a, R> {
                         .coeffs()
                         .into_iter()
                         .map(|h| {
-                            Into::<R::BaseRing>::into(SignedRepresentative(
-                                Into::<SignedRepresentative>::into(h).0 / 2,
-                            ))
+                            Into::<R::BaseRing>::into(
+                            h.as_signed_representative()
+                                / <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative::try_from(2).unwrap()
+                            )
                         })
                         .collect::<Vec<_>>(),
                 );
@@ -241,13 +246,17 @@ impl<'a, R: PolyRing> Prover<'a, R> {
 
 pub fn prove_principal_relation<'a, R: PolyRing>(
     merlin: &'a mut Merlin,
-    instance: &PrincipalRelation<R>,
+    instance: &Instance<R>,
     witness: &Witness<R>,
-    crs: &CommonReferenceString<R>,
+    crs: &Index<R>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
+    <R::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+    <R as TryFrom<u128>>::Error: Debug
 {
     // Check dimensions and norms
     debug_assert!(crs.is_wellformed_instance(instance));
