@@ -332,8 +332,7 @@ mod tests {
     }
 
     fn get_test_vec() -> Vec<R> {
-        (0..(N as u64) * Q)
-            .step_by((Q / (N as u64)) as usize)
+        (0..(N as u64))
             .map(|x| R::from(x))
             .collect()
     }
@@ -392,8 +391,7 @@ mod tests {
     fn test_decompose_balanced_vec_polyring() {
         let v = Vector::<PolyR>::from_fn(VEC_LENGTH, |i, _| {
             PolyR::from(
-                (0..(N as u64) * Q)
-                    .step_by((Q / (N as u64)) as usize)
+                (0..(N as u64))
                     .map(|x| R::from(x + i as u64))
                     .collect::<Vec<_>>(),
             )
