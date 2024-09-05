@@ -1,0 +1,26 @@
+[package]
+name = "lattirust-ring"
+version = "0.0.1-alpha"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+lattirust-linear-algebra = { workspace = true }
+ark-ff = { workspace = true }
+ark-crypto-primitives = { workspace = true }
+ark-poly = { workspace = true }
+ark-serialize = { workspace = true }
+ark-std = { workspace = true }
+delegate = { workspace = true }
+derive_more = { workspace = true }
+num-traits = { workspace = true }
+rayon = { workspace = true }
+rounded-div = { workspace = true }
+serde = { workspace = true }
+serde_with = { workspace = true }
+zeroize = { workspace = true }
+num-bigint = { workspace = true }
+rand = { workspace = true }
+
+
