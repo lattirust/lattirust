@@ -24,6 +24,7 @@ use super::poly_ring::WithRot;
 
 use ark_ff::{Fp, FpConfig, MontBackend};
 
+/// A cyclotomic ring of the form Fp<C,N>/<X^D + 1>.
 #[derive(From, Into)]
 pub struct Pow2CyclotomicPolyRingNTTGeneral<C: FpConfig<N>, const N: usize, const D: usize>(
     SVector<Fp<C, N>, D>,
@@ -31,6 +32,55 @@ pub struct Pow2CyclotomicPolyRingNTTGeneral<C: FpConfig<N>, const N: usize, cons
 
 pub type Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize> =
     Pow2CyclotomicPolyRingNTTGeneral<MontBackend<FqConfig<Q>, 1>, 1, N>;
+
+impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGeneral<C, N, D> {
+    fn from_coefficients_vec(mut coeffs: Vec<Fp<C, N>>) -> Self {
+        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
+
+        // We resize the coefficient vector with D zeros
+        // to have a polynomial of "degree" 2D.
+        coeffs.extend((0..D).map(|_| Fp::zero()));
+        eval_domain.unwrap().fft_in_place(&mut coeffs);
+
+        // Once we've done the NTT we remove the evaluations at even indices.
+        // Those evaluations corresspond to the evaluations at non-primitive roots of unity.
+        let coeffs: Vec<Fp<C, N>> = coeffs
+            .into_iter()
+            .enumerate()
+            .map(|(i, coeff)| if i % 2 != 0 { Some(coeff) } else { None })
+            .flatten()
+            .collect();
+
+        Self::from_array(coeffs.try_into().unwrap())
+    }
+
+    fn coefficients_vec(&self) -> Vec<Fp<C, N>> {
+        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
+
+        // Enlarge the evaluation vector to be of length 2D.
+        // Add dummy zero evaluations at the even indices.
+        let mut evals = Vec::from(core::array::from_fn::<_, D, _>(|x| {
+            if x % 2 != 0 {
+                self.0[x / 2]
+            } else {
+                Fp::zero()
+            }
+        }));
+
+        eval_domain.unwrap().ifft_in_place(&mut evals);
+
+        // Reduce the resulting polynomial mod X^D + 1.
+        let (left, right) = evals.split_at_mut(D);
+        for (coeff_left, coeff_right) in left.iter_mut().zip(right) {
+            *coeff_left -= coeff_right;
+        }
+
+        // Truncate the resulting vector to be of size D.
+        evals.resize(D, Fp::zero());
+
+        evals
+    }
+}
 
 impl<C: FpConfig<N>, const N: usize, const D: usize> PartialEq
     for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
@@ -99,10 +149,9 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
     where
         F: FnMut(usize) -> Fp<C, N>,
     {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(D);
-        let mut coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
-        eval_domain.unwrap().fft_in_place(&mut coeffs);
-        Self::from_array(coeffs.try_into().unwrap())
+        let coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
+
+        Self::from_coefficients_vec(coeffs)
     }
 }
 
@@ -338,10 +387,9 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> From<Pow2CyclotomicPolyRing
     for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
 {
     fn from(value: Pow2CyclotomicPolyRing<Fp<C, N>, D>) -> Self {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(D);
-        let mut coeffs: Vec<Fp<C, N>> = value.coeffs();
-        eval_domain.unwrap().fft_in_place(&mut coeffs);
-        Self::from_array(coeffs.try_into().unwrap())
+        let coeffs: Vec<Fp<C, N>> = value.coeffs();
+
+        Self::from_coefficients_vec(coeffs)
     }
 }
 
@@ -489,10 +537,7 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> PolyRing
 {
     type BaseRing = Fp<C, N>;
     fn coeffs(&self) -> Vec<Fp<C, N>> {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(D);
-        let mut coeffs: Vec<Fp<C, N>> = self.0.as_slice().into();
-        eval_domain.unwrap().ifft_in_place(&mut coeffs);
-        coeffs
+        self.coefficients_vec()
     }
     fn dimension() -> usize {
         D
@@ -507,12 +552,10 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> PolyRing
 impl<C: FpConfig<N>, const N: usize, const D: usize> From<Vec<Fp<C, N>>>
     for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    fn from(value: Vec<Fp<C, N>>) -> Self {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(D);
-        let mut value = value;
+    fn from(mut value: Vec<Fp<C, N>>) -> Self {
         value.resize_with(D, Fp::zero);
-        eval_domain.unwrap().fft_in_place(&mut value);
-        Self::from_array(value.try_into().unwrap())
+
+        Self::from_coefficients_vec(value)
     }
 }
 
@@ -549,15 +592,16 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> WithRot
     for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
 {
     fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
-        let mut xi = vec![Self::BaseRing::ZERO; N];
+        let mut xi = vec![Self::BaseRing::ZERO; D];
+
         if i < D {
             xi[i] = Self::BaseRing::ONE;
         } else {
             unimplemented!("No support for multiplying with a polynomial bigger than N");
         }
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(D);
-        eval_domain.unwrap().ifft_in_place(&mut xi);
-        let xi_poly = Self::from(xi);
+
+        let xi_poly = Self::from_coefficients_vec(xi);
+
         let result = (*self * xi_poly).0;
         result.iter().copied().collect::<Vec<_>>()
     }
