@@ -37,13 +37,15 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
     fn from_coefficients_vec(mut coeffs: Vec<Fp<C, N>>) -> Self {
         let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
 
+        assert_eq!(coeffs.len(), D, "Incorrect length of the coefficient vector");
+
         // We resize the coefficient vector with D zeros
         // to have a polynomial of "degree" 2D.
         coeffs.extend((0..D).map(|_| Fp::zero()));
         eval_domain.unwrap().fft_in_place(&mut coeffs);
 
         // Once we've done the NTT we remove the evaluations at even indices.
-        // Those evaluations corresspond to the evaluations at non-primitive roots of unity.
+        // Those evaluations correspond to the evaluations at non-primitive roots of unity.
         let coeffs: Vec<Fp<C, N>> = coeffs
             .into_iter()
             .enumerate()
