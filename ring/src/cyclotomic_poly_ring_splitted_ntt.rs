@@ -19,14 +19,14 @@ use super::poly_ring::WithRot;
 /// For an m-th cyclotomic ring its minimal polynomail has the form
 /// `Phi_m = Prod_{j=1}^phi(m)(x - r_j)`
 /// Where `ord_p(r_j) = m` and `r_j = w^i` where `i \in {i: gcd(i,m) = 1}`
-/// and `j` is its enumaration
+/// and `j` is its enumeration
 /// Note that this requires that `p = 1 mod m`
 ///
 /// Another option is to split the minimal polynomial as
 /// `Phi_m = Prod_{j = 1}^phi(z) (x^{m/z} - r_j)`
 /// Where `ord_p(r_j) = z` and `r_j = w^i` where `i \in {i: gcd(i,z) = 1}`
 /// this requires that `p = q mod z` so `m` doesn't have to divide `p-1` but
-/// z has to share the prime factorizations with diferent powers
+/// z has to share the prime factorizations with different powers
 /// For more see:
 ///     Short invertible elements in partially splitting cyclotomic rings
 ///

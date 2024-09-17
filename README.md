@@ -10,7 +10,7 @@ Lattices allow for a wide range of quantum-secure cryptography. Due to the addit
 
 ## Why Rust?
 - Safety: Rust enforces memory safety, but also allows us to enforce more fine-grained security properties through Rust’s strong and expressive type system. 
-- Performance: Rust allows for close-to-the-metal performance; in particular it is not garbage-collected (in constrast to other languages like Go), which allows for reliable, predictable, and reproducible benchmarks, which is important for academic and more exploratory contexts. 
+- Performance: Rust allows for close-to-the-metal performance; in particular it is not garbage-collected (in contrast to other languages like Go), which allows for reliable, predictable, and reproducible benchmarks, which is important for academic and more exploratory contexts. 
 - ZK ecosystem: the succinct and zero-knowledge proofs community (from both academia and industry) has written many artifacts and tools in Rust; we aim to interface with many of those tools, e.g., by being compatible with various frontends, or by using higher-order safety crates like [nimue](https://github.com/arkworks/nimue) for secure Fiat-Shamir transformations.
 - Formal verification: Rust is also the language of choice for modern formal verification; medium-term, we hope to formally verify (parts of) lattirust, e.g. by using [hax](https://github.com/hacspec/hax). 
 

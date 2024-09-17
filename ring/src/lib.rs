@@ -2,7 +2,6 @@
 #![allow(incomplete_features)]
 #![feature(inherent_associated_types)]
 #![feature(int_roundings)]
-#![feature(effects)]
 #![feature(const_option)]
 #![allow(non_snake_case)]
 
