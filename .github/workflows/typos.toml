@@ -1,2 +1,4 @@
 [default.extend-words]
 splitted = "splitted"
+nd = "nd"
+hax = "hax"

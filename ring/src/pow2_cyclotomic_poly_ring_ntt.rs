@@ -47,8 +47,7 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
         let coeffs: Vec<Fp<C, N>> = coeffs
             .into_iter()
             .enumerate()
-            .map(|(i, coeff)| if i % 2 != 0 { Some(coeff) } else { None })
-            .flatten()
+            .filter_map(|(i, coeff)| if i % 2 != 0 { Some(coeff) } else { None })
             .collect();
 
         Self::from_array(coeffs.try_into().unwrap())
@@ -59,13 +58,14 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
 
         // Enlarge the evaluation vector to be of length 2D.
         // Add dummy zero evaluations at the even indices.
-        let mut evals = Vec::from(core::array::from_fn::<_, D, _>(|x| {
+        let mut evals: Vec<Fp<C, N>> = ((0..(2 * D)).map(|x| {
             if x % 2 != 0 {
                 self.0[x / 2]
             } else {
                 Fp::zero()
             }
-        }));
+        }))
+        .collect();
 
         eval_domain.unwrap().ifft_in_place(&mut evals);
 
@@ -610,4 +610,97 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> WithRot
 impl<C: FpConfig<N>, const N: usize, const D: usize> OverField
     for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
 {
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_ff::{Fp, MontBackend};
+
+    use ark_std::UniformRand;
+    use rand::thread_rng;
+
+    use crate::{
+        z_q::FqConfig, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
+        Pow2CyclotomicPolyRingNTTGeneral,
+    };
+
+    const FERMAT_Q: u64 = (1 << 16) + 1;
+    type FermatFqConfig = FqConfig<FERMAT_Q>;
+    const FERMAT_NS: [usize; 14] = [
+        1 << 1,
+        1 << 2,
+        1 << 3,
+        1 << 4,
+        1 << 5,
+        1 << 6,
+        1 << 7,
+        1 << 8,
+        1 << 9,
+        1 << 10,
+        1 << 11,
+        1 << 12,
+        1 << 13,
+        1 << 14,
+    ];
+    macro_rules! generate_ntt_form_match {
+        ($n:expr, $initial_coeffs:expr, $($size:expr),+) => {
+            match $n {
+                $(
+                    $size => {
+                        let ntt_form = Pow2CyclotomicPolyRingNTT::<FERMAT_Q, $size>::from_fn(|i| $initial_coeffs[i]);
+                        let intt_coeffs = ntt_form.coeffs();
+                        assert_eq!($initial_coeffs, intt_coeffs);
+                    },
+                )+
+                _ => panic!("Unsupported N value: {}", $n),
+            }
+        };
+    }
+
+    #[test]
+    fn test_ntt_pow2() {
+        let mut rng = thread_rng();
+        for N in FERMAT_NS {
+            let initial_coeffs = (0..N)
+                .map(|_| Fp::<MontBackend<FermatFqConfig, 1>, 1>::rand(&mut rng))
+                .collect::<Vec<_>>();
+            generate_ntt_form_match!(
+                N,
+                initial_coeffs,
+                2,
+                4,
+                8,
+                16,
+                32,
+                64,
+                128,
+                256,
+                512,
+                1024,
+                2048,
+                4096,
+                8192,
+                16384
+            );
+        }
+    }
+
+    #[test]
+    fn test_mul_ntt_pow2() {
+        // TODO: Add a couple more different dimensions.
+        let mut rng = thread_rng();
+
+        let coeff_1 =
+            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, 16>::rand(&mut rng);
+        let coeff_2 =
+            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, 16>::rand(&mut rng);
+
+        let ntt_form_1 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_1);
+        let ntt_form_2 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_2);
+
+        let ntt_mul = ntt_form_1 * ntt_form_2;
+        let coeffs_mul = coeff_1 * coeff_2;
+        // ntt_mul.coeffs() performs INTT while coeffs_mul_coeffs() just returns the coefficients
+        assert_eq!(ntt_mul.coeffs(), coeffs_mul.coeffs());
+    }
 }
