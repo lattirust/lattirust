@@ -21,7 +21,6 @@ use crate::{OverField, PolyRing};
 use lattirust_linear_algebra::SVector;
 
 use super::poly_ring::WithRot;
-
 use ark_ff::{Fp, FpConfig, MontBackend};
 
 /// A cyclotomic ring of the form Fp<C,N>/<X^D + 1>.
@@ -34,6 +33,9 @@ pub type Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize> =
     Pow2CyclotomicPolyRingNTTGeneral<MontBackend<FqConfig<Q>, 1>, 1, N>;
 
 impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGeneral<C, N, D> {
+    // Coefficients 0, D-1
+    // CRT = Chinese remainder Transform (2d roots of unity -> d primitive roots of unity).
+    // Evaluations on the D primitive roots of unity of degree 2D.
     fn from_coefficients_vec(mut coeffs: Vec<Fp<C, N>>) -> Self {
         let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
 
@@ -43,7 +45,7 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
         eval_domain.unwrap().fft_in_place(&mut coeffs);
 
         // Once we've done the NTT we remove the evaluations at even indices.
-        // Those evaluations corresspond to the evaluations at non-primitive roots of unity.
+        // Those evaluations correspond to the evaluations at non-primitive roots of unity.
         let coeffs: Vec<Fp<C, N>> = coeffs
             .into_iter()
             .enumerate()
@@ -53,19 +55,21 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
         Self::from_array(coeffs.try_into().unwrap())
     }
 
+    // Get coefficient form of the polynomial.
     fn coefficients_vec(&self) -> Vec<Fp<C, N>> {
         let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
 
         // Enlarge the evaluation vector to be of length 2D.
         // Add dummy zero evaluations at the even indices.
-        let mut evals: Vec<Fp<C, N>> = ((0..(2 * D)).map(|x| {
-            if x % 2 != 0 {
-                self.0[x / 2]
-            } else {
-                Fp::zero()
-            }
-        }))
-        .collect();
+        let mut evals: Vec<Fp<C, N>> = (0..(2 * D))
+            .map(|x| {
+                if x % 2 != 0 {
+                    self.0[x / 2]
+                } else {
+                    Fp::zero() // We don't care about these values.
+                }
+            })
+            .collect();
 
         eval_domain.unwrap().ifft_in_place(&mut evals);
 
@@ -79,6 +83,24 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGe
         evals.resize(D, Fp::zero());
 
         evals
+    }
+
+    #[allow(dead_code)]
+    pub(crate) type Inner = SVector<Fp<C, N>, D>;
+    /// Constructs a polynomial from an array of coefficients in NTT form.
+    /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
+    fn from_array(coeffs_ntt: [Fp<C, N>; D]) -> Self {
+        Self(Self::Inner::const_from_array(coeffs_ntt))
+    }
+
+    /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
+    pub fn from_fn<F>(f: F) -> Self
+    where
+        F: FnMut(usize) -> Fp<C, N>,
+    {
+        let coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
+
+        Self::from_coefficients_vec(coeffs)
     }
 }
 
@@ -129,29 +151,6 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Hash
 {
     fn hash<H: ark_std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
-    }
-}
-
-impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGeneral<C, N, D> {
-    // const EVAL_DOMAIN: Option<Radix2EvaluationDomain<Fp<C, N>>> =
-    //     Radix2EvaluationDomain::new(D);
-
-    #[allow(dead_code)]
-    pub(crate) type Inner = SVector<Fp<C, N>, D>;
-    /// Constructs a polynomial from an array of coefficients in NTT form.
-    /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [Fp<C, N>; D]) -> Self {
-        Self(Self::Inner::const_from_array(coeffs_ntt))
-    }
-
-    /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
-    pub fn from_fn<F>(f: F) -> Self
-    where
-        F: FnMut(usize) -> Fp<C, N>,
-    {
-        let coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
-
-        Self::from_coefficients_vec(coeffs)
     }
 }
 
@@ -614,15 +613,14 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> OverField
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::{Fp, MontBackend};
-
-    use ark_std::UniformRand;
-    use rand::thread_rng;
-
     use crate::{
         z_q::FqConfig, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
         Pow2CyclotomicPolyRingNTTGeneral,
     };
+    use ark_ff::{Fp, MontBackend};
+    use ark_std::UniformRand;
+    use lattirust_linear_algebra::SVector;
+    use rand::thread_rng;
 
     const FERMAT_Q: u64 = (1 << 16) + 1;
     type FermatFqConfig = FqConfig<FERMAT_Q>;
@@ -652,7 +650,7 @@ mod tests {
                         assert_eq!($initial_coeffs, intt_coeffs);
                     },
                 )+
-                _ => panic!("Unsupported N value: {}", $n),
+                _ => unreachable!("Unsupported N value: {}", $n),
             }
         };
     }
@@ -685,15 +683,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_mul_ntt_pow2() {
-        // TODO: Add a couple more different dimensions.
+    fn test_mul_ntt_pow2<const SIZE: usize>() {
         let mut rng = thread_rng();
 
         let coeff_1 =
-            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, 16>::rand(&mut rng);
+            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, SIZE>::rand(&mut rng);
         let coeff_2 =
-            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, 16>::rand(&mut rng);
+            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, SIZE>::rand(&mut rng);
 
         let ntt_form_1 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_1);
         let ntt_form_2 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_2);
@@ -702,5 +698,75 @@ mod tests {
         let coeffs_mul = coeff_1 * coeff_2;
         // ntt_mul.coeffs() performs INTT while coeffs_mul_coeffs() just returns the coefficients
         assert_eq!(ntt_mul.coeffs(), coeffs_mul.coeffs());
+    }
+
+    #[test]
+    fn test_mul_ntt_pow2_multiple_sizes() {
+        for size in [2, 4, 8, 16, 32] {
+            match size {
+                2 => test_mul_ntt_pow2::<2>(),
+                4 => test_mul_ntt_pow2::<4>(),
+                8 => test_mul_ntt_pow2::<8>(),
+                16 => test_mul_ntt_pow2::<16>(),
+                32 => test_mul_ntt_pow2::<32>(),
+                _ => unreachable!("Unsupported size"),
+            }
+        }
+    }
+
+    fn test_ntt_pow2_hardcoded<const SIZE: usize>(
+        coeffs: [u64; SIZE],
+        expected_values: [u64; SIZE],
+    ) {
+        let coeffs = coeffs
+            .into_iter()
+            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .collect::<Vec<_>>();
+        let expected_ntt = expected_values
+            // Numbers obtained from Python library
+            .into_iter()
+            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .collect::<Vec<_>>();
+
+        let ntt_form: Pow2CyclotomicPolyRingNTTGeneral<MontBackend<FqConfig<65537>, 1>, 1, SIZE> =
+            Pow2CyclotomicPolyRingNTTGeneral::from_coefficients_vec(coeffs);
+
+        let expected = SVector::const_from_array(expected_ntt.try_into().unwrap());
+        assert_eq!(ntt_form.0, expected);
+    }
+
+    #[test]
+    fn test_ntt_pow2_example_1() {
+        test_ntt_pow2_hardcoded::<8>(
+            [1, 2, 3, 4, 5, 6, 7, 8],
+            [52195, 23595, 14578, 40635, 35584, 36407, 23601, 35561],
+        );
+    }
+
+    #[test]
+    fn test_ntt_pow2_example_2() {
+        test_ntt_pow2_hardcoded::<16>(
+            [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+            [
+                1620, 16633, 40, 14048, 49787, 36415, 21641, 52183, 33435, 38424, 36421, 55728,
+                54235, 65523, 46545, 1634,
+            ],
+        );
+    }
+
+    #[test]
+    fn test_ntt_pow2_example_3() {
+        test_ntt_pow2_hardcoded::<32>(
+            [
+                1182, 3320, 5933, 6237, 10981, 11828, 12004, 15261, 15742, 18544, 20536, 21395,
+                22087, 22505, 22654, 23275, 24128, 33816, 40316, 41665, 41921, 41956, 42300, 46980,
+                47250, 49871, 53569, 54471, 63813, 64688, 65223, 65455,
+            ],
+            [
+                10587, 59994, 64892, 33848, 20090, 62609, 20516, 29481, 19130, 54823, 54845, 11706,
+                56764, 10266, 60708, 1414, 43951, 59219, 20434, 2363, 55942, 26285, 6855, 31089,
+                60856, 6403, 50979, 20512, 15763, 16492, 47941, 49659,
+            ],
+        );
     }
 }
