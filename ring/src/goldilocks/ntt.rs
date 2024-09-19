@@ -1,4 +1,6 @@
+#![allow(dead_code)]
 use ark_ff::{Fp3Config, MontFp};
+use ark_std::Zero;
 
 use super::{Fq, Fq3, Goldilocks3Config};
 
@@ -51,10 +53,22 @@ const ROOTS_OF_UNITY_24: &'static [Fq] = &[
 fn serial_goldilock_crt(coefficients: &[Fq]) -> Vec<Fq3> {
     let mut coefficients = coefficients.to_vec();
 
-    serial_goldilock_crt_in_place(&mut coefficients)
+    serial_goldilock_crt_in_place(&mut coefficients);
+
+    let mut result = vec![Fq3::zero(); N];
+
+    for i in 0..N {
+        result[i] = Fq3::new(
+            coefficients[i * 3],
+            coefficients[i * 3 + 1],
+            coefficients[i * 3 + 2],
+        );
+    }
+
+    result
 }
 
-fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) -> Vec<Fq3> {
+fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
     assert!(coefficients.len() == D);
 
     // Compute f mod X^12-zeta and f mod X^12 - zeta^5
@@ -138,92 +152,198 @@ fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) -> Vec<Fq3> {
         }
     }
 
-    vec![
-        Fq3::new(coefficients[0], coefficients[1], coefficients[2]),
-        nonresidue_to_13_to_nonresidue(coefficients[3], coefficients[4], coefficients[5]),
-        nonresidue_to_7_to_nonresidue(coefficients[6], coefficients[7], coefficients[8]),
-        nonresidue_to_19_to_nonresidue(coefficients[9], coefficients[10], coefficients[11]),
-        nonresidue_to_5_to_nonresidue(coefficients[12], coefficients[13], coefficients[14]),
-        nonresidue_to_17_to_nonresidue(coefficients[15], coefficients[16], coefficients[17]),
-        nonresidue_to_11_to_nonresidue(coefficients[18], coefficients[19], coefficients[20]),
-        nonresidue_to_23_to_nonresidue(coefficients[21], coefficients[22], coefficients[23]),
-    ]
+    normalize_fq3(coefficients);
+}
+
+fn serial_goldilock_icrt(evaluations: &[Fq3]) {
+    let mut evaluations_field: Vec<Fq> = vec![Fq::zero(); N * 3];
+
+    assert_eq!(evaluations.len(), N);
+
+    for i in 0..N {
+        evaluations_field[i * 3] = evaluations[i].c0;
+        evaluations_field[i * 3 + 1] = evaluations[i].c1;
+        evaluations_field[i * 3 + 2] = evaluations[i].c2;
+    }
+
+    serial_goldilock_icrt_in_place(&mut evaluations_field);
+}
+
+fn serial_goldilock_icrt_in_place(evaluations: &mut [Fq]) {
+    assert_eq!(evaluations.len(), D);
+
+    denormalize_fq3(evaluations);
+
+    // After this step we have f_1, f_2, f_3, f_4.
+
+    // Compute f_1 mod X^3-NONRESIDUE, f_1 mod X^3-NONRESIDUE^13, f_2 mod X^3-NONRESIDUE^7, f_2 mod X^3-NONRESIDUE^19
+    // Compute f_3 mod X^3-NONRESIDUE^5, f_3 mod X^3-NONRESIDUE^17, f_4 mod X^3-NONRESIDUE^11, f_4 mod X^3-NONRESIDUE^23
+    // for i in 0..(D / 8) {
+    //     // f_1
+    //     {
+    //         let (coeff_i, coeff_d_div_8_plus_i) = (coefficients[i], coefficients[D / 8 + i]);
+    //         let nonresidue_coeff_d_div_8_plus_i =
+    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY * coeff_d_div_8_plus_i;
+
+    //         coefficients[i] = coeff_i + nonresidue_coeff_d_div_8_plus_i;
+    //         coefficients[i + D / 8] = coeff_i - nonresidue_coeff_d_div_8_plus_i;
+    //     }
+
+    //     // f_2
+    //     {
+    //         let (coeff_i, coeff_d_div_8_plus_i) =
+    //             (coefficients[D / 4 + i], coefficients[3 * D / 8 + i]);
+    //         let sigma_coeff_d_div_8_plus_i =
+    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_7 * coeff_d_div_8_plus_i;
+
+    //         coefficients[D / 4 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
+    //         coefficients[3 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
+    //     }
+
+    //     // f_3
+    //     {
+    //         let (coeff_i, coeff_d_div_8_plus_i) =
+    //             (coefficients[D / 2 + i], coefficients[5 * D / 8 + i]);
+    //         let sigma_coeff_d_div_8_plus_i =
+    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_5 * coeff_d_div_8_plus_i;
+
+    //         coefficients[D / 2 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
+    //         coefficients[5 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
+    //     }
+
+    //     // f_4
+    //     {
+    //         let (coeff_i, coeff_d_div_8_plus_i) =
+    //             (coefficients[3 * D / 4 + i], coefficients[7 * D / 8 + i]);
+    //         let sigma_coeff_d_div_8_plus_i =
+    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_5 * coeff_d_div_8_plus_i;
+
+    //         coefficients[3 * D / 4 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
+    //         coefficients[7 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
+    //     }
+    // }
+}
+
+/// Converts each triple `c[3 * i]`, `c[3 * i + 1]`, `c[3 * i + 2]`
+/// into coefficients of an element from Fq[X]/(X^3-NONRESIDUE).
+#[inline(always)]
+fn normalize_fq3(c: &mut [Fq]) {
+    nonresidue_to_13_to_nonresidue(&mut c[3..6]);
+    nonresidue_to_7_to_nonresidue(&mut c[6..9]);
+    nonresidue_to_19_to_nonresidue(&mut c[9..12]);
+    nonresidue_to_5_to_nonresidue(&mut c[12..15]);
+    nonresidue_to_17_to_nonresidue(&mut c[15..18]);
+    nonresidue_to_11_to_nonresidue(&mut c[18..21]);
+    nonresidue_to_23_to_nonresidue(&mut c[21..24]);
+}
+
+/// The inverse of the above.
+#[inline(always)]
+fn denormalize_fq3(c: &mut [Fq]) {
+    nonresidue_to_nonresidue_to_13(&mut c[3..6]);
+    nonresidue_to_nonresidue_to_7(&mut c[6..9]);
+    nonresidue_to_nonresidue_to_19(&mut c[9..12]);
+    nonresidue_to_nonresidue_to_5(&mut c[12..15]);
+    nonresidue_to_nonresidue_to_17(&mut c[15..18]);
+    nonresidue_to_nonresidue_to_11(&mut c[18..21]);
+    nonresidue_to_nonresidue_to_23(&mut c[21..24]);
 }
 
 // Different automorphisms with the target Fp(NONRESIDUE) and their inverses.
 #[inline(always)]
-const fn nonresidue_to_13_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, -c1, c2)
+fn nonresidue_to_13_to_nonresidue(c: &mut [Fq]) {
+    c[1] = -c[1];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_13(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, -c.c1, c.c2)
+fn nonresidue_to_nonresidue_to_13(c: &mut [Fq]) {
+    c[1] = -c[1];
 }
 
 #[inline(always)]
-const fn nonresidue_to_7_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[2] * c1, ROOTS_OF_UNITY_24[4] * c2)
+fn nonresidue_to_7_to_nonresidue(c: &mut [Fq]) {
+    c[1] *= ROOTS_OF_UNITY_24[2];
+    c[2] *= ROOTS_OF_UNITY_24[4];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_7(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[22] * c.c1, ROOTS_OF_UNITY_24[20] * c.c2)
+fn nonresidue_to_nonresidue_to_7(c: &mut [Fq]) {
+    c[1] *= ROOTS_OF_UNITY_24[22];
+    c[2] *= ROOTS_OF_UNITY_24[20];
 }
 
 #[inline(always)]
-const fn nonresidue_to_19_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[6] * c1, ROOTS_OF_UNITY_24[12] * c2)
+fn nonresidue_to_19_to_nonresidue(c: &mut [Fq]) {
+    c[1] *= ROOTS_OF_UNITY_24[6];
+    c[2] *= ROOTS_OF_UNITY_24[12];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_19(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[18] * c.c1, ROOTS_OF_UNITY_24[12] * c.c2)
+fn nonresidue_to_nonresidue_to_19(c: &mut [Fq]) {
+    c[1] *= ROOTS_OF_UNITY_24[18];
+    c[2] *= ROOTS_OF_UNITY_24[12];
 }
 
 #[inline(always)]
-const fn nonresidue_to_5_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[3] * c2, ROOTS_OF_UNITY_24[1] * c1)
+fn nonresidue_to_5_to_nonresidue(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[3];
+    c[2] = c1 * ROOTS_OF_UNITY_24[1];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_5(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[23] * c.c2, ROOTS_OF_UNITY_24[21] * c.c1)
+fn nonresidue_to_nonresidue_to_5(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[23];
+    c[2] = c1 * ROOTS_OF_UNITY_24[21];
 }
 
 #[inline(always)]
-const fn nonresidue_to_17_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[11] * c2, ROOTS_OF_UNITY_24[5] * c1)
+fn nonresidue_to_17_to_nonresidue(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[11];
+    c[2] = c1 * ROOTS_OF_UNITY_24[5];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_17(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[19] * c.c2, ROOTS_OF_UNITY_24[13] * c.c1)
+fn nonresidue_to_nonresidue_to_17(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[19];
+    c[2] = c1 * ROOTS_OF_UNITY_24[13];
 }
 
 #[inline(always)]
-const fn nonresidue_to_11_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[7] * c2, ROOTS_OF_UNITY_24[3] * c1)
+fn nonresidue_to_11_to_nonresidue(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[7];
+    c[2] = c1 * ROOTS_OF_UNITY_24[3];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_11(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[21] * c.c2, ROOTS_OF_UNITY_24[17] * c.c1)
+fn nonresidue_to_nonresidue_to_11(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[21];
+    c[2] = c1 * ROOTS_OF_UNITY_24[17];
 }
 
 #[inline(always)]
-const fn nonresidue_to_23_to_nonresidue(c0: Fq, c1: Fq, c2: Fq) -> Fq3 {
-    Fq3::new(c0, ROOTS_OF_UNITY_24[15] * c2, ROOTS_OF_UNITY_24[7] * c1)
+fn nonresidue_to_23_to_nonresidue(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[15];
+    c[2] = c1 * ROOTS_OF_UNITY_24[7];
 }
 
 #[inline(always)]
-const fn nonresidue_to_nonresidue_to_23(c: Fq3) -> (Fq, Fq, Fq) {
-    (c.c0, ROOTS_OF_UNITY_24[17] * c.c2, ROOTS_OF_UNITY_24[9] * c.c1)
+fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
+    let c1 = c[1];
+    c[1] = c[2] * ROOTS_OF_UNITY_24[17];
+    c[2] = c1 * ROOTS_OF_UNITY_24[9];
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use ark_ff::{Field, UniformRand};
+    use ark_std::One;
     use rand::thread_rng;
 
     use crate::goldilocks::Fq3;
@@ -239,7 +359,7 @@ mod tests{
 
         // Check if they are pairwise distinct.
         for i in 0..24 {
-            for j in (i+1)..24 {
+            for j in (i + 1)..24 {
                 assert_ne!(ROOTS_OF_UNITY_24[i], ROOTS_OF_UNITY_24[j]);
             }
         }
@@ -255,15 +375,17 @@ mod tests{
             let mut rng = thread_rng();
             $({
                 let x = Fq3::rand(&mut rng);
-                let x_prime = $isomorphism(x);
-                assert_eq!($inverse(x_prime.0, x_prime.1, x_prime.2), x);
+                let mut x_prime: Vec<Fq> = vec![x.c0, x.c1, x.c2];
+                $isomorphism(&mut x_prime);
+                $inverse(&mut x_prime);
+                assert_eq!(Fq3::new(x_prime[0], x_prime[1], x_prime[2]), x);
             })+
         };
     }
 
     #[test]
     fn test_isomorphisms_inverses() {
-        test_inverses!{
+        test_inverses! {
             nonresidue_to_nonresidue_to_13, nonresidue_to_13_to_nonresidue,
             nonresidue_to_nonresidue_to_7, nonresidue_to_7_to_nonresidue,
             nonresidue_to_nonresidue_to_19, nonresidue_to_19_to_nonresidue,
@@ -277,8 +399,13 @@ mod tests{
     macro_rules! test_x_square {
         ($($inverse:expr),+) => {
             $({
-                let x_prime = $inverse(Fq::ZERO, Fq::ONE, Fq::ZERO);
-                let x_prime_2 = $inverse(Fq::ZERO, Fq::ZERO, Fq::ONE);
+                let mut x_prime: Vec<Fq> = vec![Fq::ZERO, Fq::ONE, Fq::ZERO];
+                let mut x_prime_2: Vec<Fq> = vec![Fq::ZERO, Fq::ZERO, Fq::ONE];
+                $inverse(&mut x_prime);
+                $inverse(&mut x_prime_2);
+
+                let x_prime = Fq3::new(x_prime[0], x_prime[1], x_prime[2]);
+                let x_prime_2 = Fq3::new(x_prime_2[0], x_prime_2[1], x_prime_2[2]);
 
                 assert_eq!(x_prime * x_prime, x_prime_2);
             })+
@@ -287,7 +414,7 @@ mod tests{
 
     #[test]
     fn test_squares() {
-        test_x_square!{
+        test_x_square! {
             nonresidue_to_13_to_nonresidue,
             nonresidue_to_7_to_nonresidue,
             nonresidue_to_19_to_nonresidue,
@@ -296,5 +423,88 @@ mod tests{
             nonresidue_to_11_to_nonresidue,
             nonresidue_to_23_to_nonresidue
         };
+    }
+
+    #[test]
+    fn test_normalize_denormalize() {
+        let mut rng = thread_rng();
+        let mut x: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
+
+        let expected = x.clone();
+
+        normalize_fq3(&mut x);
+        denormalize_fq3(&mut x);
+
+        assert_eq!(x, expected);
+    }
+
+    #[test]
+    fn test_crt() {
+        // 1 + 2 * X + 3 * X^2 + 15 * X^15 + X^23
+        let mut test_poly: Vec<Fq> = vec![
+            Fq::from(1),
+            Fq::from(2),
+            Fq::from(3),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::from(15),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+        ];
+
+        let expected: Vec<Fq> = vec![
+            MontFp!("3841"),
+            MontFp!("2"),
+            MontFp!("72057594021150723"),
+            MontFp!("18446744069414580482"),
+            MontFp!("2"),
+            MontFp!("18374686475393433604"),
+            MontFp!("1080863910568919041"),
+            MontFp!("2"),
+            MontFp!("1099511627779"),
+            MontFp!("17365880158845665282"),
+            MontFp!("2"),
+            MontFp!("18446742969902956548"),
+            MontFp!("16492674416641"),
+            MontFp!("2"),
+            MontFp!("72057594037927939"),
+            MontFp!("18446727576740167682"),
+            MontFp!("2"),
+            MontFp!("18374686475376656388"),
+            MontFp!("1080863910317260801"),
+            MontFp!("2"),
+            MontFp!("259"),
+            MontFp!("17365880159097323522"),
+            MontFp!("2"),
+            MontFp!("18446744069414584068")
+        ];
+
+        serial_goldilock_crt_in_place(&mut test_poly);
+
+        denormalize_fq3(&mut test_poly);
+
+        for (&left, right) in test_poly.iter().zip(expected) {
+            println!("{:?} {:?}", left, right)
+            //assert_eq!(left, right);
+        }
+
+        assert!(false)
+        
     }
 }

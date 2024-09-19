@@ -47,17 +47,10 @@ mod test {
         let mut pow = nonresidue;
 
         for _i in 0..22 {
-            assert_ne!(pow, Fq::ONE);
             pow *= nonresidue;
+            assert_ne!(pow, Fq::ONE);
         }
 
         assert_eq!(pow * nonresidue, Fq::one());
-    }
-
-    #[test]
-    fn test_lol() {
-        let number: BigInt<3> = BigInt!("730750818155027908958119208641309007215847276542");
-        println!("{:?}", number);
-        assert!(false)
     }
 }
