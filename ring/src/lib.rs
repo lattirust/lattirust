@@ -39,6 +39,8 @@ mod z_2_128;
 mod z_2_64;
 mod z_q;
 
+pub mod goldilocks;
+
 pub trait Ring: 'static +
     Copy +
     Clone +
