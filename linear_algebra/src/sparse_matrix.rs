@@ -2,7 +2,6 @@ use ark_std::ops::AddAssign;
 use ark_std::ops::Mul;
 
 use ark_ff::Zero;
-use ark_std::iterable::Iterable;
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};

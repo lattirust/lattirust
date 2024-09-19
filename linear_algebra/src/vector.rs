@@ -1,6 +1,5 @@
 use ark_ff::UniformRand;
 use ark_std::rand;
-use ark_std::rand::Rng;
 use delegate::delegate;
 use nalgebra::allocator::Allocator;
 use nalgebra::{
