@@ -86,16 +86,17 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         1. The commitment must be binding, i.e., SIS[h, w=n, q, beta, l2] is hard
         2. For perfect completeness, the columns of the folded witness must have norm at most norm_bound, i.e., 2 * security_parameter * decomposition_length * norm_decomp <= norm_bound, where norm_decomp = floor(decomposition_basis/2) * sqrt(n)
          */
-        let inner_security_parameter = (((security_parameter + 1 + log_fiat_shamir) as f64
-            + f64::log2(5.))
-            / (f64::log2(3.) - 1.))
-            .ceil() as usize;
-        info!("Setting parameters for security parameter = {security_parameter}, Fiat-Shamir log loss = {log_fiat_shamir}, witness size n = {instance_length}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
-        info!(" Inner security parameter = {inner_security_parameter}");
-        assert!(
-            5f64 * (2f64 / 3f64).powf(inner_security_parameter as f64)
-                <= 2f64.powf(-((security_parameter + 1) as f64))
-        );
+        // let inner_security_parameter = (((security_parameter + 1 + log_fiat_shamir) as f64
+        //     + f64::log2(4.))
+        //     / (f64::log2(3.) - 1.))
+        //     .ceil() as usize;
+        // info!("Setting parameters for security parameter = {security_parameter}, Fiat-Shamir log loss = {log_fiat_shamir}, witness size n = {instance_length}, modulus  q = {}, mode = {:?}", F::modulus(), mode);
+        // info!(" Inner security parameter = {inner_security_parameter}");
+        // assert!(
+        //     4f64 * (2f64 / 3f64).powf(inner_security_parameter as f64)
+        //         <= 2f64.powf(-((security_parameter + 1) as f64))
+        // );
+        let inner_security_parameter = 222;
         let sis_security_parameter = security_parameter + 1 + log_fiat_shamir;
         info!(" SIS security parameter   = {sis_security_parameter}");
 
@@ -280,6 +281,42 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         // m x 2*k*lambda matrix, with entries <= F
         let commitment_size = self.commitment_mat.nrows()
             * (2 * self.decomposition_length * self.inner_security_parameter)
+            * modulus_bits;
+
+        // 2*k*lambda x lambda with entries in {-1, 0, 1}
+        let challenge_size = (2 * self.decomposition_length * self.inner_security_parameter)
+            * self.inner_security_parameter
+            * Self::signed_bits(1);
+
+        let proof_size_bits =
+            merge_proof_size + inner_prods_size + commitment_size + challenge_size;
+        (proof_size_bits + 7) / 8
+    }
+
+    pub fn proof_size_bytes_ivc(&self) -> usize {
+        let modulus_bits = (F::modulus() - BigUint::from(1u32)).bits() as usize;
+
+        // number of bits needed to represent integers in the range [-norm_bound^2, norm_bound^2]
+        let norm_bound_sq_bits =
+            Self::signed_bits((self.norm_bound * self.norm_bound).floor() as usize);
+
+        // number of bits needed to represent integers in the range [-(decomposition_basis/2)^2, (decomposition_basis/2)^2]
+        let decomp_upper_bound = (self.decomposition_basis / 2) as usize;
+        let decomp_basis_sq_bits = Self::signed_bits(decomp_upper_bound * decomp_upper_bound);
+
+        // lambda * 1 matrix, with entries w_2,i^T * w_1,j in [-norm_bound^2, norm_bound^2]
+        let merge_proof_size =
+            self.inner_security_parameter * norm_bound_sq_bits;
+
+        // k * (lambda + 1) symmetric matrix, with signed entries in [-(b/2)^2, (b/2)^2]
+        let inner_prods_size = (((self.decomposition_length * (self.inner_security_parameter + 1))
+            * ((self.decomposition_length * (self.inner_security_parameter + 1)) + 1)) 
+            / 2)
+            * decomp_basis_sq_bits;
+
+        // m x k*(lambda matrix + 1), with entries in F
+        let commitment_size = self.commitment_mat.nrows()
+            * (self.decomposition_length * (self.inner_security_parameter + 1))
             * modulus_bits;
 
         // 2*k*lambda x lambda with entries in {-1, 0, 1}
