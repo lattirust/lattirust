@@ -50,6 +50,10 @@ const ROOTS_OF_UNITY_24: &'static [Fq] = &[
     MontFp!("18374686475376656385"),
 ];
 
+const KAPPA: Fq = MontFp!("12297829382473034411");
+const EIGHT_INV: Fq = MontFp!("16140901060737761281");
+const FOUR_INV: Fq = MontFp!("13835058052060938241");
+
 fn serial_goldilock_crt(coefficients: &[Fq]) -> Vec<Fq3> {
     let mut coefficients = coefficients.to_vec();
 
@@ -178,50 +182,71 @@ fn serial_goldilock_icrt_in_place(evaluations: &mut [Fq]) {
 
     // Compute f_1 mod X^3-NONRESIDUE, f_1 mod X^3-NONRESIDUE^13, f_2 mod X^3-NONRESIDUE^7, f_2 mod X^3-NONRESIDUE^19
     // Compute f_3 mod X^3-NONRESIDUE^5, f_3 mod X^3-NONRESIDUE^17, f_4 mod X^3-NONRESIDUE^11, f_4 mod X^3-NONRESIDUE^23
-    // for i in 0..(D / 8) {
-    //     // f_1
-    //     {
-    //         let (coeff_i, coeff_d_div_8_plus_i) = (coefficients[i], coefficients[D / 8 + i]);
-    //         let nonresidue_coeff_d_div_8_plus_i =
-    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY * coeff_d_div_8_plus_i;
+    for i in 0..(D / 8) {
+        // f_1
+        {
+            let (coeff_i, coeff_d_div_8_plus_i) = (evaluations[i], evaluations[D / 8 + i]);
 
-    //         coefficients[i] = coeff_i + nonresidue_coeff_d_div_8_plus_i;
-    //         coefficients[i + D / 8] = coeff_i - nonresidue_coeff_d_div_8_plus_i;
-    //     }
+            evaluations[i] = coeff_i + coeff_d_div_8_plus_i;
+            evaluations[i + D / 8] = ROOTS_OF_UNITY_24[23] * (coeff_i - coeff_d_div_8_plus_i);
+        }
 
-    //     // f_2
-    //     {
-    //         let (coeff_i, coeff_d_div_8_plus_i) =
-    //             (coefficients[D / 4 + i], coefficients[3 * D / 8 + i]);
-    //         let sigma_coeff_d_div_8_plus_i =
-    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_7 * coeff_d_div_8_plus_i;
+        // f_2
+        {
+            let (coeff_i, coeff_d_div_8_plus_i) =
+                (evaluations[D / 4 + i], evaluations[3 * D / 8 + i]);
 
-    //         coefficients[D / 4 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
-    //         coefficients[3 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
-    //     }
+            evaluations[D / 4 + i] = coeff_i + coeff_d_div_8_plus_i;
+            evaluations[3 * D / 8 + i] = ROOTS_OF_UNITY_24[17] * (coeff_i - coeff_d_div_8_plus_i);
+        }
 
-    //     // f_3
-    //     {
-    //         let (coeff_i, coeff_d_div_8_plus_i) =
-    //             (coefficients[D / 2 + i], coefficients[5 * D / 8 + i]);
-    //         let sigma_coeff_d_div_8_plus_i =
-    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_5 * coeff_d_div_8_plus_i;
+        // f_3
+        {
+            let (coeff_i, coeff_d_div_8_plus_i) =
+                (evaluations[D / 2 + i], evaluations[5 * D / 8 + i]);
 
-    //         coefficients[D / 2 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
-    //         coefficients[5 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
-    //     }
+            evaluations[D / 2 + i] = coeff_i + coeff_d_div_8_plus_i;
+            evaluations[5 * D / 8 + i] = ROOTS_OF_UNITY_24[19] * (coeff_i - coeff_d_div_8_plus_i);
+        }
 
-    //     // f_4
-    //     {
-    //         let (coeff_i, coeff_d_div_8_plus_i) =
-    //             (coefficients[3 * D / 4 + i], coefficients[7 * D / 8 + i]);
-    //         let sigma_coeff_d_div_8_plus_i =
-    //             PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_5 * coeff_d_div_8_plus_i;
+        // f_4
+        {
+            let (coeff_i, coeff_d_div_8_plus_i) =
+                (evaluations[3 * D / 4 + i], evaluations[7 * D / 8 + i]);
 
-    //         coefficients[3 * D / 4 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
-    //         coefficients[7 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
-    //     }
-    // }
+            evaluations[3 * D / 4 + i] = coeff_i + coeff_d_div_8_plus_i;
+            evaluations[7 * D / 8 + i] = ROOTS_OF_UNITY_24[13] * (coeff_i - coeff_d_div_8_plus_i);
+        }
+    }
+
+    // Compute f_1 mod X^6-\sigma, f_1 mod X^6-\sigma^7, f_2 mod X^6 -\sigma^5, f_2 mod X^6 -\sigma^11
+    for i in 0..(D / 4) {
+        // f_1
+        {
+            let (coeff_i, coeff_d_div_4_plus_i) = (evaluations[i], evaluations[D / 4 + i]);
+
+            evaluations[i] = coeff_i + coeff_d_div_4_plus_i;
+            evaluations[i + D / 4] = ROOTS_OF_UNITY_24[22] * (coeff_i - coeff_d_div_4_plus_i);
+        }
+
+        // f_2
+        {
+            let (coeff_i, coeff_d_div_4_plus_i) =
+                (evaluations[D / 2 + i], evaluations[3 * D / 4 + i]);
+
+            evaluations[D / 2 + i] = coeff_i + coeff_d_div_4_plus_i;
+            evaluations[3 * D / 4 + i] = ROOTS_OF_UNITY_24[14] * (coeff_i - coeff_d_div_4_plus_i);
+        }
+    }
+
+    // Compute f mod X^12-zeta and f mod X^12 - zeta^5
+    for i in 0..(D / 2) {
+        let (coeff_i, coeff_d_div_2_plus_i) = (evaluations[i], evaluations[D / 2 + i]);
+        let kappa_diff = KAPPA * (coeff_i - coeff_d_div_2_plus_i);
+
+        evaluations[i] = EIGHT_INV * (coeff_i + coeff_d_div_2_plus_i - kappa_diff);
+        evaluations[i + D / 2] = FOUR_INV * kappa_diff;
+    }
 }
 
 /// Converts each triple `c[3 * i]`, `c[3 * i + 1]`, `c[3 * i + 2]`
@@ -346,9 +371,8 @@ mod tests {
     use ark_std::One;
     use rand::thread_rng;
 
-    use crate::goldilocks::Fq3;
-
     use super::*;
+    use crate::goldilocks::Fq3;
 
     #[test]
     fn test_roots_of_unity() {
@@ -549,5 +573,118 @@ mod tests {
         denormalize_fq3(&mut test_poly);
 
         assert_eq!(test_poly, expected);
+    }
+
+    #[test]
+    fn test_icrt() {
+        // 1 + 2 * X + 3 * X^2 + 15 * X^15 + X^23
+        let expected: Vec<Fq> = vec![
+            Fq::from(1),
+            Fq::from(2),
+            Fq::from(3),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::from(15),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::zero(),
+            Fq::one(),
+        ];
+
+        let mut evaluations: Vec<Fq> = vec![
+            MontFp!("3841"),
+            MontFp!("2"),
+            MontFp!("72057594021150723"),
+            MontFp!("18446744069414580482"),
+            MontFp!("2"),
+            MontFp!("18374686475393433604"),
+            MontFp!("1080863910568919041"),
+            MontFp!("2"),
+            MontFp!("1099511627779"),
+            MontFp!("17365880158845665282"),
+            MontFp!("2"),
+            MontFp!("18446742969902956548"),
+            MontFp!("16492674416641"),
+            MontFp!("2"),
+            MontFp!("72057594037927939"),
+            MontFp!("18446727576740167682"),
+            MontFp!("2"),
+            MontFp!("18374686475376656388"),
+            MontFp!("1080863910317260801"),
+            MontFp!("2"),
+            MontFp!("259"),
+            MontFp!("17365880159097323522"),
+            MontFp!("2"),
+            MontFp!("18446744069414584068"),
+        ];
+
+        normalize_fq3(&mut evaluations);
+
+        serial_goldilock_icrt_in_place(&mut evaluations);
+
+        assert_eq!(evaluations, expected);
+    }
+
+    #[test]
+    fn test_icrt_2() {
+        // 2342 + 543543 * X + 3 * X^2 + 325*X^3 + 235325325 * X^5 + 765568568 * X^6
+        let mut expected: Vec<Fq> = vec![
+            MontFp!("2342"),
+            MontFp!("543543"),
+            MontFp!("3"),
+            MontFp!("325"),
+            MontFp!("0"),
+            MontFp!("235325325"),
+            MontFp!("765568568"),
+        ];
+
+        expected.resize_with(D, Fq::zero);
+
+        let mut evaluations: Vec<Fq> = vec![
+            MontFp!("11977680547482164101"),
+            MontFp!("543543"),
+            MontFp!("488514175862046709"),
+            MontFp!("11976965864924109701"),
+            MontFp!("543543"),
+            MontFp!("17958229893552537618"),
+            MontFp!("11441394850670851783"),
+            MontFp!("543543"),
+            MontFp!("10160120756981332284"),
+            MontFp!("1497446875752052425"),
+            MontFp!("543543"),
+            MontFp!("8286623312433252043"),
+            MontFp!("50172301757990"),
+            MontFp!("543543"),
+            MontFp!("60243283203"),
+            MontFp!("50172301591590"),
+            MontFp!("543543"),
+            MontFp!("18446744009171301124"),
+            MontFp!("4971923820610324773"),
+            MontFp!("543543"),
+            MontFp!("10164068860789127484"),
+            MontFp!("13474719904200919336"),
+            MontFp!("543543"),
+            MontFp!("8282675208625456843"),
+        ];
+
+        normalize_fq3(&mut evaluations);
+
+        serial_goldilock_icrt_in_place(&mut evaluations);
+
+        assert_eq!(evaluations, expected);
     }
 }
