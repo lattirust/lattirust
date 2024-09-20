@@ -449,7 +449,7 @@ fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::{Field, UniformRand};
+    use ark_ff::{Field, MontFp, UniformRand};
     use ark_std::One;
     use rand::thread_rng;
 
