@@ -145,7 +145,7 @@ fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
             let (coeff_i, coeff_d_div_8_plus_i) =
                 (coefficients[3 * D / 4 + i], coefficients[7 * D / 8 + i]);
             let sigma_coeff_d_div_8_plus_i =
-                PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_5 * coeff_d_div_8_plus_i;
+                PRIMITIVE_TWENTYFORTH_ROOT_OF_UNITY_TO_11 * coeff_d_div_8_plus_i;
 
             coefficients[3 * D / 4 + i] = coeff_i + sigma_coeff_d_div_8_plus_i;
             coefficients[7 * D / 8 + i] = coeff_i - sigma_coeff_d_div_8_plus_i;
@@ -498,13 +498,7 @@ mod tests {
         serial_goldilock_crt_in_place(&mut test_poly);
 
         denormalize_fq3(&mut test_poly);
-
-        for (&left, right) in test_poly.iter().zip(expected) {
-            println!("{:?} {:?}", left, right)
-            //assert_eq!(left, right);
-        }
-
-        assert!(false)
         
+        assert_eq!(test_poly, expected);
     }
 }
