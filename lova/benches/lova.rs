@@ -39,6 +39,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 mode,
                 humansize::format_size(pp.proof_size_bytes(), DECIMAL)
             );
+            
+            info!(
+                "Theoretical proof size for IVC for N={}, mode={}: {}",
+                pretty_print(witness_size as f64),
+                mode,
+                humansize::format_size(pp.proof_size_bytes_ivc(), DECIMAL)
+            );
 
             let witness_1 = rand_matrix_with_bounded_column_norms(
                 pp.witness_len(),
