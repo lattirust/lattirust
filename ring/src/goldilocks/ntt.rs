@@ -1,8 +1,6 @@
 //!
 //! A CRT implementation for the ring Fq[X]/(X^24-X^12+1).
 //!
-
-#![allow(dead_code)]
 use ark_ff::BigInt;
 use ark_std::Zero;
 
