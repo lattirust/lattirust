@@ -492,13 +492,62 @@ mod tests {
             MontFp!("259"),
             MontFp!("17365880159097323522"),
             MontFp!("2"),
-            MontFp!("18446744069414584068")
+            MontFp!("18446744069414584068"),
         ];
 
         serial_goldilock_crt_in_place(&mut test_poly);
 
         denormalize_fq3(&mut test_poly);
-        
+
+        assert_eq!(test_poly, expected);
+    }
+
+    #[test]
+    fn test_crt2() {
+        // 2342 + 543543 * X + 3 * X^2 + 325*X^3 + 235325325 * X^5 + 765568568 * X^6
+        let mut test_poly: Vec<Fq> = vec![
+            MontFp!("2342"),
+            MontFp!("543543"),
+            MontFp!("3"),
+            MontFp!("325"),
+            MontFp!("0"),
+            MontFp!("235325325"),
+            MontFp!("765568568"),
+        ];
+
+        test_poly.resize_with(D, Fq::zero);
+
+        let expected: Vec<Fq> = vec![
+            MontFp!("11977680547482164101"),
+            MontFp!("543543"),
+            MontFp!("488514175862046709"),
+            MontFp!("11976965864924109701"),
+            MontFp!("543543"),
+            MontFp!("17958229893552537618"),
+            MontFp!("11441394850670851783"),
+            MontFp!("543543"),
+            MontFp!("10160120756981332284"),
+            MontFp!("1497446875752052425"),
+            MontFp!("543543"),
+            MontFp!("8286623312433252043"),
+            MontFp!("50172301757990"),
+            MontFp!("543543"),
+            MontFp!("60243283203"),
+            MontFp!("50172301591590"),
+            MontFp!("543543"),
+            MontFp!("18446744009171301124"),
+            MontFp!("4971923820610324773"),
+            MontFp!("543543"),
+            MontFp!("10164068860789127484"),
+            MontFp!("13474719904200919336"),
+            MontFp!("543543"),
+            MontFp!("8282675208625456843"),
+        ];
+
+        serial_goldilock_crt_in_place(&mut test_poly);
+
+        denormalize_fq3(&mut test_poly);
+
         assert_eq!(test_poly, expected);
     }
 }
