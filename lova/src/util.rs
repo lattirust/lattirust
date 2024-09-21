@@ -96,7 +96,7 @@ impl<F: ConvertibleRing> PublicParameters<F> {
         //     4f64 * (2f64 / 3f64).powf(inner_security_parameter as f64)
         //         <= 2f64.powf(-((security_parameter + 1) as f64))
         // );
-        let inner_security_parameter = 222;
+        let inner_security_parameter = 330;
         let sis_security_parameter = security_parameter + 1 + log_fiat_shamir;
         info!(" SIS security parameter   = {sis_security_parameter}");
 
@@ -447,6 +447,15 @@ where
         .ratchet()
     }
 
+    fn merge_ivc<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
+        self.absorb_matrix::<SignedRepresentative>(
+            pp.inner_security_parameter,
+            1,
+            "cross inner products",
+        )
+            .ratchet()
+    }
+
     fn reduce<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
         self.absorb_matrix::<F>(
             pp.commitment_mat.nrows(),
@@ -467,8 +476,32 @@ where
         .ratchet()
     }
 
+    fn reduce_ivc<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
+        self.absorb_matrix::<F>(
+            pp.commitment_mat.nrows(),
+            (1 +  pp.inner_security_parameter) * pp.decomposition_length,
+            "commitment",
+        )
+            .ratchet()
+            .absorb_symmetric_matrix::<SignedRepresentative>(
+                (1 + pp.inner_security_parameter) * pp.decomposition_length,
+                "inner products",
+            )
+            .ratchet()
+            .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(
+                2 * pp.inner_security_parameter * pp.decomposition_length,
+                pp.inner_security_parameter,
+                "challenge",
+            )
+            .ratchet()
+    }
+    
     fn fold<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
         self.merge(pp).reduce(pp)
+    }
+    
+    fn fold_ivc<F: ConvertibleRing>(self, pp: &PublicParameters<F>) -> Self {
+        self.merge_ivc(pp).reduce_ivc(pp)
     }
 }
 

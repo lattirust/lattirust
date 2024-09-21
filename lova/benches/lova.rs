@@ -34,17 +34,16 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 PublicParameters::<F>::new(witness_size, mode, SECURITY_PARAMETER, LOG_FIAT_SHAMIR);
 
             info!(
-                "Theoretical proof size for N={}, mode={}: {}",
-                pretty_print(witness_size as f64),
-                mode,
-                humansize::format_size(pp.proof_size_bytes(), DECIMAL)
-            );
-            
-            info!(
-                "Theoretical proof size for IVC for N={}, mode={}: {}",
+                "Theoretical IVC proof size for N={}, mode={}: {}",
                 pretty_print(witness_size as f64),
                 mode,
                 humansize::format_size(pp.proof_size_bytes_ivc(), DECIMAL)
+            );
+            info!(
+                "Theoretical PCD proof size for N={}, mode={}: {}",
+                pretty_print(witness_size as f64),
+                mode,
+                humansize::format_size(pp.proof_size_bytes(), DECIMAL)
             );
 
             let witness_1 = rand_matrix_with_bounded_column_norms(
@@ -55,6 +54,49 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             let instance_1 = Instance::new(&pp, &witness_1);
             debug_assert!(BaseRelation::is_satisfied(&pp, &instance_1, &witness_1));
 
+            let witness_2 =
+                rand_matrix_with_bounded_column_norms(pp.witness_len(), 1, pp.norm_bound as i128);
+            let instance_2 = Instance::new(&pp, &witness_2);
+            debug_assert!(BaseRelation::is_satisfied(&pp, &instance_2, &witness_2));
+
+            let proof = &mut vec![];
+            group.bench_with_input(
+                BenchmarkId::new(format!("prover_ivc_{}", mode), witness_size),
+                &(pp.clone(), witness_1.clone(), witness_2),
+                |b, (pp, witness_1, witness_2)| {
+                    b.iter_batched(
+                        || {
+                            (
+                                IOPattern::new("lova").fold_ivc(&pp).to_arthur(),
+                                witness_1.clone(),
+                                witness_2.clone(),
+                            )
+                        },
+                        |(mut arthur, witness_1, witness_2)| {
+                            // Prove folding
+                            let new_witness =
+                                Prover::fold_ivc(&mut arthur, &pp, witness_1, witness_2).unwrap();
+                            black_box(new_witness);
+                            let folding_proof = arthur.transcript();
+
+                            // Save proof globally for verifier
+                            if proof.len() == 0 {
+                                proof.extend_from_slice(folding_proof);
+                            }
+                        },
+                        PerIteration,
+                    )
+                },
+            );
+
+            info!(
+                "Actual IVC proof size for N={}, mode={}:      {}",
+                pretty_print(witness_size as f64),
+                mode,
+                humansize::format_size(proof.len(), DECIMAL)
+            );
+
+            // Generate full-size witness for PCD benchmark
             let witness_2 = rand_matrix_with_bounded_column_norms(
                 pp.witness_len(),
                 pp.inner_security_parameter,
@@ -65,7 +107,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
             let proof = &mut vec![];
             group.bench_with_input(
-                BenchmarkId::new(format!("prover_{}", mode), witness_size),
+                BenchmarkId::new(format!("prover_pcd_{}", mode), witness_size),
                 &(pp.clone(), witness_1, witness_2),
                 |b, (pp, witness_1, witness_2)| {
                     b.iter_batched(
@@ -94,12 +136,13 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             );
 
             info!(
-                "Actual proof size for N={}, mode={}:      {}",
+                "Actual PCD proof size for N={}, mode={}:      {}",
                 pretty_print(witness_size as f64),
                 mode,
                 humansize::format_size(proof.len(), DECIMAL)
             );
 
+            continue; // Don't benchmark verifier runtime, we mostly care about its circuit complexity
             group.bench_with_input(
                 BenchmarkId::new(format!("verifier_{}", mode), witness_size),
                 &(pp, instance_1, instance_2),
