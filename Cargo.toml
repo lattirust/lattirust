@@ -6,7 +6,7 @@ members = [
     "sumcheck",
     "labrador",
     "lova"
-]
+, "commitment"]
 resolver = "2"
 
 [workspace.metadata.docs.rs]

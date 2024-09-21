@@ -1,0 +1,1 @@
+To compile, run `cargo build --package commitments`.
