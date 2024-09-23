@@ -19,9 +19,7 @@ use num_traits::{One, Zero};
 pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 pub use poly_ring::*;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-pub use pow2_cyclotomic_poly_ring_ntt::{
-    Pow2CyclotomicPolyRingNTT, Pow2CyclotomicPolyRingNTTGeneral,
-};
+pub use pow2_cyclotomic_poly_ring_ntt::{CyclotomicPolyRingNTTGeneral, Pow2CyclotomicPolyRingNTT};
 pub use representatives::{SignedRepresentative, UnsignedRepresentative};
 pub use z_2_128::*;
 pub use z_2_64::*;
@@ -34,6 +32,7 @@ mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
 mod representatives;
+pub mod ring_config;
 mod z_2_128;
 mod z_2_64;
 mod z_q;

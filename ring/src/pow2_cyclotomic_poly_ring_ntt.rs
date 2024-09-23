@@ -1,4 +1,3 @@
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::fmt::{Debug, Display, Formatter};
 use ark_std::hash::Hash;
 use ark_std::io::{Read, Write};
@@ -11,157 +10,139 @@ use ark_serialize::{
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{From, Into};
+use lattirust_linear_algebra::SVector;
 use num_traits::{One, Zero};
 
-use crate::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-use crate::traits::FromRandomBytes;
-use crate::z_q::FqConfig;
+use crate::pow2_cyclotomic_poly_ring::CyclotomicPolyRingGeneral;
+use crate::ring_config::{Pow2Rp64Config, RpConfig};
+use crate::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
+use crate::PolyRing;
 use crate::Ring;
-use crate::{OverField, PolyRing};
-use lattirust_linear_algebra::SVector;
 
 use super::poly_ring::WithRot;
-use ark_ff::{Fp, FpConfig, MontBackend};
 
-/// A cyclotomic ring of the form Fp<C,N>/<X^D + 1>.
+use ark_ff::{Field, Fp, Fp64, FpConfig};
+
+/// A cyclotomic ring of the form Fp<C,N>[X]/<Phi_D(X)>
+/// which fully splits in its CRT representation.
 #[derive(From, Into)]
-pub struct Pow2CyclotomicPolyRingNTTGeneral<C: FpConfig<N>, const N: usize, const D: usize>(
-    SVector<Fp<C, N>, D>,
+pub struct CyclotomicPolyRingNTTGeneral<C: RpConfig<N>, const N: usize, const PHI_D: usize>(
+    SVector<Fp<C::FpConfig, N>, PHI_D>,
 );
 
-pub type Pow2CyclotomicPolyRingNTT<const Q: u64, const N: usize> =
-    Pow2CyclotomicPolyRingNTTGeneral<MontBackend<FqConfig<Q>, 1>, 1, N>;
+pub type Fp64Pow2<const Q: u64, const PHI_D: usize> =
+    Fp64<<Pow2Rp64Config<Q, PHI_D> as RpConfig<1>>::FpConfig>; // This looks ugly change this
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Pow2CyclotomicPolyRingNTTGeneral<C, N, D> {
-    // Coefficients 0, D-1
-    // CRT = Chinese remainder Transform (2d roots of unity -> d primitive roots of unity).
-    // Evaluations on the D primitive roots of unity of degree 2D.
-    fn from_coefficients_vec(mut coeffs: Vec<Fp<C, N>>) -> Self {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
+/// A cyclotomic ring with a cyclotomic polynomial degree of a power of two
+/// and a modulus less than 2^64
+pub type Pow2CyclotomicPolyRingNTT<const Q: u64, const PHI_D: usize> =
+    CyclotomicPolyRingNTTGeneral<Pow2Rp64Config<Q, PHI_D>, 1, PHI_D>;
 
-        // We resize the coefficient vector with D zeros
-        // to have a polynomial of "degree" 2D.
-        coeffs.extend((0..D).map(|_| Fp::zero()));
-        eval_domain.unwrap().fft_in_place(&mut coeffs);
-
-        // Once we've done the NTT we remove the evaluations at even indices.
-        // Those evaluations correspond to the evaluations at non-primitive roots of unity.
-        let coeffs: Vec<Fp<C, N>> = coeffs
-            .into_iter()
-            .enumerate()
-            .filter_map(|(i, coeff)| if i % 2 != 0 { Some(coeff) } else { None })
-            .collect();
-
-        Self::from_array(coeffs.try_into().unwrap())
-    }
-
-    // Get coefficient form of the polynomial.
-    fn coefficients_vec(&self) -> Vec<Fp<C, N>> {
-        let eval_domain = Radix2EvaluationDomain::<Fp<C, N>>::new(2 * D);
-
-        // Enlarge the evaluation vector to be of length 2D.
-        // Add dummy zero evaluations at the even indices.
-        let mut evals: Vec<Fp<C, N>> = (0..(2 * D))
-            .map(|x| {
-                if x % 2 != 0 {
-                    self.0[x / 2]
-                } else {
-                    Fp::zero() // We don't care about these values.
-                }
-            })
-            .collect();
-
-        eval_domain.unwrap().ifft_in_place(&mut evals);
-
-        // Reduce the resulting polynomial mod X^D + 1.
-        let (left, right) = evals.split_at_mut(D);
-        for (coeff_left, coeff_right) in left.iter_mut().zip(right) {
-            *coeff_left -= coeff_right;
-        }
-
-        // Truncate the resulting vector to be of size D.
-        evals.resize(D, Fp::zero());
-
-        evals
-    }
-
-    #[allow(dead_code)]
-    pub(crate) type Inner = SVector<Fp<C, N>, D>;
-    /// Constructs a polynomial from an array of coefficients in NTT form.
-    /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [Fp<C, N>; D]) -> Self {
-        Self(Self::Inner::const_from_array(coeffs_ntt))
-    }
-
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> CyclotomicPolyRingNTTGeneral<C, N, PHI_D> {
     /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
-    pub fn from_fn<F>(f: F) -> Self
+    fn from_coeffs_vec(coeffs: Vec<Fp<C::FpConfig, N>>) -> Self {
+        let mut coeffs = coeffs;
+        if coeffs.len() > PHI_D {
+            C::reduce_in_place(&mut coeffs);
+        }
+        assert_eq!(
+            coeffs.len(),
+            PHI_D,
+            "Reduce in place not reducing to correct length"
+        );
+        C::crt_in_place(&mut coeffs);
+        Self::from_array(coeffs.try_into().map_err(|v: Vec<_>| v).unwrap())
+    }
+    fn from_fn<F>(f: F) -> Self
     where
-        F: FnMut(usize) -> Fp<C, N>,
+        F: FnMut(usize) -> Fp<C::FpConfig, N>,
     {
-        let coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
+        let mut coeffs = Vec::from(core::array::from_fn::<_, PHI_D, _>(f));
+        assert_eq!(
+            coeffs.len(),
+            PHI_D,
+            "Incorrect length of the coefficient vector"
+        );
+        C::crt_in_place(&mut coeffs);
+        Self(
+            coeffs
+                .try_into()
+                .map_err(|v: Vec<Fp<C::FpConfig, N>>| v)
+                .unwrap(),
+        )
+    }
 
-        Self::from_coefficients_vec(coeffs)
+    fn from_array(ntt_coeffs: [Fp<C::FpConfig, N>; PHI_D]) -> Self {
+        Self(SVector::const_from_array(ntt_coeffs))
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> PartialEq
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> PartialEq
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Eq
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Eq
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Clone
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Clone
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self(self.0.clone())
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Copy
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Copy
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Debug
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Debug
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> ark_std::fmt::Result {
         Debug::fmt(&self.0, f)
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Display
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Display
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> ark_std::fmt::Result {
-        Display::fmt(&self.0, f)
+        write!(f, "CyclotomicPolyRingNTTGeneral(")?;
+        let mut iter = self.0.iter();
+        if let Some(first) = iter.next() {
+            write!(f, "{}", first)?;
+            for field_element in iter {
+                write!(f, ", {}", field_element)?;
+            }
+        }
+        write!(f, ")")
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Hash
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Hash
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn hash<H: ark_std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
-const fn vec_from_element<C: FpConfig<N>, const N: usize, const D: usize>(
-    elem: Fp<C, N>,
-) -> SVector<Fp<C, N>, D> {
-    SVector::const_from_array([elem; D])
+const fn vec_from_element<FP: FpConfig<N>, const N: usize, const PHI_D: usize>(
+    elem: Fp<FP, N>,
+) -> SVector<Fp<FP, N>, PHI_D> {
+    SVector::const_from_array([elem; PHI_D])
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> CanonicalSerialize
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> CanonicalSerialize
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn serialize_with_mode<W: Write>(
         &self,
@@ -176,45 +157,47 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> CanonicalSerialize
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Valid
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Valid
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn check(&self) -> Result<(), SerializationError> {
         self.0.check()
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> CanonicalDeserialize
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> CanonicalDeserialize
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn deserialize_with_mode<R: Read>(
         reader: R,
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-        Self::Inner::deserialize_with_mode(reader, compress, validate).map(Self)
+        SVector::<Fp<C::FpConfig, N>, PHI_D>::deserialize_with_mode(reader, compress, validate)
+            .map(Self)
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Ring
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Ring
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
-    const ZERO: Self = Self(vec_from_element(<Fp<C, N> as Ring>::ZERO));
-    const ONE: Self = Self(vec_from_element(<Fp<C, N> as Ring>::ONE));
+    const ZERO: Self = Self(vec_from_element(<Fp<C::FpConfig, N> as Field>::ZERO));
+    const ONE: Self = Self(vec_from_element(<Fp<C::FpConfig, N> as Field>::ONE));
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> FromRandomBytes<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> FromRandomBytes<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn byte_size() -> usize {
-        D * Fp::<C, N>::byte_size()
+        PHI_D * Fp::<C::FpConfig, N>::byte_size()
     }
 
     fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
         assert_eq!(bytes.len(), Self::byte_size());
         let coeffs = core::array::from_fn(|i| {
-            Fp::<C, N>::try_from_random_bytes(
-                &bytes[i * Fp::<C, N>::byte_size()..(i + 1) * Fp::<C, N>::byte_size()],
+            Fp::<C::FpConfig, N>::try_from_random_bytes(
+                &bytes[i * Fp::<C::FpConfig, N>::byte_size()
+                    ..(i + 1) * Fp::<C::FpConfig, N>::byte_size()],
             )
             .unwrap()
         });
@@ -222,26 +205,8 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> FromRandomBytes<Self>
     }
 }
 
-// impl<const Q: u64, const N: usize> Serialize for Pow2CyclotomicPolyRingNTT<Q, N> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         ark_se(&self.coeffs(), serializer)
-//     }
-// }
-//
-// impl<'a, const Q: u64, const N: usize> Deserialize<'a> for Pow2CyclotomicPolyRingNTT<Q, N> {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'a>,
-//     {
-//         ark_de(deserializer).map(|v: Vec<Fq<Q>>| Self::from(v))
-//     }
-// }
-
-impl<C: FpConfig<N>, const N: usize, const D: usize> Default
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Default
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     #[inline(always)]
     fn default() -> Self {
@@ -249,8 +214,8 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Default
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Zero
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Zero
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     #[inline(always)]
     fn zero() -> Self {
@@ -263,8 +228,8 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> Zero
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> One
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> One
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     #[inline(always)]
     fn one() -> Self {
@@ -272,151 +237,148 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> One
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Mul<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Mul<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        self.0.component_mul(&rhs.0).into()
+        Self(self.0.component_mul(&rhs.0))
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Neg
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Neg
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        self.0.neg().into()
+        Self(self.0.neg())
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> UniformRand
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> UniformRand
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| Fp::<C, N>::rand(rng))
+        Self::from_fn(|_| Fp::<C::FpConfig, N>::rand(rng))
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> MulAssign<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> MulAssign<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn mul_assign(&mut self, rhs: Self) {
         self.0.component_mul_assign(&rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Add<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn add(self, rhs: &'a Self) -> Self::Output {
-        self.0.add(rhs.0).into()
+        Self(self.0 + rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Sub<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn sub(self, rhs: &'a Self) -> Self::Output {
-        self.0.sub(rhs.0).into()
+        Self(self.0 - rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Add<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn add(self, rhs: &'a mut Self) -> Self::Output {
-        self.0.add(rhs.0).into()
+        Self(self.0 + rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Sub<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn sub(self, rhs: &'a mut Self) -> Self::Output {
-        self.0.sub(rhs.0).into()
+        Self(self.0 - rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Mul<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Mul<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn mul(self, rhs: &'a mut Self) -> Self::Output {
-        self.0.component_mul(&rhs.0).into()
+        Self(self.0.component_mul(&rhs.0))
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> AddAssign<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0.add_assign(rhs.0)
+        self.0 += rhs.0;
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> SubAssign<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0.sub_assign(rhs.0)
+        self.0 -= rhs.0;
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> MulAssign<&'a mut Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> MulAssign<&'a mut Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn mul_assign(&mut self, rhs: &'a mut Self) {
         self.0.component_mul_assign(&rhs.0)
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> From<Pow2CyclotomicPolyRing<Fp<C, N>, D>>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize>
+    From<CyclotomicPolyRingGeneral<C, N, PHI_D>> for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
-    fn from(value: Pow2CyclotomicPolyRing<Fp<C, N>, D>) -> Self {
-        let coeffs: Vec<Fp<C, N>> = value.coeffs();
-
-        Self::from_coefficients_vec(coeffs)
+    fn from(value: CyclotomicPolyRingGeneral<C, N, PHI_D>) -> Self {
+        let mut coeffs: Vec<Fp<C::FpConfig, N>> = value.coeffs();
+        C::crt_in_place(&mut coeffs);
+        Self(
+            coeffs
+                .try_into()
+                .map_err(|v: Vec<Fp<C::FpConfig, N>>| v)
+                .unwrap(),
+        )
     }
 }
 
-// impl<const Q: u64, const N: usize> Into<Pow2CyclotomicPolyRing<Zq<Q>, N>>
-//     for Pow2CyclotomicPolyRingNTT<Q, N>
-// {
-//     fn into(self) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
-//         Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(self.coeffs())
-//     }
-// }
-
-impl<C: FpConfig<N>, const N: usize, const D: usize> Mul<Fp<C, N>>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Mul<Fp<C::FpConfig, N>>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
-    fn mul(self, rhs: Fp<C, N>) -> Self::Output {
+    fn mul(self, rhs: Fp<C::FpConfig, N>) -> Self::Output {
         self.mul(Self::from_scalar(rhs))
     }
 }
 
 macro_rules! impl_from_primitive_type {
     ($primitive_type: ty) => {
-        impl<C: FpConfig<N>, const N: usize, const D: usize> From<$primitive_type>
-            for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+        impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> From<$primitive_type>
+            for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
         {
             fn from(value: $primitive_type) -> Self {
-                Self::from_scalar(Fp::<C, N>::from(value))
+                Self::from_scalar(Fp::<C::FpConfig, N>::from(value))
             }
         }
     };
@@ -429,139 +391,150 @@ impl_from_primitive_type!(u16);
 impl_from_primitive_type!(u8);
 impl_from_primitive_type!(bool);
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Mul<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Mul<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn mul(self, rhs: &'a Self) -> Self::Output {
-        self.0.component_mul(&rhs.0).into()
+        Self(self.0.component_mul(&rhs.0))
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> AddAssign<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn add_assign(&mut self, rhs: &'a Self) {
-        self.0.add_assign(rhs.0)
+        self.0 += rhs.0;
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> SubAssign<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sub_assign(&mut self, rhs: &'a Self) {
-        self.0.sub_assign(rhs.0)
+        self.0 -= rhs.0;
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> MulAssign<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> MulAssign<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn mul_assign(&mut self, rhs: &'a Self) {
-        self.0.component_mul_assign(&rhs.0);
+        self.0.component_mul_assign(&rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Add<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.0.add(rhs.0).into()
+        Self(self.0 + rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Sub<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.0.sub(rhs.0).into()
+        Self(self.0 - rhs.0)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> AddAssign<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn add_assign(&mut self, rhs: Self) {
-        self.0.add_assign(rhs.0)
+        self.0 += rhs.0
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> SubAssign<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sub_assign(&mut self, rhs: Self) {
-        self.0.sub_assign(rhs.0)
+        self.0 -= rhs.0
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Sum<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::zero(), |acc, x| acc + x)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Sum<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
         iter.fold(Self::zero(), |acc, x| acc + x)
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> Product<Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Product<Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn product<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::one(), |acc, x| acc * x)
     }
 }
 
-impl<'a, C: FpConfig<N>, const N: usize, const D: usize> Product<&'a Self>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Product<&'a Self>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn product<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
         iter.fold(Self::one(), |acc, x| acc * x)
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> PolyRing
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> PolyRing
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
-    type BaseRing = Fp<C, N>;
-    fn coeffs(&self) -> Vec<Fp<C, N>> {
-        self.coefficients_vec()
+    type BaseRing = Fp<C::FpConfig, N>;
+    fn coeffs(&self) -> Vec<Fp<C::FpConfig, N>> {
+        let mut evaluations = self.0.as_slice().to_vec();
+        C::icrt_in_place(&mut evaluations);
+        if evaluations.is_empty() {
+            // When coeffs is zero it returns an empty vec
+            evaluations = vec![<Fp<C::FpConfig, N> as Field>::ZERO];
+        }
+        evaluations
     }
     fn dimension() -> usize {
-        D
+        PHI_D
     }
 
     fn from_scalar(v: Self::BaseRing) -> Self {
         // NTT([v, 0, ..., 0]) = ([v, ..., v])
-        Self::from_array([v; D])
+        Self::from_array([v; PHI_D])
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> From<Vec<Fp<C, N>>>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> From<Vec<Fp<C::FpConfig, N>>>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
-    fn from(mut value: Vec<Fp<C, N>>) -> Self {
-        value.resize_with(D, Fp::zero);
-
-        Self::from_coefficients_vec(value)
+    fn from(mut value: Vec<Fp<C::FpConfig, N>>) -> Self {
+        value.resize_with(PHI_D, Fp::zero);
+        C::crt_in_place(&mut value);
+        Self(
+            value
+                .try_into()
+                .map_err(|v: Vec<Fp<C::FpConfig, N>>| v)
+                .unwrap(),
+        )
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> From<Fp<C, N>>
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> From<Fp<C::FpConfig, N>>
+    for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
-    fn from(value: Fp<C, N>) -> Self {
+    fn from(value: Fp<C::FpConfig, N>) -> Self {
         Self::from_scalar(value)
     }
 }
@@ -575,55 +548,44 @@ impl<C: FpConfig<N>, const N: usize, const D: usize> From<Fp<C, N>>
 //     }
 // }
 
-// impl<C: FpConfig<N>, const N: usize, const D: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<C, N, D> {
-//     fn l2_norm_squared(&self) -> u128 {
-//         self.coeffs().l2_norm_squared()
-//     }
-// }
+impl<const Q: u64, const PHI_D: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
+    fn l2_norm_squared(&self) -> u128 {
+        self.coeffs().l2_norm_squared()
+    }
+}
 
-// impl<C: FpConfig<N>, const N: usize, const D: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<C, N, D> {
-//     fn linf_norm(&self) -> u128 {
-//         self.coeffs().linf_norm()
-//     }
-// }
+impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
+    fn linf_norm(&self) -> u128 {
+        self.coeffs().linf_norm()
+    }
+}
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> WithRot
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
-{
+impl<const Q: u64, const PHI_D: usize> WithRot for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
     fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
-        let mut xi = vec![Self::BaseRing::ZERO; D];
-
-        if i < D {
-            xi[i] = Self::BaseRing::ONE;
+        let mut xi = if i < PHI_D {
+            vec![<Fp64Pow2<Q, PHI_D> as Field>::ZERO; PHI_D]
         } else {
-            unimplemented!("No support for multiplying with a polynomial bigger than N");
-        }
+            vec![<Fp64Pow2<Q, PHI_D> as Field>::ZERO; i + 1] // Shouldn't get to this point for the
+                                                             // purpose of RotSum
+        };
+        xi[i] = <Fp64Pow2<Q, PHI_D> as Field>::ONE;
 
-        let xi_poly = Self::from_coefficients_vec(xi);
-
+        let xi_poly = Pow2CyclotomicPolyRingNTT::from_coeffs_vec(xi);
         let result = (*self * xi_poly).0;
         result.iter().copied().collect::<Vec<_>>()
     }
 }
 
-impl<C: FpConfig<N>, const N: usize, const D: usize> OverField
-    for Pow2CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{
-        z_q::FqConfig, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
-        Pow2CyclotomicPolyRingNTTGeneral,
-    };
+    use crate::{z_q::FqConfig, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT};
     use ark_ff::{Fp, MontBackend};
     use ark_std::UniformRand;
     use lattirust_linear_algebra::SVector;
     use rand::thread_rng;
-
     const FERMAT_Q: u64 = (1 << 16) + 1;
     type FermatFqConfig = FqConfig<FERMAT_Q>;
+
     const FERMAT_NS: [usize; 14] = [
         1 << 1,
         1 << 2,
@@ -645,7 +607,8 @@ mod tests {
             match $n {
                 $(
                     $size => {
-                        let ntt_form = Pow2CyclotomicPolyRingNTT::<FERMAT_Q, $size>::from_fn(|i| $initial_coeffs[i]);
+                        let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, $size> =
+                                Pow2CyclotomicPolyRingNTT::from_coeffs_vec($initial_coeffs.clone());
                         let intt_coeffs = ntt_form.coeffs();
                         assert_eq!($initial_coeffs, intt_coeffs);
                     },
@@ -686,19 +649,40 @@ mod tests {
     fn test_mul_ntt_pow2<const SIZE: usize>() {
         let mut rng = thread_rng();
 
-        let coeff_1 =
-            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, SIZE>::rand(&mut rng);
-        let coeff_2 =
-            Pow2CyclotomicPolyRing::<Fp<MontBackend<FermatFqConfig, 1>, 1>, SIZE>::rand(&mut rng);
+        let coeff_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);
+        let coeff_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);
 
-        let ntt_form_1 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_1);
-        let ntt_form_2 = Pow2CyclotomicPolyRingNTTGeneral::from(coeff_2);
+        let ntt_form_1 = Pow2CyclotomicPolyRingNTT::from(coeff_1);
+        let ntt_form_2 = Pow2CyclotomicPolyRingNTT::from(coeff_2);
 
         let ntt_mul = ntt_form_1 * ntt_form_2;
         let coeffs_mul = coeff_1 * coeff_2;
-        // ntt_mul.coeffs() performs INTT while coeffs_mul_coeffs() just returns the coefficients
+        // ntt_mul.coeffs() performs INTT while coeffs_mul.coeffs() just returns the coefficients
         assert_eq!(ntt_mul.coeffs(), coeffs_mul.coeffs());
     }
+
+    #[test]
+    fn test_mul_ntt_pow2_hardcoded() {
+        let coeffs_1_vec_vec = [1, 2, 3, 4, 5, 6, 7, 8];
+        let coeffs_1_vec = coeffs_1_vec_vec
+            .into_iter()
+            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .collect::<Vec<_>>();
+        let mut coeffs_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from_coeffs_vec(coeffs_1_vec);
+        let coeffs_2_vec_vec = [8, 7, 6, 5, 4, 3, 2, 1];
+        let coeffs_2_vec = coeffs_2_vec_vec
+            .into_iter()
+            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .collect::<Vec<_>>();
+        let coeffs_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from_coeffs_vec(coeffs_2_vec);
+
+        let mut ntt_form_1 = Pow2CyclotomicPolyRingNTT::from(coeffs_1);
+        ntt_form_1 *= Pow2CyclotomicPolyRingNTT::from(coeffs_2);
+
+        coeffs_1 *= coeffs_2;
+        assert_eq!(ntt_form_1.coeffs(), coeffs_1.coeffs());
+    }
+    // TODO: test mutable mul, i.e., mul_assign
 
     #[test]
     fn test_mul_ntt_pow2_multiple_sizes() {
@@ -728,8 +712,8 @@ mod tests {
             .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
             .collect::<Vec<_>>();
 
-        let ntt_form: Pow2CyclotomicPolyRingNTTGeneral<MontBackend<FqConfig<65537>, 1>, 1, SIZE> =
-            Pow2CyclotomicPolyRingNTTGeneral::from_coefficients_vec(coeffs);
+        let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE> =
+            Pow2CyclotomicPolyRingNTT::from_coeffs_vec(coeffs);
 
         let expected = SVector::const_from_array(expected_ntt.try_into().unwrap());
         assert_eq!(ntt_form.0, expected);
