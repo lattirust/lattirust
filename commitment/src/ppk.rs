@@ -1,13 +1,33 @@
 #![allow(non_snake_case)]
 use lattirust_arithmetic::ntt::ntt_modulus;
-use lattirust_arithmetic::ring::{Pow2CyclotomicPolyRing, Zq};
-use rand::{random, rngs, Rng, SeedableRng};
+use lattirust_arithmetic::ring::{PolyRing, Pow2CyclotomicPolyRing, Zq};
+use rand::{CryptoRng, RngCore};
+use rand::{random, rngs, Rng, SeedableRng, thread_rng, rngs::OsRng};
+use rand_distr::Normal;
 use rand::distributions::{Distribution, Alphanumeric, Uniform, Standard};
+// use fhe::bfv::{BfvParametersBuilder, Ciphertext, Encoding, Plaintext, PublicKey, SecretKey};
+// use fhe_traits;
+use std::error::Error;
 
 // todo: 
 const N: usize = 128;
 const Q: u64 = ntt_modulus::<N>(16);
+const P: u64 = ntt_modulus::<N>(16);
 type R = Zq<Q>;
+
+// from cathieyun/bfv12
+pub fn get_gaussian_vec<T: RngCore + CryptoRng>(std_dev: f64, dimension: usize, rng: &mut T) -> Vec<i64> {
+    let gaussian = Normal::new(0.0, std_dev).unwrap();
+    let val: Vec<i64> = (0..dimension)
+        .map(|_| gaussian.sample(rng) as i64)
+        .collect();
+    return val;
+}
+
+// pub fn get_poly_from_gaussian<T: RngCore + CryptoRng>(std_dev: f64, dimension: usize, rng: &mut T) -> Pow2CyclotomicPolyRing<R, N> {
+//     let v = get_gaussian_vec(std_dev, dimension, &mut rng);
+
+// }
 
 struct Prover {
     secret_key: SecretKey, // polynomial w/ coefficients in {-1, 0, +1}
@@ -30,6 +50,7 @@ struct Verifier {
 //     poly: Pow2CyclotomicPolyRing<R, N>,
 // }
 
+// move it to a dedicated library later on
 struct PublicKey(Pow2CyclotomicPolyRing<R, N>, Pow2CyclotomicPolyRing<R, N>);
 struct SecretKey(Pow2CyclotomicPolyRing<R, N>);
 
@@ -37,9 +58,12 @@ type Plaintext = Pow2CyclotomicPolyRing<R, N>;
 type Ciphertext = (Pow2CyclotomicPolyRing<R, N>, Pow2CyclotomicPolyRing<R, N>);
 
 impl SecretKey {
-    fn new(degree: usize) -> Self {
-        todo!();
-    }
+    // fn new(degree: usize) -> Self {
+    //     let std_dev = 1; // coefficients in {-1, 0, +1}
+    //     let mut rng = rand::thread_rng();
+
+        
+    // }
 
     fn from_poly(poly: Pow2CyclotomicPolyRing<R, N>) -> Self {
         todo!();

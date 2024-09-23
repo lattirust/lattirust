@@ -10,3 +10,4 @@ relations = { version = "0.0.1-alpha", path = "../relations" }
 fhe = "0.1.0-beta.8"
 fhe-traits = "0.1.0-beta.8"
 rand = "0.8.5"
+rand_distr = "0.4.3"
