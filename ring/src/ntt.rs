@@ -16,7 +16,7 @@ pub const fn ntt_modulus<const N: usize>(bit_size: usize) -> u64 {
 }
 
 /// Return x^k mod Q
-const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
+pub(crate) const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
     let mut res: u128 = 1;
     let mut x: u128 = x as u128;
     let mut k: u128 = k as u128;
