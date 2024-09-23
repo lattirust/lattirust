@@ -4,7 +4,6 @@ use ark_std::iter::Sum;
 use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use delegate::delegate;
-use derive_more;
 use derive_more::{Display, From, Index, IndexMut, Into};
 use nalgebra::allocator::Allocator;
 use nalgebra::constraint::{DimEq, ShapeConstraint};
@@ -25,7 +24,7 @@ impl<T> ClosedSub for T where T: nalgebra::ClosedSub {}
 pub trait ClosedMul: nalgebra::ClosedMul {}
 impl<T> ClosedMul for T where T: nalgebra::ClosedMul {}
 
-#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut, Hash)]
+#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut, PartialEq, Eq, Hash)]
 pub struct GenericMatrix<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>>(
     pub(crate) nalgebra::Matrix<T, R, C, S>,
 );
@@ -45,6 +44,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 }
 
+#[allow(clippy::type_complexity)]
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
     delegate! {
         to self.0 {
@@ -63,6 +63,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
         }
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn row(
         &self,
         i: usize,
@@ -82,6 +83,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
         self.0.row(i).into()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn column(
         &self,
         i: usize,
@@ -111,15 +113,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
     pub type RowViewStorage<'b> = ViewStorage<'b, T, Const<1>, C, S::RStride, S::CStride>;
-    pub fn row_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a {
+    pub fn row_iter(
+        &self,
+    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> {
         self.0.row_iter().map(|r| r.into())
     }
 
-    pub fn par_row_iter<'a>(
-        &'a self,
-    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a
+    pub fn par_row_iter(
+        &self,
+    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>>
     where
         T: Send + Sync,
     {
@@ -128,15 +130,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 
     pub type ColumnViewStorage<'b> = ViewStorage<'b, T, R, Const<1>, S::RStride, S::CStride>;
-    pub fn column_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a {
+    pub fn column_ite(
+        &self,
+    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> {
         self.0.column_iter().map(|c| c.into())
     }
 
-    pub fn par_column_iter<'a>(
-        &'a self,
-    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a
+    pub fn par_column_iter(
+        &self,
+    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>>
     where
         T: Send + Sync,
         S: Sync,
@@ -153,7 +155,6 @@ impl<T: Scalar + ClosedAdd + ClosedMul + Zero, R: Dim, C: Dim, S: RawStorage<T, 
         rhs: &GenericMatrix<T, R2, C2, S2>,
     ) -> T
     where
-        S2: RawStorage<T, R2, C2>,
         ShapeConstraint: DimEq<R, R2> + DimEq<C, C2>,
     {
         self.0.dot(&rhs.0)
@@ -174,20 +175,6 @@ where
     {
         self.0.component_mul_assign(&rhs.0)
     }
-}
-
-impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> PartialEq for GenericMatrix<T, R, C, S>
-where
-    nalgebra::Matrix<T, R, C, S>: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
-}
-
-impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Eq for GenericMatrix<T, R, C, S> where
-    nalgebra::Matrix<T, R, C, S>: Eq
-{
 }
 
 /// Implement unary operation `GenericMatrix<T>` -> `GenericMatrix<TO>`
@@ -414,6 +401,7 @@ where
 impl<T: Scalar + Zero + One + ClosedAdd + ClosedMul, R: Dim, C: Dim, S: Storage<T, R, C>>
     GenericMatrix<T, R, C, S>
 {
+    #[allow(clippy::type_complexity)]
     pub fn kronecker<R2: Dim, C2: Dim, S2>(
         &self,
         rhs: &GenericMatrix<T, R2, C2, S2>,

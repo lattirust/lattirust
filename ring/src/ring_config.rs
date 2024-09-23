@@ -38,7 +38,7 @@ pub trait RpConfig<const N: usize> {
     /// Computes the evaluations of the polynomial with
     /// coefficients `coefficients` on the primitive Dth roots of unity.
     fn crt_in_place(coefficients: &mut Vec<Fp<Self::FpConfig, N>>) {
-        coefficients.resize(Self::PHI_D as usize, Fp::<Self::FpConfig, N>::ZERO);
+        coefficients.resize(Self::PHI_D, Fp::<Self::FpConfig, N>::ZERO);
 
         // We resize the coefficient vector with D - PHI_D zeros
         // to have a polynomial of "degree" D.
@@ -50,8 +50,7 @@ pub trait RpConfig<const N: usize> {
         let evals: Vec<Fp<Self::FpConfig, N>> = coefficients
             .iter()
             .enumerate()
-            .map(|(i, &x)| Self::is_primitive_index(i).then_some(x))
-            .flatten()
+            .filter_map(|(i, &x)| Self::is_primitive_index(i).then_some(x))
             .collect();
 
         *coefficients = evals

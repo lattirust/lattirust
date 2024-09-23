@@ -4,6 +4,7 @@
 #![feature(int_roundings)]
 #![feature(const_option)]
 #![allow(non_snake_case)]
+#![allow(non_local_definitions)]
 
 use ark_std::fmt::{Debug, Display};
 use ark_std::hash::Hash;

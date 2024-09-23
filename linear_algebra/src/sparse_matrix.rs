@@ -5,7 +5,6 @@ use ark_ff::Zero;
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
-use nalgebra_sparse;
 use nalgebra_sparse::csc::CscCol;
 use nalgebra_sparse::csc::CscTripletIter;
 use nalgebra_sparse::CooMatrix;

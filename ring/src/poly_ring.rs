@@ -69,7 +69,7 @@ pub trait WithRot: PolyRing {
         Matrix::from_columns(columns.as_slice())
     }
 
-    fn rot_sum(&self, bs: &Vec<Self::BaseRing>) -> Vec<Self::BaseRing> {
+    fn rot_sum(&self, bs: &[Self::BaseRing]) -> Vec<Self::BaseRing> {
         let degree = Self::dimension(); // if tau is 1 in latticefold paper lemma 2.1.
         let mut result = vec![Self::BaseRing::ZERO; degree];
         let rot_matrix = self.rot();

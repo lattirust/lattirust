@@ -71,7 +71,7 @@ where
     T: CanonicalDeserialize,
 {
     fn check(&self) -> Result<(), SerializationError> {
-        T::batch_check(self.0.as_slice().into_iter())
+        T::batch_check(self.0.as_slice().iter())
     }
 
     fn batch_check<'a>(
@@ -80,7 +80,7 @@ where
     where
         Self: 'a,
     {
-        T::batch_check(batch.flat_map(|x| x.0.as_slice().into_iter()))
+        T::batch_check(batch.flat_map(|x| x.0.as_slice().iter()))
     }
 }
 
@@ -103,9 +103,7 @@ where
         }
 
         let vec_storage = VecStorage::new(Dyn::from_usize(nrows), Dyn::from_usize(ncols), data);
-        Ok(Self {
-            0: Self::Inner::from_vec_storage(vec_storage),
-        })
+        Ok(Self(Self::Inner::from_vec_storage(vec_storage)))
     }
 }
 
