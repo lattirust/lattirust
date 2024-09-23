@@ -9,6 +9,7 @@ use ark_std::{
 };
 use lattirust_ring::Ring;
 use rand::Rng;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct SparseMultilinearExtension<Rn: Ring> {
@@ -61,7 +62,7 @@ impl<R: Ring> SparseMultilinearExtension<R> {
             HashMap::with_hasher(core::hash::BuildHasherDefault::<DefaultHasher>::default());
         for _ in 0..num_nonzero_entries {
             let mut index = usize::rand(rng) & ((1 << num_vars) - 1);
-            while map.get(&index).is_some() {
+            while map.contains_key(&index) {
                 index = usize::rand(rng) & ((1 << num_vars) - 1);
             }
             map.entry(index).or_insert(R::rand(rng));
@@ -277,6 +278,7 @@ impl<R: Ring> Sub for SparseMultilinearExtension<R> {
 impl<'a, 'b, R: Ring> Sub<&'a SparseMultilinearExtension<R>> for &'b SparseMultilinearExtension<R> {
     type Output = SparseMultilinearExtension<R>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &'a SparseMultilinearExtension<R>) -> Self::Output {
         self + &rhs.clone().neg()
     }

@@ -350,8 +350,7 @@ impl<
     > MulAssign<Self> for CyclotomicPolyRingSplittedNTT<Q, ROU, N, D, Z, PHI_Z>
 {
     fn mul_assign(&mut self, rhs: Self) {
-        let res = self.ntt_mul(&rhs, Zq::<Q>::from(ROU));
-        *self += res;
+        *self = self.ntt_mul(&rhs, Zq::<Q>::from(ROU));
     }
 }
 
@@ -548,7 +547,6 @@ impl<
 // Into
 
 impl<
-        'a,
         const Q: u64,
         const ROU: u64,
         const N: usize,
@@ -666,8 +664,8 @@ impl<
 
             y = y.inverse().unwrap();
 
-            for i in 0..m.len() {
-                m[i] *= y;
+            for item in m {
+                *item *= y;
             }
         }
         let components = ms
@@ -675,8 +673,8 @@ impl<
             .enumerate()
             .map(|(i, m)| {
                 let mut slice = vec![<Zq::<Q> as Ring>::ZERO; D];
-                for j in 0..D {
-                    slice[j] = self.0[i * D + j]
+                for (j, item) in slice.iter_mut().enumerate().take(D) {
+                    *item = self.0[i * D + j]
                 }
                 polynomial_multiplication::<Q>(m, &slice)
             })
@@ -712,7 +710,7 @@ fn sum_polys<const Q: u64>(polys: &[Vec<Zq<Q>>]) -> Vec<Zq<Q>> {
     result
 }
 
-fn polynomial_multiplication<const Q: u64>(poly1: &Vec<Zq<Q>>, poly2: &Vec<Zq<Q>>) -> Vec<Zq<Q>> {
+fn polynomial_multiplication<const Q: u64>(poly1: &[Zq<Q>], poly2: &[Zq<Q>]) -> Vec<Zq<Q>> {
     let n = poly1.len();
     let m = poly2.len();
     let result_size = n + m - 1;
@@ -727,12 +725,10 @@ fn polynomial_multiplication<const Q: u64>(poly1: &Vec<Zq<Q>>, poly2: &Vec<Zq<Q>
     result
 }
 
-fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(
-    zetas: &Vec<Zq<Q>>,
-) -> Vec<Zq<Q>> {
+fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(zetas: &[Zq<Q>]) -> Vec<Zq<Q>> {
     let mut minimal_poly = vec![<Zq::<Q> as Ring>::ZERO; N + 1];
     minimal_poly[0] = <Zq<Q> as Ring>::ONE;
-    for (_i, &zeta) in zetas.iter().enumerate() {
+    for &zeta in zetas.iter() {
         let temp = minimal_poly.clone();
         minimal_poly.rotate_right(D);
         for j in 0..minimal_poly.len() {
@@ -743,14 +739,16 @@ fn minimal_polynomial<const Q: u64, const N: usize, const D: usize>(
 }
 
 fn polynomial_division<const Q: u64, const N: usize, const D: usize>(
-    minimal_polynomial: &Vec<Zq<Q>>,
+    minimal_polynomial: &[Zq<Q>],
     zeta: Zq<Q>,
 ) -> Vec<Zq<Q>> {
     assert_eq!(N + 1, minimal_polynomial.len());
     let mut quotient = vec![<Zq::<Q> as Ring>::ZERO; N - D + 1];
-    for i in N - 2 * D + 1..N - D + 1 {
+    quotient[(N - 2 * D + 1)..(N - D + 1)]
+        .copy_from_slice(&minimal_polynomial[(N - 2 * D + 1 + D)..(N - D + 1 + D)]);
+    /*for i in N - 2 * D + 1..N - D + 1 {
         quotient[i] = minimal_polynomial[i + D];
-    }
+    }*/
 
     for i in (0..N - 2 * D + 1).rev() {
         quotient[i] = minimal_polynomial[i + D] + (zeta * quotient[i + D]);
@@ -954,8 +952,8 @@ mod tests {
             Zq::<Q>::from(i as u64)
         });
         let mut red_poly = [Zq::<Q>::from(0); N];
-        for i in 0..N / 2 {
-            red_poly[i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
+        for (i, item) in red_poly.iter_mut().enumerate().take(N / 2) {
+            *item = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
         }
         for i in 0..N / 2 {
             red_poly[N / 2 + i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou3;
@@ -985,10 +983,9 @@ mod tests {
         let split1 = reduce(naive_mul_poly_split1, rou);
         let split2 = reduce(naive_mul_poly_split2, rou3);
         let mut naive_coeffs = [Zq::<Q>::from(0); N];
-        for i in 0..D {
-            naive_coeffs[i] = split1[i];
-            naive_coeffs[i + D] = split2[i];
-        }
+
+        naive_coeffs[..D].copy_from_slice(&split1[..D]);
+        naive_coeffs[D..(D + D)].copy_from_slice(&split2[..D]);
 
         let naive_poly =
             CyclotomicPolyRingSplittedNTT::<Q, ROU, N, D, Z, PHI_Z>::from_array(naive_coeffs);

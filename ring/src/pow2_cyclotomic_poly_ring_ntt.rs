@@ -94,7 +94,7 @@ impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Clone
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        *self
     }
 }
 
@@ -425,7 +425,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> MulAssign<&'a Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
@@ -435,7 +435,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     type Output = Self;
@@ -445,7 +445,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn add_assign(&mut self, rhs: Self) {
@@ -453,7 +453,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sub_assign(&mut self, rhs: Self) {
@@ -461,7 +461,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
     }
 }
 
-impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<Self>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, PHI_D>
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
@@ -666,13 +666,13 @@ mod tests {
         let coeffs_1_vec_vec = [1, 2, 3, 4, 5, 6, 7, 8];
         let coeffs_1_vec = coeffs_1_vec_vec
             .into_iter()
-            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .map(Fp::<MontBackend<FermatFqConfig, 1>, 1>::from)
             .collect::<Vec<_>>();
         let mut coeffs_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from_coeffs_vec(coeffs_1_vec);
         let coeffs_2_vec_vec = [8, 7, 6, 5, 4, 3, 2, 1];
         let coeffs_2_vec = coeffs_2_vec_vec
             .into_iter()
-            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .map(Fp::<MontBackend<FermatFqConfig, 1>, 1>::from)
             .collect::<Vec<_>>();
         let coeffs_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from_coeffs_vec(coeffs_2_vec);
 
@@ -704,12 +704,12 @@ mod tests {
     ) {
         let coeffs = coeffs
             .into_iter()
-            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .map(Fp::<MontBackend<FermatFqConfig, 1>, 1>::from)
             .collect::<Vec<_>>();
         let expected_ntt = expected_values
             // Numbers obtained from Python library
             .into_iter()
-            .map(|i| Fp::<MontBackend<FermatFqConfig, 1>, 1>::from(i))
+            .map(Fp::<MontBackend<FermatFqConfig, 1>, 1>::from)
             .collect::<Vec<_>>();
 
         let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE> =

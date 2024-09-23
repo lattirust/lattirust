@@ -90,7 +90,7 @@ where
 impl<T: Scalar, const N: usize> SVector<T, N> {
     pub const fn const_from_array(array: [T; N]) -> Self {
         Self(nalgebra::SVector::<T, N>::from_array_storage(
-            ArrayStorage::<T, { N }, 1> { 0: [array; 1] },
+            ArrayStorage::<T, { N }, 1>([array; 1]),
         ))
     }
 }

@@ -86,7 +86,7 @@ impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Clone
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        *self
     }
 }
 
@@ -382,7 +382,7 @@ impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> MulAssign
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     fn mul_assign(&mut self, rhs: &'a mut Self) {
-        self.poly_mul_in_place(&rhs);
+        self.poly_mul_in_place(rhs);
     }
 }
 
@@ -463,7 +463,7 @@ impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> MulAssign
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     type Output = Self;
@@ -473,7 +473,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Add<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     type Output = Self;
@@ -483,7 +483,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> Sub<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     fn add_assign(&mut self, rhs: Self) {
@@ -491,7 +491,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> AddAssign<Self>
     }
 }
 
-impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
+impl<C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     fn sub_assign(&mut self, rhs: Self) {
@@ -499,7 +499,7 @@ impl<'a, C: RpConfig<N>, const N: usize, const PHI_D: usize> SubAssign<Self>
     }
 }
 
-impl<'a, C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<Self>
+impl<C: RpConfig<N> + 'static, const N: usize, const PHI_D: usize> Sum<Self>
     for CyclotomicPolyRingGeneral<C, N, PHI_D>
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {

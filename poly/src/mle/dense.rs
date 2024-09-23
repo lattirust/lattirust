@@ -6,6 +6,7 @@ use ark_std::cfg_iter;
 
 use super::{swap_bits, MultilinearExtension};
 use lattirust_ring::Ring;
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct DenseMultilinearExtension<Rn: Ring> {
@@ -159,7 +160,7 @@ where
     fn add_assign(&mut self, (r, other): (R, &DenseMultilinearExtension<R>)) {
         let other = Self {
             num_vars: other.num_vars,
-            evaluations: cfg_iter!(other.evaluations).map(|x| r * x).collect(),
+            evaluations: cfg_iter!(other.evaluations).map(|x| r + x).collect(),
         };
         *self = &*self + &other;
     }
@@ -184,6 +185,7 @@ impl<R: Ring> Sub for DenseMultilinearExtension<R> {
 impl<'a, 'b, R: Ring> Sub<&'a DenseMultilinearExtension<R>> for &'b DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &'a DenseMultilinearExtension<R>) -> Self::Output {
         self + &rhs.clone().neg()
     }

@@ -282,7 +282,6 @@ mod tests {
 
     const D: usize = 128;
     const Q: u64 = 65537;
-    const VEC_LENGTH: usize = 32;
     const BASIS_TEST_RANGE: [u128; 5] = [2, 4, 8, 16, 32];
 
     type R = Zq<Q>;

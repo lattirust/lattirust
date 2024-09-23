@@ -168,8 +168,8 @@ pub trait NTT<const Q: u64, const N: usize> {
             m /= 2;
         }
         let n_inv = Zq::<Q>::from(N as u128).inverse().unwrap();
-        for i in 0..N {
-            a[i] *= n_inv;
+        for item in a.iter_mut().take(N) {
+            *item *= n_inv;
         }
     }
 
