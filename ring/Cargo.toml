@@ -14,7 +14,6 @@ ark-serialize = { workspace = true }
 ark-std = { workspace = true }
 delegate = { workspace = true }
 derive_more = { workspace = true }
-num-traits = { workspace = true }
 rayon = { workspace = true }
 rounded-div = { workspace = true }
 serde = { workspace = true }

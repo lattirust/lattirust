@@ -7,17 +7,12 @@ use ark_std::Zero;
 use super::{Fq, Fq3};
 
 /// The degree of the cyclotomic polynomial.
-#[allow(dead_code)]
-const D: usize = 24;
+pub(super) const D: usize = 24;
 
 /// The number of splits of the cyclotomic ring in the CRT-form.
-
-#[allow(dead_code)]
-const N: usize = 8;
+pub(super) const N: usize = 8;
 
 /// All 24 roots of unity of degree 24.
-
-#[allow(dead_code)]
 const ROOTS_OF_UNITY_24: &[Fq] = &[
     Fq::new(BigInt([1u64])),
     Fq::new(BigInt([1099511627776u64])),
@@ -46,16 +41,10 @@ const ROOTS_OF_UNITY_24: &[Fq] = &[
 ];
 
 /// 2 * ROOT_OF_UNITY_24[4] - 1
-
-#[allow(dead_code)]
 const KAPPA: Fq = Fq::new(BigInt([12297829382473034411u64]));
 /// 1 / 8
-
-#[allow(dead_code)]
 const EIGHT_INV: Fq = Fq::new(BigInt([16140901060737761281u64]));
 /// 1 / 4
-
-#[allow(dead_code)]
 const FOUR_INV: Fq = Fq::new(BigInt([13835058052060938241u64]));
 
 /// Given `coefficients` of a polynoimial `f mod X^24 - X^12 + 1`
@@ -76,8 +65,7 @@ const FOUR_INV: Fq = Fq::new(BigInt([13835058052060938241u64]));
 ///
 /// Panics if `coefficients.len() != 24`.
 #[inline(always)]
-#[allow(dead_code)]
-pub fn goldilocks_crt(coefficients: &[Fq]) -> Vec<Fq3> {
+pub fn goldilocks_crt(coefficients: Vec<Fq>) -> Vec<Fq3> {
     // TODO: once we have parallelization set up
     //       this should be either parallel or serial.
     serial_goldilock_crt(coefficients)
@@ -92,7 +80,6 @@ pub fn goldilocks_crt(coefficients: &[Fq]) -> Vec<Fq3> {
 ///
 /// Panics if `coefficients.len() != 24`.
 #[inline(always)]
-#[allow(dead_code)]
 pub fn goldilocks_crt_in_place(coefficients: &mut [Fq]) {
     // TODO: once we have parallelization set up
     //       this should be either parallel or serial.
@@ -117,8 +104,7 @@ pub fn goldilocks_crt_in_place(coefficients: &mut [Fq]) {
 ///
 /// Panics if `evaluations.len() != 8`.
 #[inline(always)]
-#[allow(dead_code)]
-pub fn goldilocks_icrt(evaluations: &[Fq3]) -> Vec<Fq> {
+pub fn goldilocks_icrt(evaluations: Vec<Fq3>) -> Vec<Fq> {
     // TODO: once we have parallelization set up
     //       this should be either parallel or serial.
     serial_goldilock_icrt(evaluations)
@@ -132,17 +118,13 @@ pub fn goldilocks_icrt(evaluations: &[Fq3]) -> Vec<Fq> {
 ///
 /// Panics if `evaluations.len() != 24`.
 #[inline(always)]
-#[allow(dead_code)]
 pub fn goldilocks_icrt_in_place(evaluations: &mut [Fq]) {
     // TODO: once we have parallelization set up
     //       this should be either parallel or serial.
     serial_goldilock_icrt_in_place(evaluations)
 }
 
-#[allow(dead_code)]
-fn serial_goldilock_crt(coefficients: &[Fq]) -> Vec<Fq3> {
-    let mut coefficients = coefficients.to_vec();
-
+fn serial_goldilock_crt(mut coefficients: Vec<Fq>) -> Vec<Fq3> {
     serial_goldilock_crt_in_place(&mut coefficients);
 
     let mut result = vec![Fq3::zero(); N];
@@ -158,7 +140,6 @@ fn serial_goldilock_crt(coefficients: &[Fq]) -> Vec<Fq3> {
     result
 }
 
-#[allow(dead_code)]
 fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
     assert_eq!(coefficients.len(), D);
 
@@ -250,8 +231,7 @@ fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
     homogenize_fq3(coefficients);
 }
 
-#[allow(dead_code)]
-fn serial_goldilock_icrt(evaluations: &[Fq3]) -> Vec<Fq> {
+fn serial_goldilock_icrt(evaluations: Vec<Fq3>) -> Vec<Fq> {
     let mut evaluations_field: Vec<Fq> = vec![Fq::zero(); N * 3];
 
     assert_eq!(evaluations.len(), N);
@@ -267,7 +247,6 @@ fn serial_goldilock_icrt(evaluations: &[Fq3]) -> Vec<Fq> {
     evaluations_field
 }
 
-#[allow(dead_code)]
 fn serial_goldilock_icrt_in_place(evaluations: &mut [Fq]) {
     assert_eq!(evaluations.len(), D);
 
@@ -351,7 +330,6 @@ fn serial_goldilock_icrt_in_place(evaluations: &mut [Fq]) {
 /// this function converts each triple `c[3 * i]`, `c[3 * i + 1]`, `c[3 * i + 2]`
 /// into coefficients of an element from Fq[X]/(X^3-NONRESIDUE)=Fq3.
 #[inline(always)]
-#[allow(dead_code)]
 fn homogenize_fq3(c: &mut [Fq]) {
     nonresidue_to_13_to_nonresidue(&mut c[3..6]);
     nonresidue_to_7_to_nonresidue(&mut c[6..9]);
@@ -364,7 +342,6 @@ fn homogenize_fq3(c: &mut [Fq]) {
 
 /// The inverse of the above.
 #[inline(always)]
-#[allow(dead_code)]
 fn dehomogenize_fq3(c: &mut [Fq]) {
     nonresidue_to_nonresidue_to_13(&mut c[3..6]);
     nonresidue_to_nonresidue_to_7(&mut c[6..9]);
@@ -377,26 +354,22 @@ fn dehomogenize_fq3(c: &mut [Fq]) {
 
 // Different automorphisms with the target Fp(NONRESIDUE) and their inverses.
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_13_to_nonresidue(c: &mut [Fq]) {
     c[1] = -c[1];
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_13(c: &mut [Fq]) {
     c[1] = -c[1];
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_7_to_nonresidue(c: &mut [Fq]) {
     c[1] *= ROOTS_OF_UNITY_24[2];
     c[2] *= ROOTS_OF_UNITY_24[4];
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_7(c: &mut [Fq]) {
     c[1] *= ROOTS_OF_UNITY_24[22];
     c[2] *= ROOTS_OF_UNITY_24[20];
@@ -409,14 +382,12 @@ fn nonresidue_to_19_to_nonresidue(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_19(c: &mut [Fq]) {
     c[1] *= ROOTS_OF_UNITY_24[18];
     c[2] *= ROOTS_OF_UNITY_24[12];
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_5_to_nonresidue(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[3];
@@ -424,7 +395,6 @@ fn nonresidue_to_5_to_nonresidue(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_5(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[23];
@@ -432,7 +402,6 @@ fn nonresidue_to_nonresidue_to_5(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_17_to_nonresidue(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[11];
@@ -440,7 +409,6 @@ fn nonresidue_to_17_to_nonresidue(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_17(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[19];
@@ -448,7 +416,6 @@ fn nonresidue_to_nonresidue_to_17(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_11_to_nonresidue(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[7];
@@ -456,7 +423,6 @@ fn nonresidue_to_11_to_nonresidue(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_11(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[21];
@@ -464,7 +430,6 @@ fn nonresidue_to_nonresidue_to_11(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_23_to_nonresidue(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[15];
@@ -472,7 +437,6 @@ fn nonresidue_to_23_to_nonresidue(c: &mut [Fq]) {
 }
 
 #[inline(always)]
-#[allow(dead_code)]
 fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[17];
@@ -488,7 +452,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::goldilocks::Fq3;
+    use crate::cyclotomic_ring::models::goldilocks::Fq3;
 
     #[test]
     fn test_roots_of_unity() {

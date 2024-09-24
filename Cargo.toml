@@ -22,7 +22,6 @@ derive_more = "0.99.17"
 nalgebra = { version = "0.32.5", features = ["serde-serialize", "rayon"] }
 nalgebra-sparse = "0.9.0"
 nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
-num-traits = "0.2.18"
 rayon = "1.10.0"
 rounded-div = "0.1.2"
 serde = { version = "1.0.197", features = ["derive"] }

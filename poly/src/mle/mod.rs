@@ -5,8 +5,8 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::fmt::Debug;
 use ark_std::hash::Hash;
 use ark_std::ops::{Add, AddAssign, Index, Neg, SubAssign};
+use ark_std::Zero;
 use lattirust_ring::Ring;
-use num_traits::Zero;
 use rand::Rng;
 
 /// This trait describes an interface for the multilinear extension

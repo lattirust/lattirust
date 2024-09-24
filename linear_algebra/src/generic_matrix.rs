@@ -3,6 +3,7 @@
 use ark_std::iter::Sum;
 use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
+use ark_std::{One, Zero};
 use delegate::delegate;
 use derive_more::{Display, From, Index, IndexMut, Into};
 use nalgebra::allocator::Allocator;
@@ -11,7 +12,6 @@ use nalgebra::{
     self, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar,
     Storage, StorageMut, ViewStorage,
 };
-use num_traits::{One, Zero};
 use rayon::prelude::*;
 
 use crate::vector::{GenericRowVector, GenericVector};
