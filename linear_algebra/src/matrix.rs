@@ -4,9 +4,9 @@ use ark_std::ops::Neg;
 
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::{rand, UniformRand};
+use ark_std::{One, Zero};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
-use num_traits::{One, Zero};
 use rayon::prelude::*;
 
 use crate::generic_matrix::GenericMatrix;

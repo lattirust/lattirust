@@ -104,7 +104,7 @@ impl CanonicalDeserialize for SignedRepresentative {
 
 #[cfg(test)]
 mod tests {
-    use crate::Zq;
+    use crate::zn::z_q::Zq;
     use ark_ff::PrimeField;
 
     use super::*;
@@ -127,8 +127,6 @@ mod tests {
     #[test]
     fn test_signed_representative() {
         assert_eq!(Q_HALF, F::MODULUS_MINUS_ONE_DIV_TWO.0[0] as i128);
-        println!("Q_HALF = {Q_HALF}");
-        println!("Q = {Q}");
         for i in (-Q_HALF..=Q_HALF).step_by(TEST_STEP_SIZE) {
             let v1 = SignedRepresentative(i);
             let f2 = F::from(v1);

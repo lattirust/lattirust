@@ -1,7 +1,7 @@
 use ark_std::iter::Sum;
 use ark_std::ops::Mul;
 
-use num_traits::{One, Zero};
+use ark_std::{One, Zero};
 use rayon::prelude::*;
 use rounded_div::RoundedDiv;
 
@@ -274,9 +274,11 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+    use crate::cyclotomic_ring::models::pow2_debug::{
+        Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
+    };
+    use crate::zn::z_q::Zq;
     use crate::PolyRing;
-    use crate::Zq;
 
     use super::*;
 
@@ -285,7 +287,8 @@ mod tests {
     const BASIS_TEST_RANGE: [u128; 5] = [2, 4, 8, 16, 32];
 
     type R = Zq<Q>;
-    type PolyR = Pow2CyclotomicPolyRingNTT<Q, D>;
+    type PolyNTT = Pow2CyclotomicPolyRingNTT<Q, D>;
+    type PolyR = Pow2CyclotomicPolyRing<Q, D>;
 
     #[test]
     fn test_decompose_balanced() {
@@ -352,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_decompose_balanced_polyring() {
-        let v = PolyR::from(get_test_vec());
+        let v = PolyNTT::from(PolyR::from(get_test_vec()));
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
             let decomp = decompose_balanced_polyring(&v, b, None);

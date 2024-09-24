@@ -1,12 +1,12 @@
 use ark_ff::UniformRand;
 use ark_std::rand;
+use ark_std::Zero;
 use delegate::delegate;
 use nalgebra::allocator::Allocator;
 use nalgebra::{
     self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
     ViewStorage,
 };
-use num_traits::Zero;
 
 use crate::generic_matrix::GenericMatrix;
 use crate::Scalar;

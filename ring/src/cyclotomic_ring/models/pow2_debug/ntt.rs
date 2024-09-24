@@ -1,9 +1,10 @@
+#![allow(dead_code)]
 use ark_ff::Field;
 use ark_std::ops::Rem;
+use ark_std::One;
 use num_bigint::{BigUint, ToBigUint};
-use num_traits::One;
 
-use crate::{const_fq_from, Zq};
+use crate::zn::z_q::{const_fq_from, Zq};
 
 //noinspection RsAssertEqual
 /// Return q such that 2^(bit_size-1) <= q < 2^bit_size and q mod 2*N = 1
@@ -110,6 +111,7 @@ const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: 
     pows
 }
 
+#[allow(clippy::upper_case_acronyms)]
 pub trait NTT<const Q: u64, const N: usize> {
     const ROOT_OF_UNITY: u64 = primitive_root_of_unity::<Q, N>();
     const POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
@@ -178,9 +180,9 @@ pub trait NTT<const Q: u64, const N: usize> {
 
 #[cfg(test)]
 mod tests {
-    use num_traits::One;
+    use ark_std::One;
 
-    use crate::Zq;
+    use crate::zn::z_q::Zq;
 
     use super::*;
 

@@ -1,5 +1,3 @@
-use ark_std::ops::Mul;
-
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::PrimeField;
 
@@ -16,11 +14,11 @@ pub trait ConvertibleRing:
 
 pub trait PolyRing:
     Ring
-    + Mul<Self::BaseRing, Output = Self>
+    // + Mul<Self::BaseRing, Output = Self>
     + From<Vec<Self::BaseRing>>
     + FromRandomBytes<Self>
     + From<u128>
-    + From<Self::BaseRing>
+    // + From<Self::BaseRing>
 {
     type BaseRing: Ring;
 
