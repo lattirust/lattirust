@@ -2,7 +2,6 @@
 //! A CRT implementation for the ring Fq[X]/(X^24-X^12+1).
 //!
 use ark_ff::BigInt;
-use ark_std::Zero;
 
 use super::{Fq, Fq3};
 
@@ -127,17 +126,7 @@ pub fn goldilocks_icrt_in_place(evaluations: &mut [Fq]) {
 fn serial_goldilock_crt(mut coefficients: Vec<Fq>) -> Vec<Fq3> {
     serial_goldilock_crt_in_place(&mut coefficients);
 
-    let mut result = vec![Fq3::zero(); N];
-
-    for i in 0..N {
-        result[i] = Fq3::new(
-            coefficients[i * 3],
-            coefficients[i * 3 + 1],
-            coefficients[i * 3 + 2],
-        );
-    }
-
-    result
+    super::utils::fq_vec_to_fq3_vec(coefficients)
 }
 
 fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
@@ -232,19 +221,13 @@ fn serial_goldilock_crt_in_place(coefficients: &mut [Fq]) {
 }
 
 fn serial_goldilock_icrt(evaluations: Vec<Fq3>) -> Vec<Fq> {
-    let mut evaluations_field: Vec<Fq> = vec![Fq::zero(); N * 3];
-
     assert_eq!(evaluations.len(), N);
 
-    for i in 0..N {
-        evaluations_field[i * 3] = evaluations[i].c0;
-        evaluations_field[i * 3 + 1] = evaluations[i].c1;
-        evaluations_field[i * 3 + 2] = evaluations[i].c2;
-    }
+    let mut evaluations = super::utils::fq3_vec_to_fq_vec(evaluations);
 
-    serial_goldilock_icrt_in_place(&mut evaluations_field);
+    serial_goldilock_icrt_in_place(&mut evaluations);
 
-    evaluations_field
+    evaluations
 }
 
 fn serial_goldilock_icrt_in_place(evaluations: &mut [Fq]) {
@@ -448,7 +431,7 @@ mod tests {
     #[allow(unused_imports)]
     use ark_ff::{Field, MontFp, UniformRand};
     #[allow(unused_imports)]
-    use ark_std::One;
+    use ark_std::{One, Zero};
     use rand::thread_rng;
 
     use super::*;
@@ -785,5 +768,48 @@ mod tests {
         for _i in 0..1000000 {
             test_crt_icrt();
         }
+    }
+
+    #[test]
+    fn test_crt_non_inplace() {
+        let mut rng = thread_rng();
+        let mut coefficients: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
+
+        let non_in_place = serial_goldilock_crt(coefficients.clone());
+
+        serial_goldilock_crt_in_place(&mut coefficients);
+
+        for i in 0..N {
+            assert_eq!(
+                non_in_place[i],
+                Fq3::new(
+                    coefficients[3 * i],
+                    coefficients[3 * i + 1],
+                    coefficients[3 * i + 2]
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_icrt_non_inplace() {
+        let mut rng = thread_rng();
+        let mut evaluations: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
+
+        let mut non_in_place: Vec<Fq3> = vec![Fq3::ZERO; N];
+
+        for i in 0..N {
+            non_in_place[i] = Fq3::new(
+                evaluations[3 * i],
+                evaluations[3 * i + 1],
+                evaluations[3 * i + 2],
+            );
+        }
+
+        let non_in_place = serial_goldilock_icrt(non_in_place);
+
+        serial_goldilock_icrt_in_place(&mut evaluations);
+
+        assert_eq!(non_in_place, evaluations);
     }
 }

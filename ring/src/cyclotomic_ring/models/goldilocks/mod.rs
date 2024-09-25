@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod ntt;
+mod utils;
 
 mod fq_def {
     #![allow(non_local_definitions)]

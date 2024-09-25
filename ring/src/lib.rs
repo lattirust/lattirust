@@ -1,10 +1,11 @@
-#![feature(const_trait_impl)]
 #![allow(incomplete_features)]
+#![allow(non_snake_case)]
+#![feature(const_option)]
+#![feature(const_trait_impl)]
+#![feature(generic_const_exprs)]
 #![feature(inherent_associated_types)]
 #![feature(int_roundings)]
-#![feature(const_option)]
-#![allow(non_snake_case)]
-#![feature(generic_const_exprs)]
+#![feature(vec_into_raw_parts)]
 // Exports
 pub use poly_ring::*;
 pub use representatives::{SignedRepresentative, UnsignedRepresentative};
