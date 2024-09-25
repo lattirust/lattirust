@@ -4,7 +4,7 @@ use crate::{
     balanced_decomposition::{decompose_balanced_polyring, Decompose},
     cyclotomic_ring::{models::pow2_debug::Fp64Pow2, CyclotomicPolyRingGeneral},
     traits::{WithL2Norm, WithLinfNorm},
-    PolyRing, WithRot,
+    OverField, PolyRing, WithRot,
 };
 
 use super::Pow2Rp64Config;
@@ -45,3 +45,5 @@ impl<const Q: u64, const PHI_D: usize> WithRot for Pow2CyclotomicPolyRing<Q, PHI
         result
     }
 }
+
+impl<const Q: u64, const PHI_D: usize> OverField for Pow2CyclotomicPolyRing<Q, PHI_D> {}

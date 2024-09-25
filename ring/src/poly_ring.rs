@@ -1,5 +1,7 @@
+use ark_std::ops::Mul;
+
 use ark_crypto_primitives::sponge::Absorb;
-use ark_ff::PrimeField;
+use ark_ff::Field;
 
 use crate::balanced_decomposition::{decompose_balanced, Decompose};
 use crate::representatives::{SignedRepresentative, UnsignedRepresentative};
@@ -12,14 +14,7 @@ pub trait ConvertibleRing:
 {
 }
 
-pub trait PolyRing:
-    Ring
-    // + Mul<Self::BaseRing, Output = Self>
-    + From<Vec<Self::BaseRing>>
-    + FromRandomBytes<Self>
-    + From<u128>
-    // + From<Self::BaseRing>
-{
+pub trait PolyRing: Ring + From<Vec<Self::BaseRing>> + FromRandomBytes<Self> + From<u128> {
     type BaseRing: Ring;
 
     fn coeffs(&self) -> Vec<Self::BaseRing>;
@@ -47,7 +42,12 @@ impl<R: ConvertibleRing> Decompose for R {
     }
 }
 
-pub trait OverField: PolyRing<BaseRing: PrimeField + Absorb> {}
+pub trait OverField:
+    PolyRing<BaseRing: Field<BasePrimeField: Absorb>>
+    + Mul<Self::BaseRing, Output = Self>
+    + From<Self::BaseRing>
+{
+}
 
 pub trait WithRot: PolyRing {
     fn rot(&self) -> Matrix<Self::BaseRing> {

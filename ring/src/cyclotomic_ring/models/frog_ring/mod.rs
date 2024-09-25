@@ -1,9 +1,12 @@
+use std::ops::Mul;
+
 use ark_ff::{Field, Fp2, Fp2Config, Fp4, Fp4Config, MontBackend, MontFp};
 
+use crate::poly_ring::PolyRing;
 use crate::{
     cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
     traits::FromRandomBytes,
-    Ring,
+    OverField, Ring,
 };
 
 mod ntt;
@@ -103,6 +106,23 @@ impl CyclotomicConfig<1> for FrogRingConfig {
     #[inline(always)]
     fn icrt_in_place(evaluations: &mut Vec<Fq>) {
         ntt::frog_icrt_in_place(evaluations);
+    }
+}
+
+impl OverField for RqPoly {}
+impl OverField for RqNTT {}
+
+impl Mul<Fq4> for RqNTT {
+    type Output = Self;
+
+    fn mul(self, rhs: Fq4) -> Self {
+        Self(self.0.map(|x| x * rhs))
+    }
+}
+
+impl From<Fq4> for RqNTT {
+    fn from(value: Fq4) -> Self {
+        Self::from_scalar(value)
     }
 }
 
