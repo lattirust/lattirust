@@ -5,7 +5,7 @@ use ark_ff::{Field, Fp64};
 use crate::{
     cyclotomic_ring::{CyclotomicPolyRingNTTGeneral, RpConfig},
     traits::{WithL2Norm, WithLinfNorm},
-    PolyRing, WithRot,
+    OverField, PolyRing, WithRot,
 };
 
 use super::Pow2Rp64Config;
@@ -53,5 +53,15 @@ impl<const Q: u64, const PHI_D: usize> Mul<Fp64Pow2<Q, PHI_D>>
 
     fn mul(self, rhs: Fp64Pow2<Q, PHI_D>) -> Self::Output {
         self.mul(Self::from_scalar(rhs))
+    }
+}
+
+impl<const Q: u64, const PHI_D: usize> OverField for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {}
+
+impl<const Q: u64, const PHI_D: usize> From<Fp64Pow2<Q, PHI_D>>
+    for Pow2CyclotomicPolyRingNTT<Q, PHI_D>
+{
+    fn from(value: Fp64Pow2<Q, PHI_D>) -> Self {
+        Self::from_scalar(value)
     }
 }

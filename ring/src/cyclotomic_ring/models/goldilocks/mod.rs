@@ -1,9 +1,11 @@
 use ark_ff::{Field, Fp3, Fp3Config, MontBackend, MontFp};
+use ark_std::ops::Mul;
 
+use crate::PolyRing;
 use crate::{
     cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
     traits::FromRandomBytes,
-    Ring,
+    OverField, Ring,
 };
 
 mod ntt;
@@ -119,6 +121,23 @@ impl CyclotomicConfig<1> for GoldilocksRingConfig {
     #[inline(always)]
     fn icrt_in_place(evaluations: &mut Vec<Fq>) {
         ntt::goldilocks_icrt_in_place(evaluations);
+    }
+}
+
+impl OverField for RqPoly {}
+impl OverField for RqNTT {}
+
+impl Mul<Fq3> for RqNTT {
+    type Output = Self;
+
+    fn mul(self, rhs: Fq3) -> Self {
+        Self(self.0.map(|x| x * rhs))
+    }
+}
+
+impl From<Fq3> for RqNTT {
+    fn from(value: Fq3) -> Self {
+        Self::from_scalar(value)
     }
 }
 
