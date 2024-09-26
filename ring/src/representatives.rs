@@ -1,19 +1,15 @@
-use ark_std::io::{Read, Write};
+use std::ops::{BitXor, Div, DivAssign, Rem};
+
 use ark_std::ops::Mul;
 
 use ark_ff::{One, Zero};
-use ark_serialize::Validate::Yes;
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
-};
+use ark_serialize::{SerializationError, Valid};
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Product, Sub, SubAssign, Sum};
-use serde::{Deserialize, Serialize};
+use num_bigint::{BigInt, BigUint};
+use num_integer::Integer;
+use num_traits::Num;
 
 // Work-around to allow us implementing From traits
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct UnsignedRepresentative(pub u128);
-
 #[derive(
     Clone,
     Copy,
@@ -21,8 +17,6 @@ pub struct UnsignedRepresentative(pub u128);
     Display,
     PartialEq,
     Eq,
-    Serialize,
-    Deserialize,
     Add,
     AddAssign,
     Sub,
@@ -35,70 +29,314 @@ pub struct UnsignedRepresentative(pub u128);
 #[mul(forward)]
 #[mul_assign(forward)]
 #[repr(transparent)]
-pub struct SignedRepresentative(pub i128);
+pub struct UnsignedRepresentative<T>(pub T);
 
-impl Zero for SignedRepresentative {
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Display,
+    PartialEq,
+    Eq,
+    Add,
+    AddAssign,
+    Sub,
+    SubAssign,
+    Mul,
+    MulAssign,
+    Sum,
+    Product,
+)]
+#[mul(forward)]
+#[mul_assign(forward)]
+#[repr(transparent)]
+pub struct SignedRepresentative<T>(pub T);
+
+impl<T: Zero> Zero for SignedRepresentative<T> {
     fn zero() -> Self {
-        SignedRepresentative(0)
+        SignedRepresentative(T::zero())
     }
 
     fn is_zero(&self) -> bool {
-        self.0 == 0
+        self.0.is_zero()
     }
 }
 
-impl One for SignedRepresentative {
+impl<T: One> One for SignedRepresentative<T> {
     fn one() -> Self {
-        SignedRepresentative(1)
+        SignedRepresentative(T::one())
     }
 }
 
-impl<'a> Mul<&'a SignedRepresentative> for &'a SignedRepresentative {
-    type Output = SignedRepresentative;
+impl<T: Zero> Zero for UnsignedRepresentative<T> {
+    fn zero() -> Self {
+        UnsignedRepresentative(T::zero())
+    }
 
-    fn mul(self, rhs: &'a SignedRepresentative) -> Self::Output {
-        SignedRepresentative(self.0 * rhs.0)
+    fn is_zero(&self) -> bool {
+        self.0.is_zero()
     }
 }
 
-impl CanonicalSerialize for SignedRepresentative {
-    fn serialize_with_mode<W: Write>(
-        &self,
-        mut writer: W,
-        _compress: Compress,
-    ) -> Result<(), SerializationError> {
-        writer
-            .write(&self.0.to_be_bytes())
-            .map(|_| ())
-            .map_err(SerializationError::IoError)
-    }
-
-    fn serialized_size(&self, _compress: Compress) -> usize {
-        16
+impl<T: One> One for UnsignedRepresentative<T> {
+    fn one() -> Self {
+        UnsignedRepresentative(T::one())
     }
 }
 
-impl Valid for SignedRepresentative {
+impl<'a, T: Clone + Mul<&'a T, Output = T>> Mul<&'a SignedRepresentative<T>>
+    for &'a SignedRepresentative<T>
+{
+    type Output = SignedRepresentative<T>;
+
+    fn mul(self, rhs: &'a SignedRepresentative<T>) -> Self::Output {
+        SignedRepresentative(self.0.clone() * &rhs.0)
+    }
+}
+
+impl<'a, T: Clone + Mul<&'a T, Output = T>> Mul<&'a UnsignedRepresentative<T>>
+    for &'a UnsignedRepresentative<T>
+{
+    type Output = UnsignedRepresentative<T>;
+
+    fn mul(self, rhs: &'a UnsignedRepresentative<T>) -> Self::Output {
+        UnsignedRepresentative(self.0.clone() * &rhs.0)
+    }
+}
+
+// impl CanonicalSerialize for SignedRepresentative {
+//     fn serialize_with_mode<W: Write>(
+//         &self,
+//         mut writer: W,
+//         _compress: Compress,
+//     ) -> Result<(), SerializationError> {
+//         writer
+//             .write(&self.0.to_be_bytes())
+//             .map(|_| ())
+//             .map_err(SerializationError::IoError)
+//     }
+
+//     fn serialized_size(&self, _compress: Compress) -> usize {
+//         16
+//     }
+// }
+
+impl<T: Send + Sync> Valid for SignedRepresentative<T> {
     fn check(&self) -> Result<(), SerializationError> {
         Ok(())
     }
 }
 
-impl CanonicalDeserialize for SignedRepresentative {
-    fn deserialize_with_mode<R: Read>(
-        mut reader: R,
-        _compress: Compress,
-        validate: Validate,
-    ) -> Result<Self, SerializationError> {
-        let mut bytes = [0u8; 16];
-        reader
-            .read_exact(&mut bytes)
-            .map_err(SerializationError::IoError)?;
-        let value = i128::from_be_bytes(bytes);
-        if validate == Yes {
-            SignedRepresentative(value).check()?;
-        }
-        Ok(SignedRepresentative(value))
+// impl CanonicalDeserialize for SignedRepresentative {
+//     fn deserialize_with_mode<R: Read>(
+//         mut reader: R,
+//         _compress: Compress,
+//         validate: Validate,
+//     ) -> Result<Self, SerializationError> {
+//         let mut bytes = [0u8; 16];
+//         reader
+//             .read_exact(&mut bytes)
+//             .map_err(SerializationError::IoError)?;
+//         let value = i128::from_be_bytes(bytes);
+//         if validate == Yes {
+//             SignedRepresentative(value).check()?;
+//         }
+//         Ok(SignedRepresentative(value))
+//     }
+// }
+
+impl<T: Into<BigInt>> From<SignedRepresentative<T>> for BigInt {
+    fn from(value: SignedRepresentative<T>) -> Self {
+        value.0.into()
+    }
+}
+
+impl<T: Into<BigUint>> From<UnsignedRepresentative<T>> for BigUint {
+    fn from(value: UnsignedRepresentative<T>) -> Self {
+        value.0.into()
+    }
+}
+
+impl<T: PartialOrd> PartialOrd for SignedRepresentative<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl<T: PartialOrd> PartialOrd for UnsignedRepresentative<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.0.partial_cmp(&other.0)
+    }
+}
+
+impl<T: Ord> Ord for SignedRepresentative<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+impl<T: Ord> Ord for UnsignedRepresentative<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl<T: Num> Num for SignedRepresentative<T> {
+    type FromStrRadixErr = T::FromStrRadixErr;
+
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        T::from_str_radix(str, radix).map(|x| Self(x))
+    }
+}
+
+impl<T: Num> Num for UnsignedRepresentative<T> {
+    type FromStrRadixErr = T::FromStrRadixErr;
+
+    fn from_str_radix(str: &str, radix: u32) -> Result<Self, Self::FromStrRadixErr> {
+        T::from_str_radix(str, radix).map(|x| Self(x))
+    }
+}
+
+impl<T: Div<Output = T>> Div for SignedRepresentative<T> {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self(self.0.div(rhs.0))
+    }
+}
+
+impl<T: Rem<Output = T>> Rem for SignedRepresentative<T> {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self(self.0.rem(rhs.0))
+    }
+}
+
+impl<T: Div<Output = T>> Div for UnsignedRepresentative<T> {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self(self.0.div(rhs.0))
+    }
+}
+
+impl<T: Rem<Output = T>> Rem for UnsignedRepresentative<T> {
+    type Output = Self;
+
+    fn rem(self, rhs: Self) -> Self::Output {
+        Self(self.0.rem(rhs.0))
+    }
+}
+
+impl<T: Integer> Integer for SignedRepresentative<T> {
+    fn div_floor(&self, other: &Self) -> Self {
+        Self(self.0.div_floor(&other.0))
+    }
+
+    fn mod_floor(&self, other: &Self) -> Self {
+        Self(self.0.mod_floor(&other.0))
+    }
+
+    fn gcd(&self, other: &Self) -> Self {
+        Self(self.0.gcd(&other.0))
+    }
+
+    fn lcm(&self, other: &Self) -> Self {
+        Self(self.0.lcm(&other.0))
+    }
+
+    fn is_multiple_of(&self, other: &Self) -> bool {
+        self.0.is_multiple_of(&other.0)
+    }
+
+    fn is_even(&self) -> bool {
+        self.0.is_even()
+    }
+
+    fn is_odd(&self) -> bool {
+        self.0.is_odd()
+    }
+
+    fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let (q, r) = self.0.div_rem(&other.0);
+
+        (Self(q), Self(r))
+    }
+}
+
+impl<T: Integer> Integer for UnsignedRepresentative<T> {
+    fn div_floor(&self, other: &Self) -> Self {
+        Self(self.0.div_floor(&other.0))
+    }
+
+    fn mod_floor(&self, other: &Self) -> Self {
+        Self(self.0.mod_floor(&other.0))
+    }
+
+    fn gcd(&self, other: &Self) -> Self {
+        Self(self.0.gcd(&other.0))
+    }
+
+    fn lcm(&self, other: &Self) -> Self {
+        Self(self.0.lcm(&other.0))
+    }
+
+    fn is_multiple_of(&self, other: &Self) -> bool {
+        self.0.is_multiple_of(&other.0)
+    }
+
+    fn is_even(&self) -> bool {
+        self.0.is_even()
+    }
+
+    fn is_odd(&self) -> bool {
+        self.0.is_odd()
+    }
+
+    fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let (q, r) = self.0.div_rem(&other.0);
+
+        (Self(q), Self(r))
+    }
+}
+
+impl<T: DivAssign> DivAssign for SignedRepresentative<T> {
+    fn div_assign(&mut self, rhs: Self) {
+        self.0.div_assign(rhs.0);
+    }
+}
+
+impl<T: DivAssign> DivAssign for UnsignedRepresentative<T> {
+    fn div_assign(&mut self, rhs: Self) {
+        self.0.div_assign(rhs.0);
+    }
+}
+
+impl<T> From<T> for SignedRepresentative<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+
+impl<T> From<T> for UnsignedRepresentative<T> {
+    fn from(value: T) -> Self {
+        Self(value)
+    }
+}
+
+impl<T: BitXor<Output = T>> BitXor<SignedRepresentative<T>> for SignedRepresentative<T> {
+    type Output = Self;
+
+    fn bitxor(self, rhs: SignedRepresentative<T>) -> Self::Output {
+        Self(self.0.bitxor(rhs.0))
+    }
+}
+
+impl<T: BitXor<Output = T>> BitXor<UnsignedRepresentative<T>> for UnsignedRepresentative<T> {
+    type Output = Self;
+
+    fn bitxor(self, rhs: UnsignedRepresentative<T>) -> Self::Output {
+        Self(self.0.bitxor(rhs.0))
     }
 }
 
@@ -119,7 +357,7 @@ mod tests {
     fn test_unsigned_representative() {
         for i in (0..Q).step_by(TEST_STEP_SIZE) {
             let f1 = F::from(i);
-            let v1 = UnsignedRepresentative::from(f1);
+            let v1: UnsignedRepresentative<u128> = UnsignedRepresentative::from(f1);
             assert_eq!(i, v1.0);
         }
     }
@@ -128,7 +366,7 @@ mod tests {
     fn test_signed_representative() {
         assert_eq!(Q_HALF, F::MODULUS_MINUS_ONE_DIV_TWO.0[0] as i128);
         for i in (-Q_HALF..=Q_HALF).step_by(TEST_STEP_SIZE) {
-            let v1 = SignedRepresentative(i);
+            let v1 = SignedRepresentative::from(i);
             let f2 = F::from(v1);
             let v2 = SignedRepresentative::from(f2);
             assert_eq!(v1.0, v2.0);

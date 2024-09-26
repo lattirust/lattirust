@@ -1,17 +1,39 @@
+use std::ops::{BitXor, DivAssign};
+
 use ark_std::ops::Mul;
 
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::Field;
+use num_bigint::{BigInt, BigUint};
+use num_integer::Integer;
 
 use crate::balanced_decomposition::{decompose_balanced, Decompose};
-use crate::representatives::{SignedRepresentative, UnsignedRepresentative};
 use crate::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
 use crate::Ring;
 use lattirust_linear_algebra::{Matrix, Vector};
+use num_traits::sign::Signed;
 
 pub trait ConvertibleRing:
-    Ring + Into<UnsignedRepresentative> + Into<SignedRepresentative> + From<SignedRepresentative>
+    Ring
+    + Into<Self::UnsignedInt>
+    + Into<Self::SignedInt>
+    + From<Self::UnsignedInt>
+    + From<Self::SignedInt>
 {
+    type UnsignedInt: Integer
+        + Into<BigUint>
+        + DivAssign<Self::UnsignedInt>
+        + From<u128>
+        + Clone
+        + BitXor<Output = Self::UnsignedInt>
+        + Sized;
+    type SignedInt: Integer
+        + Into<BigInt>
+        + DivAssign<Self::SignedInt>
+        + From<i128>
+        + Clone
+        + BitXor<Output = Self::SignedInt>
+        + Sized;
 }
 
 pub trait PolyRing: Ring + From<Vec<Self::BaseRing>> + FromRandomBytes<Self> + From<u128> {
@@ -87,13 +109,19 @@ pub trait WithRot: PolyRing {
 
 // Norms
 impl<F: ConvertibleRing> WithL2Norm for F {
-    fn l2_norm_squared(&self) -> u128 {
-        Into::<SignedRepresentative>::into(*self).0.pow(2) as u128
+    fn l2_norm_squared(&self) -> BigUint {
+        let x: <F as ConvertibleRing>::SignedInt = (*self).into();
+        let x: BigInt = x.into();
+
+        x.pow(2).try_into().unwrap()
     }
 }
 
 impl<F: ConvertibleRing> WithLinfNorm for F {
-    fn linf_norm(&self) -> u128 {
-        Into::<SignedRepresentative>::into(*self).0.unsigned_abs()
+    fn linf_norm(&self) -> BigUint {
+        let x: <F as ConvertibleRing>::SignedInt = (*self).into();
+        let x: BigInt = x.into();
+
+        x.abs().to_biguint().unwrap()
     }
 }
