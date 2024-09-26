@@ -512,6 +512,32 @@ mod tests {
         }
     }
 
+    macro_rules! test_extension_equations {
+        ($($root_of_unity:expr, $inverse:expr),+) => {
+            $({
+                let mut x_prime: Vec<Fq> = vec![Fq::ZERO, Fq::ONE, Fq::ZERO];
+                $inverse(&mut x_prime);
+
+                let x_prime = Fq3::new(x_prime[0], x_prime[1], x_prime[2]);
+
+                assert_eq!(x_prime * x_prime * x_prime - Fq3::from_base_prime_field($root_of_unity), Fq3::ZERO);
+            })+
+        };
+    }
+
+    #[test]
+    fn test_equations() {
+        test_extension_equations! {
+            ROOTS_OF_UNITY_24[13], nonresidue_to_13_to_nonresidue,
+            ROOTS_OF_UNITY_24[7], nonresidue_to_7_to_nonresidue,
+            ROOTS_OF_UNITY_24[19], nonresidue_to_19_to_nonresidue,
+            ROOTS_OF_UNITY_24[5], nonresidue_to_5_to_nonresidue,
+            ROOTS_OF_UNITY_24[17], nonresidue_to_17_to_nonresidue,
+            ROOTS_OF_UNITY_24[11], nonresidue_to_11_to_nonresidue,
+            ROOTS_OF_UNITY_24[23], nonresidue_to_23_to_nonresidue
+        };
+    }
+
     #[test]
     fn test_normalize_denormalize() {
         let mut rng = thread_rng();

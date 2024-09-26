@@ -335,12 +335,34 @@ mod tests {
     }
 
     #[test]
-    fn test_squares() {
+    fn test_powers() {
         test_powers_of_x! {
             nonresidue_to_nonresidue,
             nonresidue_to_7_to_nonresidue,
             nonresidue_to_5_to_nonresidue,
             nonresidue_to_3_to_nonresidue
+        };
+    }
+
+    macro_rules! test_extension_equations {
+        ($($root_of_unity:expr, $inverse:expr),+) => {
+            $({
+                let mut x_prime: Vec<Fq> = vec![Fq::ZERO, Fq::ONE, Fq::ZERO, Fq::ZERO];
+                $inverse(&mut x_prime);
+
+                let x_prime = Fq4::new(Fq2::new(x_prime[0], x_prime[1]), Fq2::new(x_prime[2], x_prime[3]));
+
+                assert_eq!(x_prime * x_prime * x_prime * x_prime - Fq4::from_base_prime_field($root_of_unity), Fq4::ZERO);
+            })+
+        };
+    }
+
+    #[test]
+    fn test_equations() {
+        test_extension_equations! {
+            ROOTS_OF_UNITY_8[7], nonresidue_to_7_to_nonresidue,
+            ROOTS_OF_UNITY_8[5], nonresidue_to_5_to_nonresidue,
+            ROOTS_OF_UNITY_8[3], nonresidue_to_3_to_nonresidue
         };
     }
 
