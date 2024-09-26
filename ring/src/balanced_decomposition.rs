@@ -1,25 +1,20 @@
+use std::ops::BitXor;
+
 use ark_std::iter::Sum;
 use ark_std::ops::Mul;
 
 use ark_std::{One, Zero};
+use num_bigint::BigInt;
+use num_integer::Integer;
+use num_traits::Signed;
 use rayon::prelude::*;
-use rounded_div::RoundedDiv;
 
-use crate::{ConvertibleRing, PolyRing, Ring, SignedRepresentative};
+use crate::{ConvertibleRing, PolyRing, Ring};
 use lattirust_linear_algebra::{Matrix, SymmetricMatrix};
 use lattirust_linear_algebra::{RowVector, Vector};
 
 pub trait Decompose: Sized {
     fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self>;
-}
-
-/// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
-pub fn balanced_decomposition_max_length(b: u128, max: u128) -> usize {
-    if max == 0 {
-        0
-    } else {
-        (max as f64).log(b as f64).floor() as usize + 1 + 1 // +1 because we are using balanced decomposition
-    }
 }
 
 /// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
@@ -35,6 +30,17 @@ pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
     (0..cols)
         .map(|col| (0..rows).map(|row| v[row][col]).collect::<Vec<F>>())
         .collect()
+}
+
+pub fn rounded_div<T: Integer + From<i128> + BitXor<Output = T> + Clone>(
+    dividend: T,
+    divisor: T,
+) -> T {
+    if dividend.clone() ^ divisor.clone() >= T::zero() {
+        (dividend + (divisor.clone() / From::from(2))) / divisor.clone()
+    } else {
+        (dividend - (divisor.clone() / From::from(2))) / divisor.clone()
+    }
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -61,24 +67,26 @@ pub fn decompose_balanced<R: ConvertibleRing>(
 
     let b_half_floor = b.div_euclid(2);
     let b = b as i128;
-    let mut decomp_bal_signed = Vec::<i128>::new();
-    let mut curr = Into::<SignedRepresentative>::into(*v).0;
+    let mut decomp_bal_signed = Vec::<R::SignedInt>::new();
+    let mut curr = Into::<R::SignedInt>::into(*v);
     loop {
-        let rem = curr % b; // rem = curr % b is in [-(b-1), (b-1)]
+        let rem = curr.clone() % b.into(); // rem = curr % b is in [-(b-1), (b-1)]
+
+        let rem_bigint: BigInt = rem.clone().into();
 
         // Ensure digit is in [-b/2, b/2]
-        if rem.unsigned_abs() <= b_half_floor {
-            decomp_bal_signed.push(rem);
-            curr /= b; // Rust integer division rounds towards zero
+        if rem_bigint.abs() <= b_half_floor.into() {
+            decomp_bal_signed.push(rem.clone());
+            curr /= b.into(); // Rust integer division rounds towards zero
         } else {
             // The next element in the decomposition is sign(rem) * (|rem| - b)
-            if rem < 0 {
-                decomp_bal_signed.push(rem + b);
+            if rem < 0.into() {
+                decomp_bal_signed.push(rem.clone() + b.into());
             } else {
-                decomp_bal_signed.push(rem - b);
+                decomp_bal_signed.push(rem.clone() - b.into());
             }
-            let carry = rem.rounded_div(b); // Round toward nearest integer, not towards 0
-            curr = (curr / b) + carry;
+            let carry = rounded_div(rem, b.into()); // Round toward nearest integer, not towards 0
+            curr = (curr / b.into()) + carry;
         }
 
         if curr.is_zero() {
@@ -93,17 +101,17 @@ pub fn decompose_balanced<R: ConvertibleRing>(
             padding_size,
             decomp_bal_signed.len(),
         );
-        decomp_bal_signed.resize(padding_size, 0);
+        decomp_bal_signed.resize(padding_size, 0.into());
     } else {
         // Strip trailing zeros
-        while decomp_bal_signed.last() == Some(&0) {
+        while decomp_bal_signed.last() == Some(&R::SignedInt::zero()) {
             decomp_bal_signed.pop();
         }
     }
 
     decomp_bal_signed
-        .into_par_iter()
-        .map(|x| Into::<R>::into(SignedRepresentative(x)))
+        .into_iter()
+        .map(|x| Into::<R>::into(x))
         .collect::<Vec<R>>()
 }
 
@@ -279,6 +287,7 @@ mod tests {
     };
     use crate::zn::z_q::Zq;
     use crate::PolyRing;
+    use crate::SignedRepresentative;
 
     use super::*;
 
@@ -297,11 +306,6 @@ mod tests {
             let b_half = R::from(b / 2);
             for v in &vs {
                 let decomp = decompose_balanced(v, b, None);
-
-                // Check that the decomposition length is correct
-                let max = SignedRepresentative::from(*v).0.unsigned_abs();
-                let max_decomp_length = balanced_decomposition_max_length(b, max);
-                assert!(decomp.len() <= max_decomp_length);
 
                 // Check that all entries are smaller than b/2
                 for v_i in &decomp {
@@ -328,19 +332,10 @@ mod tests {
             let b_half = b / 2;
             let decomp = decompose_balanced_vec(&v, b, None);
 
-            // Check that the decomposition length is correct
-            let max = v
-                .iter()
-                .map(|x| SignedRepresentative::from(*x).0.unsigned_abs())
-                .max()
-                .unwrap();
-            let max_decomp_length = balanced_decomposition_max_length(b, max);
-            assert!(decomp.len() <= max_decomp_length);
-
             // Check that all entries are smaller than b/2 in absolute value
             for d_i in &decomp {
                 for d_ij in d_i {
-                    let s_ij = SignedRepresentative::from(*d_ij).0;
+                    let s_ij: i128 = SignedRepresentative::from(*d_ij).0;
                     assert!(s_ij.unsigned_abs() <= b_half);
                 }
             }
@@ -362,7 +357,7 @@ mod tests {
 
             for d_i in &decomp {
                 for d_ij in d_i.coeffs() {
-                    let s_ij = SignedRepresentative::from(d_ij).0;
+                    let s_ij: i128 = SignedRepresentative::from(d_ij).0;
                     assert!(s_ij.unsigned_abs() <= b_half);
                 }
             }

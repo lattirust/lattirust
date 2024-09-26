@@ -603,6 +603,8 @@ dependencies = [
  "derive_more",
  "lattirust-linear-algebra",
  "num-bigint",
+ "num-integer",
+ "num-traits",
  "rand",
  "rayon",
  "rounded-div",

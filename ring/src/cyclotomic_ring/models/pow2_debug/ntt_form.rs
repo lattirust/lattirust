@@ -1,6 +1,7 @@
 use std::ops::Mul;
 
 use ark_ff::{Field, Fp64};
+use num_bigint::BigUint;
 
 use crate::{
     cyclotomic_ring::{CyclotomicPolyRingNTTGeneral, RpConfig},
@@ -19,13 +20,13 @@ pub type Pow2CyclotomicPolyRingNTT<const Q: u64, const PHI_D: usize> =
     CyclotomicPolyRingNTTGeneral<Pow2Rp64Config<Q, PHI_D>, 1, PHI_D>;
 
 impl<const Q: u64, const PHI_D: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.coeffs().l2_norm_squared()
     }
 }
 
 impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.coeffs().linf_norm()
     }
 }

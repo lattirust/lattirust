@@ -1,4 +1,5 @@
 use ark_ff::Field;
+use num_bigint::BigUint;
 
 use crate::{
     balanced_decomposition::{decompose_balanced_polyring, Decompose},
@@ -18,13 +19,13 @@ impl<const Q: u64, const PHI_D: usize> Decompose for Pow2CyclotomicPolyRing<Q, P
     }
 }
 impl<const Q: u64, const PHI_D: usize> WithL2Norm for Pow2CyclotomicPolyRing<Q, PHI_D> {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.coeffs().l2_norm_squared()
     }
 }
 
 impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRing<Q, PHI_D> {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.coeffs().linf_norm()
     }
 }

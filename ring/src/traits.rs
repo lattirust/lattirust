@@ -3,36 +3,33 @@ use num_bigint::BigUint;
 // use crate::linear_algebra::Vector;
 
 pub trait WithL2Norm {
-    fn l2_norm(&self) -> f64 {
-        (self.l2_norm_squared() as f64).sqrt()
-    }
-    fn l2_norm_squared(&self) -> u128;
+    fn l2_norm_squared(&self) -> BigUint;
 }
 
 impl<R: WithL2Norm> WithL2Norm for [R] {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.iter().map(|x| x.l2_norm_squared()).sum()
     }
 }
 
 impl<R: WithL2Norm> WithL2Norm for Vec<R> {
-    fn l2_norm_squared(&self) -> u128 {
+    fn l2_norm_squared(&self) -> BigUint {
         self.as_slice().l2_norm_squared()
     }
 }
 
 pub trait WithLinfNorm {
-    fn linf_norm(&self) -> u128;
+    fn linf_norm(&self) -> BigUint;
 }
 
 impl<R: WithLinfNorm> WithLinfNorm for [R] {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.iter().map(|x| x.linf_norm()).max().unwrap()
     }
 }
 
 impl<R: WithLinfNorm> WithLinfNorm for Vec<R> {
-    fn linf_norm(&self) -> u128 {
+    fn linf_norm(&self) -> BigUint {
         self.as_slice().linf_norm()
     }
 }
