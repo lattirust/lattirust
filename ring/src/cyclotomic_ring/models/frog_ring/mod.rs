@@ -126,6 +126,7 @@ impl From<Fq4> for RqNTT {
     }
 }
 
+#[cfg(test)]
 mod test {
     #![allow(unused_imports)]
     use crate::PolyRing;
