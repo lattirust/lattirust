@@ -1,17 +1,16 @@
-use std::ops::{BitXor, DivAssign};
-
-use ark_std::ops::Mul;
-
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::Field;
+use ark_std::ops::{BitXor, DivAssign, Mul};
 use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
-
-use crate::balanced_decomposition::{decompose_balanced, Decompose};
-use crate::traits::{FromRandomBytes, WithL2Norm, WithLinfNorm};
-use crate::Ring;
-use lattirust_linear_algebra::{Matrix, Vector};
 use num_traits::sign::Signed;
+
+use crate::{
+    balanced_decomposition::{decompose_balanced, Decompose},
+    traits::{FromRandomBytes, WithL2Norm, WithLinfNorm},
+    Ring,
+};
+use lattirust_linear_algebra::{Matrix, Vector};
 
 pub trait ConvertibleRing:
     Ring

@@ -1,9 +1,6 @@
-use std::ops::{BitXor, Div, DivAssign, Rem};
-
-use ark_std::ops::Mul;
-
 use ark_ff::{One, Zero};
 use ark_serialize::{SerializationError, Valid};
+use ark_std::ops::{BitXor, Div, DivAssign, Mul, Rem};
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Product, Sub, SubAssign, Sum};
 use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
@@ -104,46 +101,11 @@ impl<'a, T: Clone + Mul<&'a T, Output = T>> Mul<&'a UnsignedRepresentative<T>>
     }
 }
 
-// impl CanonicalSerialize for SignedRepresentative {
-//     fn serialize_with_mode<W: Write>(
-//         &self,
-//         mut writer: W,
-//         _compress: Compress,
-//     ) -> Result<(), SerializationError> {
-//         writer
-//             .write(&self.0.to_be_bytes())
-//             .map(|_| ())
-//             .map_err(SerializationError::IoError)
-//     }
-
-//     fn serialized_size(&self, _compress: Compress) -> usize {
-//         16
-//     }
-// }
-
 impl<T: Send + Sync> Valid for SignedRepresentative<T> {
     fn check(&self) -> Result<(), SerializationError> {
         Ok(())
     }
 }
-
-// impl CanonicalDeserialize for SignedRepresentative {
-//     fn deserialize_with_mode<R: Read>(
-//         mut reader: R,
-//         _compress: Compress,
-//         validate: Validate,
-//     ) -> Result<Self, SerializationError> {
-//         let mut bytes = [0u8; 16];
-//         reader
-//             .read_exact(&mut bytes)
-//             .map_err(SerializationError::IoError)?;
-//         let value = i128::from_be_bytes(bytes);
-//         if validate == Yes {
-//             SignedRepresentative(value).check()?;
-//         }
-//         Ok(SignedRepresentative(value))
-//     }
-// }
 
 impl<T: Into<BigInt>> From<SignedRepresentative<T>> for BigInt {
     fn from(value: SignedRepresentative<T>) -> Self {
@@ -354,10 +316,10 @@ impl From<i128> for SignedRepresentative<BigInt> {
 
 #[cfg(test)]
 mod tests {
-    use crate::zn::z_q::Zq;
     use ark_ff::PrimeField;
 
     use super::*;
+    use crate::zn::z_q::Zq;
 
     const Q: u128 = 2u128.pow(61) - 1;
     const Q_HALF: i128 = (Q as i128 - 1) / 2;

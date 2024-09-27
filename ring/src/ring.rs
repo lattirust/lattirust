@@ -1,12 +1,12 @@
-use ark_std::fmt::{Debug, Display};
-use ark_std::hash::Hash;
-use ark_std::iter::{Product, Sum};
-use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use ark_ff::{BitIteratorBE, BitIteratorLE, Field, Fp, FpConfig};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::UniformRand;
-use ark_std::{One, Zero};
+use ark_std::{
+    fmt::{Debug, Display},
+    hash::Hash,
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    One, UniformRand, Zero,
+};
 
 use crate::traits::FromRandomBytes;
 
@@ -21,16 +21,12 @@ pub trait Ring: 'static +
     Eq +
     Zero +
     One +
-    // + Ord
     Neg<Output = Self> +
     UniformRand +
-    //+ Zeroize
     Sized +
     Hash +
     CanonicalSerialize +
-    // + CanonicalSerializeWithFlags
     CanonicalDeserialize +
-    // + CanonicalDeserializeWithFlags
     Add<Self, Output = Self> +
     Sub<Self, Output = Self> +
     Mul<Self, Output = Self> +

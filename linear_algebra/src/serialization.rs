@@ -1,15 +1,14 @@
-use ark_std::io::{Read, Write};
-
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use nalgebra::allocator::Allocator;
-use nalgebra::{Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar, VecStorage};
+use ark_std::io::{Read, Write};
+use nalgebra::{
+    allocator::Allocator, Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar,
+    VecStorage,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::generic_matrix::GenericMatrix;
-use crate::matrix::Matrix;
-use crate::vector::GenericVector;
+use crate::{generic_matrix::GenericMatrix, matrix::Matrix, vector::GenericVector};
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Serialize for GenericMatrix<T, R, C, S>
 where
@@ -131,30 +130,6 @@ where
         Self::try_from(data).map_err(|_| SerializationError::InvalidData)
     }
 }
-
-// impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> ToBytes for GenericMatrix<T, R, C, S>
-// where
-//     Self: CanonicalSerialize,
-// {
-//     type ToBytesError = SerializationError;
-//
-//     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
-//         let mut bytes = vec![];
-//         self.serialize_compressed(&mut bytes)?;
-//         Ok(bytes)
-//     }
-// }
-//
-// impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> FromBytes for GenericMatrix<T, R, C, S>
-// where
-//     Self: CanonicalDeserialize,
-// {
-//     type FromBytesError = SerializationError;
-//
-//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
-//         Self::deserialize_compressed(bytes)
-//     }
-// }
 
 #[cfg(test)]
 mod test {

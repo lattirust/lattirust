@@ -1,16 +1,16 @@
-#![allow(non_snake_case)]
-
-use ark_std::iter::Sum;
-use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
-use ark_std::{One, Zero};
+use ark_std::{
+    iter::Sum,
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    One, Zero,
+};
 use delegate::delegate;
 use derive_more::{Display, From, Index, IndexMut, Into};
-use nalgebra::allocator::Allocator;
-use nalgebra::constraint::{DimEq, ShapeConstraint};
 use nalgebra::{
-    self, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar,
-    Storage, StorageMut, ViewStorage,
+    self,
+    allocator::Allocator,
+    constraint::{DimEq, ShapeConstraint},
+    Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar, Storage,
+    StorageMut, ViewStorage,
 };
 use rayon::prelude::*;
 
@@ -385,18 +385,6 @@ where
         self.0.into_iter()
     }
 }
-
-// impl<'a, T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> IntoIterator
-//     for &'a mut GenericMatrix<T, R, C, S>
-// where
-//     &'a mut nalgebra::Matrix<T, R, C, S>: IntoIterator,
-// {
-//     type Item = <&'a mut nalgebra::Matrix<T, R, C, S> as IntoIterator>::Item;
-//     type IntoIter = <&'a mut nalgebra::Matrix<T, R, C, S> as IntoIterator>::IntoIter;
-//     fn into_iter(self) -> Self::IntoIter {
-//         self.0.into_iter()
-//     }
-// }
 
 impl<T: Scalar + Zero + One + ClosedAdd + ClosedMul, R: Dim, C: Dim, S: Storage<T, R, C>>
     GenericMatrix<T, R, C, S>

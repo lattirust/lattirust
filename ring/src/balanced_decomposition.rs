@@ -1,17 +1,15 @@
-use std::ops::BitXor;
-
-use ark_std::iter::Sum;
-use ark_std::ops::Mul;
-
-use ark_std::{One, Zero};
+use ark_std::{
+    iter::Sum,
+    ops::{BitXor, Mul},
+    One, Zero,
+};
 use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::Signed;
 use rayon::prelude::*;
 
 use crate::{ConvertibleRing, PolyRing, Ring};
-use lattirust_linear_algebra::{Matrix, SymmetricMatrix};
-use lattirust_linear_algebra::{RowVector, Vector};
+use lattirust_linear_algebra::{Matrix, RowVector, SymmetricMatrix, Vector};
 
 pub trait Decompose: Sized {
     fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self>;

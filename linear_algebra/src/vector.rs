@@ -1,15 +1,11 @@
-use ark_ff::UniformRand;
-use ark_std::rand;
-use ark_std::Zero;
+use ark_std::{rand, UniformRand, Zero};
 use delegate::delegate;
-use nalgebra::allocator::Allocator;
 use nalgebra::{
-    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
-    ViewStorage,
+    self, allocator::Allocator, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage,
+    VecStorage, ViewStorage,
 };
 
-use crate::generic_matrix::GenericMatrix;
-use crate::Scalar;
+use crate::{generic_matrix::GenericMatrix, Scalar};
 
 pub type GenericVector<T, R, S> = GenericMatrix<T, R, Const<1>, S>;
 pub type Vector<T> = GenericVector<T, Dyn, VecStorage<T, Dyn, Const<1>>>;
@@ -105,42 +101,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
     pub fn rand<Rng: rand::Rng + ?Sized>(n: usize, rng: &mut Rng) -> Self {
         Self::from_fn(n, |_, _| T::rand(rng))
     }
-
-    // pub fn rand_vector_with_bounded_norm(n: usize, norm_bound: i128, rng: &mut impl Rng) -> Self
-    // where
-    //     T: From<SignedRepresentative>,
-    // {
-    //     loop {
-    //         let mut vec = Vector::<f64>::rand(n, rng);
-    //         let scale = rng.gen_range(0f64..(norm_bound as f64 / vec.0.norm()));
-    //         vec *= scale;
-
-    //         vec = vec.map(|x| x.round());
-    //         if vec.0.norm() <= norm_bound as f64 {
-    //             return vec.map(|x| T::from(SignedRepresentative(x as i128)));
-    //         }
-    //     }
-    // }
 }
-
-// impl<T: Scalar + WithL2Norm, R: Dim, S: RawStorage<T, R, Const<1>>> WithL2Norm
-//     for GenericVector<T, R, S>
-// {
-//     fn l2_norm_squared(&self) -> u128 {
-//         self.into_iter()
-//             .cloned()
-//             .collect::<Vec<_>>()
-//             .l2_norm_squared()
-//     }
-// }
-
-// impl<T: Scalar + WithLinfNorm, R: Dim, S: RawStorage<T, R, Const<1>>> WithLinfNorm
-//     for GenericVector<T, R, S>
-// {
-//     fn linf_norm(&self) -> u128 {
-//         self.into_iter().cloned().collect::<Vec<_>>().linf_norm()
-//     }
-// }
 
 pub type GenericRowVector<T, C, S> = GenericMatrix<T, Const<1>, C, S>;
 pub type RowVector<T> = GenericRowVector<T, Dyn, VecStorage<T, Const<1>, Dyn>>;

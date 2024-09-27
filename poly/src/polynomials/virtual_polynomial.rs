@@ -6,8 +6,6 @@
 //! This module defines our main mathematical object `VirtualPolynomial`; and
 //! various functions associated with it.
 
-use super::{errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list};
-use crate::mle::DenseMultilinearExtension;
 use ark_serialize::CanonicalSerialize;
 use ark_std::{cmp::max, collections::HashMap, marker::PhantomData, ops::Add, sync::Arc};
 use ark_std::{
@@ -17,6 +15,9 @@ use ark_std::{
 };
 use lattirust_ring::Ring;
 use rayon::prelude::*;
+
+use super::{errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list};
+use crate::mle::DenseMultilinearExtension;
 
 #[rustfmt::skip]
 /// A virtual polynomial is a sum of products of multilinear polynomials;

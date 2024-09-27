@@ -1,9 +1,9 @@
 use ark_ff::{Field, MontBackend};
 use ark_std::ops::Mul;
 
-use crate::poly_ring::PolyRing;
 use crate::{
     cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
+    poly_ring::PolyRing,
     OverField,
 };
 
