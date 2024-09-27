@@ -1,17 +1,9 @@
-#![allow(non_snake_case)]
-
-use ark_std::ops::Neg;
-
-use ark_std::rand::prelude::SliceRandom;
-use ark_std::{rand, UniformRand};
-use ark_std::{One, Zero};
+use ark_std::{ops::Neg, rand, rand::prelude::SliceRandom, One, UniformRand, Zero};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 use rayon::prelude::*;
 
-use crate::generic_matrix::GenericMatrix;
-use crate::{RowVector, Vector};
-use crate::{Scalar, SymmetricMatrix};
+use crate::{generic_matrix::GenericMatrix, RowVector, Scalar, SymmetricMatrix, Vector};
 
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
 

@@ -4,13 +4,14 @@ mod ntt_form;
 
 use ark_ff::{BigInt, Field, Fp, FpConfig, MontBackend, Zero};
 use ark_poly::Radix2EvaluationDomain;
-pub use coeff_form::*;
-pub use ntt_form::*;
 
 use crate::{
     cyclotomic_ring::RpConfig,
     zn::z_q::{FqConfig, Zq},
 };
+
+pub use coeff_form::*;
+pub use ntt_form::*;
 
 /// A generic configuration for power-of-two fully splitting cyclotomic rings
 /// of small modulus (< 2^64).

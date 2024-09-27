@@ -1,25 +1,21 @@
-use ark_std::fmt::{Debug, Display, Formatter};
-use ark_std::hash::Hash;
-use ark_std::io::{Read, Write};
-use ark_std::iter::{Product, Sum};
-use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
+use ark_ff::{Field, Fp};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::rand::Rng;
-use ark_std::UniformRand;
-use ark_std::{One, Zero};
+use ark_std::{
+    fmt::{Debug, Display, Formatter},
+    hash::Hash,
+    io::{Read, Write},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    rand::Rng,
+    One, UniformRand, Zero,
+};
 use derive_more::{From, Into};
+
+use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingGeneral};
+use crate::{traits::FromRandomBytes, PolyRing, Ring};
 use lattirust_linear_algebra::SVector;
-
-use super::ring_config::CyclotomicConfig;
-use super::CyclotomicPolyRingGeneral;
-use crate::traits::FromRandomBytes;
-use crate::PolyRing;
-use crate::Ring;
-
-use ark_ff::{Field, Fp};
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the CRT-form.
 /// * `C` is the configuration of the cyclotomic ring.
@@ -499,16 +495,17 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> From<Vec<C::BaseCRT
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclotomic_ring::models::pow2_debug::{
-        Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
-    };
-
-    use crate::zn::z_q::FqConfig;
-    use crate::PolyRing;
     use ark_ff::{Fp, MontBackend};
     use ark_std::UniformRand;
-    use lattirust_linear_algebra::SVector;
     use rand::thread_rng;
+
+    use crate::{
+        cyclotomic_ring::models::pow2_debug::{Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT},
+        zn::z_q::FqConfig,
+        PolyRing,
+    };
+    use lattirust_linear_algebra::SVector;
+
     const FERMAT_Q: u64 = (1 << 16) + 1;
     type FermatFqConfig = FqConfig<FERMAT_Q>;
 

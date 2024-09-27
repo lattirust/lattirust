@@ -1,12 +1,14 @@
-use ark_std::ops::{Add, AddAssign, Index, Neg, Sub, SubAssign};
-
 use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::cfg_iter;
+use ark_std::{
+    cfg_iter,
+    ops::{Add, AddAssign, Index, Neg, Sub, SubAssign},
+};
+#[cfg(feature = "parallel")]
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use super::{swap_bits, MultilinearExtension};
 use lattirust_ring::Ring;
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct DenseMultilinearExtension<Rn: Ring> {

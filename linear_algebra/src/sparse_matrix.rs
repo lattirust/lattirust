@@ -1,20 +1,17 @@
-use ark_std::ops::AddAssign;
-use ark_std::ops::Mul;
-
-use ark_ff::Zero;
+use ark_std::{
+    ops::{AddAssign, Mul},
+    Zero,
+};
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
 use nalgebra::{Dim, RawStorage};
-use nalgebra_sparse::csc::CscCol;
-use nalgebra_sparse::csc::CscTripletIter;
-use nalgebra_sparse::CooMatrix;
-use nalgebra_sparse::CscMatrix;
+use nalgebra_sparse::{
+    csc::{CscCol, CscTripletIter},
+    CooMatrix, CscMatrix, SparseFormatError,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::generic_matrix::GenericMatrix;
-use crate::Matrix;
-use crate::Scalar;
-use nalgebra_sparse::SparseFormatError;
+use crate::{generic_matrix::GenericMatrix, Matrix, Scalar};
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.

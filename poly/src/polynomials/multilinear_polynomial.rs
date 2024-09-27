@@ -3,15 +3,14 @@
 
 // Adapted for rings by Nethermind
 
-use super::{util::get_batched_nv, ArithErrors};
-use crate::mle::MultilinearExtension;
-use ark_std::{end_timer, rand::RngCore, start_timer};
-use lattirust_ring::Ring;
+use ark_std::{end_timer, rand::RngCore, start_timer, sync::Arc};
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
-use std::sync::Arc;
 
+use super::{util::get_batched_nv, ArithErrors};
 pub use crate::mle::DenseMultilinearExtension;
+use crate::mle::MultilinearExtension;
+use lattirust_ring::Ring;
 
 /// Sample a random list of multilinear polynomials.
 /// Returns

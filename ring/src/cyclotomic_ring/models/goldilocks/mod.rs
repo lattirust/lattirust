@@ -1,11 +1,10 @@
 use ark_ff::{Field, Fp3, Fp3Config, MontBackend, MontFp};
 use ark_std::ops::Mul;
 
-use crate::PolyRing;
 use crate::{
     cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
     traits::FromRandomBytes,
-    OverField, Ring,
+    OverField, PolyRing, Ring,
 };
 
 mod ntt;
@@ -14,6 +13,7 @@ mod utils;
 mod fq_def {
     #![allow(non_local_definitions)]
     use ark_ff::{Fp64, MontBackend, MontConfig};
+
     #[derive(MontConfig)]
     #[modulus = "18446744069414584321"]
     #[generator = "7"]
@@ -143,17 +143,15 @@ impl From<Fq3> for RqNTT {
 
 #[cfg(test)]
 mod test {
-    #![allow(unused_imports)]
-    use crate::PolyRing;
-
-    use super::*;
-    use ark_ff::One;
     use ark_poly::{
         univariate::{DenseOrSparsePolynomial, DensePolynomial, SparsePolynomial},
-        DenseMVPolynomial, DenseUVPolynomial,
+        DenseUVPolynomial,
     };
     use ark_std::UniformRand;
     use rand::thread_rng;
+
+    use super::*;
+    use crate::PolyRing;
 
     // Note: if ord X = 24 then X can't be a cubic residue.
     #[test]

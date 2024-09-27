@@ -2,12 +2,15 @@ mod dense;
 mod sparse;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::fmt::Debug;
-use ark_std::hash::Hash;
-use ark_std::ops::{Add, AddAssign, Index, Neg, SubAssign};
-use ark_std::Zero;
-use lattirust_ring::Ring;
+use ark_std::{
+    fmt::Debug,
+    hash::Hash,
+    ops::{Add, AddAssign, Index, Neg, SubAssign},
+    Zero,
+};
 use rand::Rng;
+
+use lattirust_ring::Ring;
 
 /// This trait describes an interface for the multilinear extension
 /// of an array.

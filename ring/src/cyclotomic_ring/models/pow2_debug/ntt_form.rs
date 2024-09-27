@@ -1,15 +1,13 @@
-use std::ops::Mul;
-
 use ark_ff::{Field, Fp64};
+use ark_std::ops::Mul;
 use num_bigint::BigUint;
 
+use super::Pow2Rp64Config;
 use crate::{
     cyclotomic_ring::{CyclotomicPolyRingNTTGeneral, RpConfig},
     traits::{WithL2Norm, WithLinfNorm},
     OverField, PolyRing, WithRot,
 };
-
-use super::Pow2Rp64Config;
 
 pub type Fp64Pow2<const Q: u64, const PHI_D: usize> =
     Fp64<<Pow2Rp64Config<Q, PHI_D> as RpConfig<1>>::FpConfig>; // This looks ugly change this

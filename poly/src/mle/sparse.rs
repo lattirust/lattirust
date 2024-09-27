@@ -1,15 +1,17 @@
-use super::{swap_bits, MultilinearExtension};
 use ark_ff::{UniformRand, Zero};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::cfg_iter;
-use ark_std::collections::{BTreeMap, HashMap};
 use ark_std::{
+    cfg_iter,
+    collections::{BTreeMap, HashMap},
     hash::{DefaultHasher, Hash},
     ops::{Add, AddAssign, Index, Neg, Sub, SubAssign},
 };
-use lattirust_ring::Ring;
 use rand::Rng;
+#[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
+use super::{swap_bits, MultilinearExtension};
+use lattirust_ring::Ring;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, CanonicalDeserialize, CanonicalSerialize)]
 pub struct SparseMultilinearExtension<Rn: Ring> {

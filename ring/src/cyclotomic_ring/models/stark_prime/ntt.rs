@@ -342,10 +342,8 @@ fn serial_stark_prime_icrt_in_place(evaluations: &mut [Fq]) {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use ark_ff::{Field, MontFp, UniformRand};
-    #[allow(unused_imports)]
-    use ark_std::{One, Zero};
+    use ark_std::Zero;
     use rand::thread_rng;
 
     use super::*;

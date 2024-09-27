@@ -1,18 +1,15 @@
-#![allow(non_snake_case)]
-
-use ark_std::io::{Read, Write};
-use ark_std::ops::{Index, IndexMut};
-
-use ark_ff::Zero;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::{rand, UniformRand};
+use ark_std::{
+    io::{Read, Write},
+    ops::{Index, IndexMut},
+    rand, UniformRand, Zero,
+};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::Matrix;
-use crate::Scalar;
+use crate::{Matrix, Scalar};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
 pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);
@@ -203,25 +200,3 @@ where
         Vec::<Vec<F>>::deserialize_with_mode(reader, compress, validate).map(Self)
     }
 }
-
-// impl<F: Clone> ToBytes for SymmetricMatrix<F>
-// where
-//     Vec<Vec<F>>: ToBytes,
-// {
-//     type ToBytesError = <Vec<Vec<F>> as ToBytes>::ToBytesError;
-//
-//     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
-//         self.0.to_bytes()
-//     }
-// }
-//
-// impl<F: Clone> FromBytes for SymmetricMatrix<F>
-// where
-//     Vec<Vec<F>>: FromBytes,
-// {
-//     type FromBytesError = <Vec<Vec<F>> as FromBytes>::FromBytesError;
-//
-//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
-//         Vec::<Vec<F>>::from_bytes(bytes).map(Self)
-//     }
-// }

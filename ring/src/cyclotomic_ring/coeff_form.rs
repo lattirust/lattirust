@@ -1,23 +1,20 @@
 use ark_ff::{Field, Fp, FpConfig};
-use ark_std::fmt::{Debug, Display, Formatter};
-use ark_std::hash::Hash;
-use ark_std::io::{Read, Write};
-use ark_std::iter::{Product, Sum};
-use ark_std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::rand::Rng;
-use ark_std::UniformRand;
-use ark_std::{One, Zero};
+use ark_std::{
+    fmt::{Debug, Display, Formatter},
+    hash::Hash,
+    io::{Read, Write},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    rand::Rng,
+    One, UniformRand, Zero,
+};
 use derive_more::{From, Into};
 
-use super::ring_config::CyclotomicConfig;
-use super::CyclotomicPolyRingNTTGeneral;
-use crate::traits::FromRandomBytes;
-use crate::PolyRing;
-use crate::Ring;
+use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
+use crate::{traits::FromRandomBytes, PolyRing, Ring};
 use lattirust_linear_algebra::SVector;
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the coefficient form.
