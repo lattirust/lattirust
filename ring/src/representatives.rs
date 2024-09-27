@@ -340,6 +340,18 @@ impl<T: BitXor<Output = T>> BitXor<UnsignedRepresentative<T>> for UnsignedRepres
     }
 }
 
+impl From<u128> for UnsignedRepresentative<BigUint> {
+    fn from(value: u128) -> Self {
+        Self(BigUint::from(value))
+    }
+}
+
+impl From<i128> for SignedRepresentative<BigInt> {
+    fn from(value: i128) -> Self {
+        Self(BigInt::from(value))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::zn::z_q::Zq;
