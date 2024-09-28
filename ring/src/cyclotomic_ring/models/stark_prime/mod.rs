@@ -84,17 +84,29 @@ impl From<Fq> for RqNTT {
 
 #[cfg(test)]
 mod test {
-    #![allow(unused_imports)]
-    use crate::PolyRing;
-
-    use super::*;
-    use ark_ff::One;
     use ark_poly::{
         univariate::{DenseOrSparsePolynomial, DensePolynomial, SparsePolynomial},
-        DenseMVPolynomial, DenseUVPolynomial,
+        DenseUVPolynomial,
     };
     use ark_std::UniformRand;
     use rand::thread_rng;
+
+    use super::*;
+    use crate::{PolyRing, Ring};
+
+    #[test]
+    fn test_crt_one() {
+        let one = RqPoly::ONE;
+
+        assert_eq!(RqNTT::from(one), RqNTT::ONE)
+    }
+
+    #[test]
+    fn test_icrt_one() {
+        let one = RqNTT::ONE;
+
+        assert_eq!(RqPoly::from(one), RqPoly::ONE)
+    }
 
     #[test]
     fn test_reduce() {
