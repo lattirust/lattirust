@@ -24,4 +24,5 @@ rand = { workspace = true }
 num-traits = "0.2.19"
 num-integer = "0.1.46"
 
-
+[features]
+native-array = []

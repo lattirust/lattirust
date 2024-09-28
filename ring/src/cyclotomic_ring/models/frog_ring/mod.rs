@@ -138,6 +138,20 @@ mod test {
     use super::*;
     use crate::PolyRing;
 
+    #[test]
+    fn test_crt_one() {
+        let one = RqPoly::ONE;
+
+        assert_eq!(RqNTT::from(one), RqNTT::ONE)
+    }
+
+    #[test]
+    fn test_icrt_one() {
+        let one = RqNTT::ONE;
+
+        assert_eq!(RqPoly::from(one), RqPoly::ONE)
+    }
+
     // Note: if ord X = 8 then X can't be a quadratic residue.
     #[test]
     fn test_nonresidue_is_order_24() {

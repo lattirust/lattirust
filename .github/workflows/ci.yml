@@ -35,7 +35,6 @@ env:
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
-  
 
 jobs:
   test:
@@ -56,9 +55,12 @@ jobs:
         # This build will be reused by nextest,
         # and also checks (--all-targets) that benches don't bit-rot
         run: cargo build --release --all-targets --no-default-features
-      - name: Test
+      - name: Test (no default features)
         run: |
           cargo nextest run --release --workspace --no-default-features
+      - name: Test (native array)
+        run: |
+          cargo nextest run --release --workspace --features native-array
       - name: Doctests # nextest does not support doc tests
         run: |
           cargo test --doc
@@ -99,8 +101,8 @@ jobs:
     name: Spell Check with Typos
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Use typos with config file
-      uses: crate-ci/typos@master
-      with: 
-        config: .github/workflows/typos.toml
+      - uses: actions/checkout@v4
+      - name: Use typos with config file
+        uses: crate-ci/typos@master
+        with:
+          config: .github/workflows/typos.toml
