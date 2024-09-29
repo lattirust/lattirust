@@ -17,7 +17,11 @@ use ark_std::{
 use derive_more::{From, Into};
 
 use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
-use crate::{traits::FromRandomBytes, PolyRing, Ring};
+use crate::{
+    balanced_decomposition::{decompose_balanced_polyring, Decompose},
+    traits::FromRandomBytes,
+    PolyRing, Ring,
+};
 #[cfg(not(feature = "native-array"))]
 use lattirust_linear_algebra::SVector;
 
@@ -661,6 +665,16 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> From<Fp<C::BaseFiel
 {
     fn from(value: Fp<C::BaseFieldConfig, N>) -> Self {
         Self::from_scalar(value)
+    }
+}
+
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Decompose
+    for CyclotomicPolyRingGeneral<C, N, D>
+where
+    Fp<C::BaseFieldConfig, N>: Decompose,
+{
+    fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self> {
+        decompose_balanced_polyring(self, b, padding_size)
     }
 }
 

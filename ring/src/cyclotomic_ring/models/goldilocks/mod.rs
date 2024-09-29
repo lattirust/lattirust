@@ -151,7 +151,16 @@ mod test {
     use rand::thread_rng;
 
     use super::*;
-    use crate::PolyRing;
+    use crate::{balanced_decomposition::Decompose, PolyRing};
+
+    #[test]
+    fn test_implements_decompose() {
+        fn takes_decompose<T: Decompose>(_x: T) {}
+
+        let x = RqPoly::ONE;
+
+        takes_decompose(x);
+    }
 
     #[test]
     fn test_crt_one() {
