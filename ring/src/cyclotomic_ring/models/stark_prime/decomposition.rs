@@ -3,7 +3,10 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::Euclid;
 
 use super::Fq;
-use crate::{ConvertibleRing, SignedRepresentative, UnsignedRepresentative};
+use crate::{
+    balanced_decomposition::convertible_ring::ConvertibleRing, SignedRepresentative,
+    UnsignedRepresentative,
+};
 
 impl ConvertibleRing for Fq {
     type UnsignedInt = UnsignedRepresentative<BigUint>;

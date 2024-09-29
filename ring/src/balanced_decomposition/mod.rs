@@ -8,8 +8,13 @@ use num_integer::Integer;
 use num_traits::Signed;
 use rayon::prelude::*;
 
-use crate::{ConvertibleRing, PolyRing, Ring};
+use crate::{PolyRing, Ring};
+use convertible_ring::ConvertibleRing;
 use lattirust_linear_algebra::{Matrix, RowVector, SymmetricMatrix, Vector};
+
+pub mod convertible_ring;
+mod fq_convertible;
+pub(crate) mod representatives;
 
 pub trait Decompose: Sized {
     fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self>;
