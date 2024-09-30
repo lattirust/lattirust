@@ -375,6 +375,9 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 name = "commitments"
 version = "0.1.0-alpha"
 dependencies = [
+ "ark-ff",
+ "ark-serialize",
+ "ark-std",
  "fhe",
  "fhe-traits",
  "lattirust-arithmetic",

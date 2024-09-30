@@ -364,6 +364,7 @@ impl<const Q: u64, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<Q, N> 
 
 impl<const Q: u64, const N: usize> From<Vec<Zq<Q>>> for Pow2CyclotomicPolyRingNTT<Q, N> {
     fn from(value: Vec<Zq<Q>>) -> Self {
+        // TODO: add the error message about the dimension
         let mut array = TryInto::<[Zq<Q>; N]>::try_into(value).unwrap();
         Self::ntt(&mut array);
         Self::from_array(array)
