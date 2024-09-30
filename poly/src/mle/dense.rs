@@ -2,7 +2,7 @@ use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
     cfg_iter,
-    ops::{Add, AddAssign, Index, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Index, Mul, Neg, Sub, SubAssign},
 };
 #[cfg(feature = "parallel")]
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
@@ -192,16 +192,49 @@ impl<'a, 'b, R: Ring> Sub<&'a DenseMultilinearExtension<R>> for &'b DenseMultili
         self + &rhs.clone().neg()
     }
 }
+
 impl<R: Ring> SubAssign for DenseMultilinearExtension<R> {
     fn sub_assign(&mut self, other: DenseMultilinearExtension<R>) {
         *self = &*self - &other;
     }
 }
+
 impl<'a, R: Ring> SubAssign<&'a DenseMultilinearExtension<R>> for DenseMultilinearExtension<R> {
     fn sub_assign(&mut self, rhs: &'a DenseMultilinearExtension<R>) {
         *self = &*self - rhs;
     }
 }
+
+impl<R: Ring> Mul<R> for DenseMultilinearExtension<R> {
+    type Output = DenseMultilinearExtension<R>;
+
+    fn mul(mut self, rhs: R) -> DenseMultilinearExtension<R> {
+        self.evaluations.iter_mut().for_each(|x| *x *= rhs);
+
+        self
+    }
+}
+
+impl<R: Ring> Sub<R> for DenseMultilinearExtension<R> {
+    type Output = DenseMultilinearExtension<R>;
+
+    fn sub(mut self, rhs: R) -> DenseMultilinearExtension<R> {
+        self.evaluations.iter_mut().for_each(|x| *x -= rhs);
+
+        self
+    }
+}
+
+impl<R: Ring> Add<R> for DenseMultilinearExtension<R> {
+    type Output = DenseMultilinearExtension<R>;
+
+    fn add(mut self, rhs: R) -> DenseMultilinearExtension<R> {
+        self.evaluations.iter_mut().for_each(|x| *x += rhs);
+
+        self
+    }
+}
+
 impl<R: Ring> Index<usize> for DenseMultilinearExtension<R> {
     type Output = R;
 
