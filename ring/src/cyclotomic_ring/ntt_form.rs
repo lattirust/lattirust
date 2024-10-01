@@ -49,17 +49,9 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingN
 
     fn from_fn<F>(f: F) -> Self
     where
-        F: FnMut(usize) -> Fp<C::BaseFieldConfig, N>,
+        F: FnMut(usize) -> C::BaseCRTField,
     {
-        let coeffs = Vec::from(core::array::from_fn::<_, D, _>(f));
-
-        let evaluations = C::crt(coeffs);
-
-        Self(
-            evaluations
-                .try_into()
-                .expect("the output of CRT has incorrect length"),
-        )
+        Self::from_array(core::array::from_fn::<_, D, _>(f))
     }
 
     #[cfg(not(feature = "native-array"))]
@@ -295,7 +287,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> UniformRand
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| Fp::<C::BaseFieldConfig, N>::rand(rng))
+        Self::from_fn(|_| C::BaseCRTField::rand(rng))
     }
 }
 
