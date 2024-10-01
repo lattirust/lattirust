@@ -74,8 +74,11 @@ mod test {
             w: 512,
             norm: Norm::L2,
         };
-        let lambda = test_l2.security_level();
-        println!("{test_l2} -> lambda: {lambda}");
+        let lambda: f64 = test_l2.security_level();
+        println!("External {test_l2} -> lambda: {lambda}");
+
+        let lambda: f64 = test_l2.security_level_internal();
+        println!("Internal  {test_l2} -> lambda: {lambda}");
     }
 
     #[test]

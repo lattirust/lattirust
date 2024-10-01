@@ -78,6 +78,10 @@ impl MSIS {
         self.to_sis().security_level()
     }
 
+    pub fn security_level_internal(&self) -> f64 {
+        self.to_sis().security_level_internal()
+    }
+
     pub fn upper_bound_h(&self) -> usize {
         self.to_sis().upper_bound_h().div_floor(self.d)
     }
