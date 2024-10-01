@@ -1,7 +1,9 @@
 #![allow(non_snake_case)]
+use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
+use lattirust_arithmetic::linear_algebra::{Matrix, Vector};
 // use fhe::bfv::Ciphertext;
 use lattirust_arithmetic::ntt::ntt_modulus;
-use lattirust_arithmetic::ring::{ConvertibleRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, Zq};
+use lattirust_arithmetic::ring::{ConvertibleRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, Zq, PolyRing};
 use rand::{CryptoRng, RngCore};
 use rand_distr::Normal;
 use rand::distributions::{Distribution};
@@ -9,6 +11,7 @@ use ark_ff::{One, UniformRand, Zero};
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand;
 use lattirust_arithmetic::challenge_set::ternary;
+use lattirust_arithmetic::traits::FromRandomBytes;
 
 // todo: 
 const N: usize = 128;
@@ -19,16 +22,19 @@ type Rq = Zq<P>;
 type PolyRp = Pow2CyclotomicPolyRing<Rp, N>;
 type PolyRq = Pow2CyclotomicPolyRing<Rq, N>;
 
-pub fn secret_ternary<T: ConvertibleRing, Rng: rand::Rng + ?Sized>(rng: &mut Rng) -> Vec<T> {
-    let mut secret = Vec::new();
-    for _ in 0..3 {
-        secret.push([-T::one(), T::zero(), T::one()]
-            .choose(rng)
-            .unwrap()
-            .clone());
-    }
-    return secret;
-}
+// pub fn secret_ternary<F: PolyRp, Rng: rand::Rng + ?Sized, const N: usize>(rng: &mut Rng) {
+//     // let mut secret = Vec::new();
+//     // for _ in 0..3 {
+//     //     secret.push([-T::one(), T::zero(), T::one()]
+//     //         .choose(rng)
+//     //         .unwrap()
+//     //         .clone());
+//     // }
+//     let vec = Vector::<u8>::rand(N, rng);
+//     let vec_slice = vec.as_slice();
+//     // TODO: handle the error
+//     return WeightedTernaryChallengeSet::<F>::try_from_random_bytes(vec_slice).unwrap();
+// =}
 
 // TODO: move out
 pub fn get_gaussian_vec<T: RngCore + CryptoRng>(std_dev: f64, dimension: usize, rng: &mut T) -> Vec<i64> {
@@ -47,6 +53,7 @@ pub fn get_poly_from_gaussian<T: RngCore + CryptoRng, const q: u64>(std_dev: f64
     Pow2CyclotomicPolyRing::from(rand_vec)
 }
 
+
 struct Prover {
     secret_key: SecretKey, // polynomial w/ coefficients in {-1, 0, +1}
     public_key: PublicKey, // ring mod q
@@ -59,14 +66,6 @@ struct Verifier {
     public_key: PublicKey,
     commitment: Option<Vec<Pow2CyclotomicPolyRing<Rp, N>>>
 }
-
-// struct PublicKey {
-//     poly1: Pow2CyclotomicPolyRing<Rp, N>,
-//     poly2: Pow2CyclotomicPolyRing<Rp, N>,
-// }
-// struct SecretKey {
-//     poly: Pow2CyclotomicPolyRing<Rp, N>,
-// }
 
 // move it to a dedicated library later on
 struct PublicKey {
@@ -83,24 +82,34 @@ type Plaintext = Pow2CyclotomicPolyRing<Rp, N>;
 type Ciphertext = (Pow2CyclotomicPolyRing<Rq, N>, Pow2CyclotomicPolyRing<Rq, N>);
 
 impl SecretKey {
-    //     let small_std_dev = 1.0; // coefficients in {-1, 0, +1}
-    //     let std_dev = 5.0
-    //     let mut rng = rand::rngs::StdRng::seed_from_u64(17);
-    // fn new(degree: usize) -> Self {
-    //         get_poly_from_gaussian(small_std_dev, degree, rng)
-    // }
+    fn new() -> Self {
+        let mut rng = rand::thread_rng();
+        // let coeff: Matrix<Rp> = Matrix::<Rp>::rand_ternary(1, degree, &mut rng);
+        // let coeff = coeff.row(0);
+        // println!("{:?}", coeff);
 
-    // fn from_poly(poly: Pow2CyclotomicPolyRing<Rp, N>) -> Self {
-    //     todo!();
-    // }
+        let vec = Vector::<u8>::rand(N, &mut rng);
+        let vec_slice = vec.as_slice();
+        // TODO: fix the type cause now it's not statix
+        let sk = WeightedTernaryChallengeSet::<PolyRp>::try_from_random_bytes(vec_slice).unwrap();
+        Self {
+            sk,
+            modulo: P,
+        }
+    }
 
-    fn generate_pk(&self) -> PublicKey {
+    fn pk_gen(&self) -> PublicKey {
         todo!();
-        // e should have small std_dev 
-        // let e = get_poly_from_gaussian(small_std_dev, degree, rng);
-        // let pk2 = get_poly_from_gaussian(std_dev, degree, rng);
-        // let pk1 = -(pk2 * self + e);
-        // (pk1, pk2)
+        // let mut rng = rand::thread_rng();
+
+        // // e should have small std_dev, TODO: check the parameters
+        // let e = get_poly_from_gaussian(2.3, N, &mut rng);
+        // let a = Vector::<u8>::rand(N, &mut rng);
+        // let pk2 = PolyRq::try_from_random_bytes(a.as_slice()).unwrap();
+        // let pk1 = -(pk2 * self.sk) + e;
+        // PublicKey {
+
+        // }
     }
     
     fn decrypt(c: (Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>)) -> Pow2CyclotomicPolyRing<Rp, N> {
