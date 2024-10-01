@@ -325,7 +325,7 @@ fn homogenize_fq9(c: &mut [Fq]) {
 /// The inverse of the above.
 #[inline(always)]
 fn dehomogenize_fq9(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(&mut c[0..9]);
+    permute_to_fq9_of_fq3(&mut c[0..9]);
     nonresidue_to_nonresidue_to_13(&mut c[9..18]);
     nonresidue_to_nonresidue_to_7(&mut c[18..27]);
     nonresidue_to_nonresidue_to_19(&mut c[27..36]);
@@ -356,7 +356,7 @@ fn nonresidue_to_13_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_13(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[4] * ROOTS_OF_UNITY_24[23];
     c[4] = c[7] * ROOTS_OF_UNITY_24[19];
@@ -390,7 +390,7 @@ fn nonresidue_to_7_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_7(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[7];
     c[7] = c[4] * ROOTS_OF_UNITY_24[19];
@@ -420,7 +420,7 @@ fn nonresidue_to_19_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_19(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     c[1] *= ROOTS_OF_UNITY_24[22];
     c[2] *= ROOTS_OF_UNITY_24[20];
     c[3] *= ROOTS_OF_UNITY_24[18];
@@ -449,7 +449,7 @@ fn nonresidue_to_5_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_5(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[5];
     c[5] = c[7] * ROOTS_OF_UNITY_24[22];
@@ -485,7 +485,7 @@ fn nonresidue_to_17_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_17(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[8] * ROOTS_OF_UNITY_24[23];
     c[8] = c1 * ROOTS_OF_UNITY_24[9];
@@ -521,7 +521,7 @@ fn nonresidue_to_11_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_11(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[2] * ROOTS_OF_UNITY_24[23];
     c[2] = c[4] * ROOTS_OF_UNITY_24[22];
@@ -553,7 +553,7 @@ fn nonresidue_to_23_to_nonresidue(c: &mut [Fq]) {
 
 #[inline(always)]
 fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
-    inverse_permute_to_fq9_of_fq3(c);
+    permute_to_fq9_of_fq3(c);
     let c1 = c[1];
     c[1] = c[5] * ROOTS_OF_UNITY_24[22];
     c[5] = -c[7];
@@ -569,14 +569,10 @@ fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
 
 const SWAPS: [(usize, usize); 3] = [(1, 3), (2, 6), (5, 7)];
 
+// Note that the permutation is an involution, meaning
+// it's inverse is itself
 fn permute_to_fq9_of_fq3(fq9_vec: &mut [Fq]) {
     for &(i, j) in SWAPS.iter() {
-        fq9_vec.swap(i, j);
-    }
-}
-
-fn inverse_permute_to_fq9_of_fq3(fq9_vec: &mut [Fq]) {
-    for &(i, j) in SWAPS.iter().rev() {
         fq9_vec.swap(i, j);
     }
 }
@@ -715,8 +711,8 @@ mod tests {
         let mut f2_vec = fq9_vec_to_fq_vec(vec![f2]);
         f1_vec.resize(9, Fq::ZERO);
         f2_vec.resize(9, Fq::ZERO);
-        inverse_permute_to_fq9_of_fq3(&mut f1_vec);
-        inverse_permute_to_fq9_of_fq3(&mut f2_vec);
+        permute_to_fq9_of_fq3(&mut f1_vec);
+        permute_to_fq9_of_fq3(&mut f2_vec);
         let poly1 = DensePolynomial::from_coefficients_slice(&f1_vec);
         let poly2 = DensePolynomial::from_coefficients_slice(&f2_vec);
         let poly_mul = &poly1 * &poly2;
