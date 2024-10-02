@@ -22,3 +22,4 @@ impl From<String> for LatticeEstimatorError {
         LatticeEstimatorError { message }
     }
 }
+

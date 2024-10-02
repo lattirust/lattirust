@@ -7,45 +7,41 @@ use crate::norms::Norm;
 use crate::sis::SIS;
 use crate::reduction::Estimates;
 
-pub mod lattice_estimator;
-pub mod security_estimates;
 
 /// MSIS parameters for instances $A \in R\_q^{\texttt{h}\times\texttt{w}}$ where $R\_q = \mathbb{Z}\_\texttt{q}\[X\]/(X^\texttt{d}+1)$ such that $A s = 0$ for some $s \in R\_\texttt{q}^\texttt{w}$ with ${\lVert s \rVert\}_\texttt{norm} \leq \texttt{length\\_bound}$.
-pub struct MSIS {
+pub struct RSIS {
     pub h: usize,
-    pub d: usize,
     pub q: BigUint,
     pub length_bound: f64,
     pub w: usize,
     pub norm: Norm,
 }
 
-impl Display for MSIS {
+impl Display for RSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "MSIS[h={}, w={}, d={}, q={}, length_bound={}, norm={}]",
-            self.h, self.w, self.d, self.q, self.length_bound, self.norm
+            "RSIS[h={}, w={}, q={}, length_bound={}, norm={}]",
+            self.h, self.w, self.q, self.length_bound, self.norm
         )
     }
 }
 
-impl Debug for MSIS {
+impl Debug for RSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "MSIS[h={}, w={}, d={}, q={}, length_bound={}, norm={}]",
-            self.h, self.w, self.d, self.q, self.length_bound, self.norm
+            "RSIS[h={}, w={}, q={}, length_bound={}, norm={}]",
+            self.h, self.w, self.q, self.length_bound, self.norm
         )
     }
 }
 
-impl MSIS {
+impl RSIS {
     pub fn with_h(&self, h: usize) -> Self {
-        MSIS {
+        RSIS {
             h,
             w: self.w,
-            d: self.d,
             q: self.q.clone(),
             length_bound: self.length_bound,
             norm: self.norm,
@@ -53,10 +49,9 @@ impl MSIS {
     }
 
     pub fn with_length_bound(&self, length_bound: f64) -> Self {
-        MSIS {
+        RSIS {
             h: self.h,
             w: self.w,
-            d: self.d,
             q: self.q.clone(),
             length_bound,
             norm: self.norm,
@@ -65,10 +60,10 @@ impl MSIS {
 
     pub fn to_sis(&self) -> SIS {
         SIS::new(
-            self.h * self.d,
+            self.h,
             self.q.clone(),
             self.length_bound,
-            self.w * self.d,
+            self.w * self.h,
             self.norm,
         )
     }
@@ -84,6 +79,38 @@ impl MSIS {
     }
 
     pub fn upper_bound_h(&self) -> usize {
-        self.to_sis().upper_bound_h().div_floor(self.d)
+        self.to_sis().upper_bound_h()
+    }
+}
+
+
+#[cfg(test)]
+
+mod test{
+    use crate::norms::Norm;
+
+    use super::*;
+
+    const Q: u128 = 2147483649;
+    const SQRT_Q: f64 = 46340.95;
+
+
+    #[test]
+    fn test_rsis_security_level_l2() {
+        let test_l2: RSIS = RSIS {
+            h: 5,
+            q: Q.into(),
+            length_bound: SQRT_Q,
+            w: 512,
+            norm: Norm::L2,
+        };
+        let lambda = test_l2.security_level();
+        println!("External {test_l2} -> lambda: {lambda}");
+
+        let lambda = test_l2.security_level_internal(Estimates::LLL);
+        println!("Internal  LLL {test_l2} -> lambda: {lambda}");
+
+        let lambda = test_l2.security_level_internal(Estimates::CheNgue12);
+        println!("Internal  CheNgue12 {test_l2} -> lambda: {lambda}");
     }
 }

@@ -57,7 +57,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::norms::Norm;
+    use crate::{norms::Norm, reduction::Estimates};
 
     use super::*;
 
@@ -77,7 +77,7 @@ mod test {
         let lambda: f64 = test_l2.security_level();
         println!("External {test_l2} -> lambda: {lambda}");
 
-        let lambda: f64 = test_l2.security_level_internal();
+        let lambda: f64 = test_l2.security_level_internal(Estimates::LLL);
         println!("Internal  {test_l2} -> lambda: {lambda}");
     }
 

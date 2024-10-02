@@ -1,17 +1,19 @@
+use std::f64::consts::{E, PI};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
-use log::debug;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
+use roots::SimpleConvergency;
 
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
 use crate::sage_util::sagemath_eval;
-use crate::reduction::LLL;
-use crate::reduction::ReductionCost;
+use crate::reduction::EstimatesParams;
+use crate::reduction::Estimates;
+use crate::reduction;
 
 pub struct SIS {
     h: usize,
@@ -79,35 +81,51 @@ impl SIS {
         (self.h as f64 * q.log2() / log_delta).sqrt() 
     }
 
-    pub fn security_level_internal(&self) -> f64 {
+    fn optimal_block_size(&self, delta: f64) -> Result<f64, roots::SearchError> {
+        let f = |beta| {beta / (2.0 * PI * E) * (PI * beta as f64).powf(1.0 / beta).powf(1.0 / (2.0 * (beta - 1.0)))- delta};
+        let mut conv: SimpleConvergency<f64> = SimpleConvergency {eps: 1e-15, max_iter: 100};
+        roots::find_root_secant(f64::powf(2.0, 16.0), 40f64, f, &mut conv)
+    }
+
+    pub fn security_level_internal(&self, estimate_type: Estimates) -> f64 {
         let q = self.q.to_f64().unwrap();
         //Check for trivial case and impossible case
         if self.length_bound < (self.w as f64 * q.log2()).sqrt() {
-            println!("Impossible case");
-            0.0
+            panic!("The length bound is too small for the given parameters");
         } else if self.length_bound >= q {
-            println!("Trivial");
-            0.0
+            panic!("The solution is trivial for the given parameters");
         } else {
+
             //find optimal lattice dimension for reduction
             let w_opt = f64::min(self.optimal_w(), self.w as f64);
-            
+            println!("Optimal w: {}", w_opt);
+
             //find the root hermite factor required for the optimal lattice dimension
             let log_delta: f64 = (1.0 / (w_opt - 1.0)) * (self.length_bound.log2() - (self.h as f64 / w_opt) * q.log2());
             let delta: f64 = log_delta.exp2();
-            
-            //check if reduction is doable
-            //For now use the rule of thumb in "On the concrete hardness with learning with errors"
-            //et block_size: usize = (1.0 / log_delta).round() as usize; 
-            //if delta >= 1.0 && block_size <= w_opt.round() as usize {
-            //    return 1.0;
-            //} else {
-            //   return 0.0;
-            //}
 
-            //Do LLL for now just to check
-            let lll_params: LLL = LLL::new(self.h, q.to_bits() as usize);
-            ReductionCost::cost(&lll_params).log2()
+            //For now use the rule of thumb in "On the concrete hardness with learning with errors"
+            let block_size_thumb: usize = (1.0 / log_delta).round() as usize; 
+            println!("Block size thumb: {}", block_size_thumb);
+            
+            //find optimal block size
+            let block_size: usize = match self.optimal_block_size(delta) {
+                Ok(bl_size) => bl_size as usize,
+                Err(e) => panic!("Error finding optimal block size: {}", e)
+            }; 
+
+            println!("Block size: {}", block_size);  
+            
+            if delta >= 1.0 && block_size <= w_opt.round() as usize {
+                let estimate_params: EstimatesParams = match estimate_type {
+                    Estimates::LLL => EstimatesParams::LLL(reduction::LLL::new(self.h, q.to_bits() as usize)),
+                    Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize))
+                };
+                reduction::cost(estimate_params).unwrap().log2()
+            }
+            else {
+                panic!("The reduction is not doable with the given parameters");
+            }
         }
     }
 
@@ -202,6 +220,7 @@ impl SIS {
 mod test {
     use crate::norms::Norm;
     use crate::sis::SIS;
+    use crate::reduction::Estimates;
 
     #[test]
     fn test_sis_security_level_l2() {
@@ -211,8 +230,11 @@ mod test {
         println!("External : {falcon512_unf} -> lambda: {lambda}");
 
 
-        let cost_internal = falcon512_unf.security_level_internal();
-        println!("Internal : {falcon512_unf} -> lambda: {cost_internal}");
+        let cost_internal_lll: f64 = falcon512_unf.security_level_internal(Estimates::LLL);
+        println!("Internal LLL: {falcon512_unf} -> lambda: {cost_internal_lll}");
+
+        let cost_internal_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgue12);
+        println!("Internal CheNgue12: {falcon512_unf} -> lambda: {cost_internal_chengue12}");
     }
 
     #[test]
