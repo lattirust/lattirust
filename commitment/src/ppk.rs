@@ -3,7 +3,7 @@ use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChalle
 use lattirust_arithmetic::linear_algebra::{Matrix, Vector};
 // use fhe::bfv::Ciphertext;
 use lattirust_arithmetic::ntt::ntt_modulus;
-use lattirust_arithmetic::ring::{ConvertibleRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, Zq, PolyRing};
+use lattirust_arithmetic::ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, UnsignedRepresentative, Zq};
 use rand::{CryptoRng, RngCore};
 use rand_distr::Normal;
 use rand::distributions::{Distribution};
@@ -13,146 +13,142 @@ use ark_std::rand;
 use lattirust_arithmetic::challenge_set::ternary;
 use lattirust_arithmetic::traits::FromRandomBytes;
 
-// todo: 
-const N: usize = 128;
-const Q: u64 = ntt_modulus::<N>(16);
-const P: u64 = ntt_modulus::<N>(14);
-type Rp = Zq<Q>;
-type Rq = Zq<P>;
-type PolyRp = Pow2CyclotomicPolyRing<Rp, N>;
-type PolyRq = Pow2CyclotomicPolyRing<Rq, N>;
-
-// pub fn secret_ternary<F: PolyRp, Rng: rand::Rng + ?Sized, const N: usize>(rng: &mut Rng) {
-//     // let mut secret = Vec::new();
-//     // for _ in 0..3 {
-//     //     secret.push([-T::one(), T::zero(), T::one()]
-//     //         .choose(rng)
-//     //         .unwrap()
-//     //         .clone());
-//     // }
-//     let vec = Vector::<u8>::rand(N, rng);
-//     let vec_slice = vec.as_slice();
-//     // TODO: handle the error
-//     return WeightedTernaryChallengeSet::<F>::try_from_random_bytes(vec_slice).unwrap();
-// =}
-
-// TODO: move out
+// TODO: toy sampling, need to use OpenFHE code 
 pub fn get_gaussian_vec<T: RngCore + CryptoRng>(std_dev: f64, dimension: usize, rng: &mut T) -> Vec<i64> {
     // TODO: modulo the coefficients
     let gaussian = Normal::new(0.0, std_dev).unwrap();
     let val: Vec<i64> = (0..dimension)
         .map(|_| gaussian.sample(rng) as i64)
         .collect();
-    return val;
+    val
 }
 
-pub fn get_poly_from_gaussian<T: RngCore + CryptoRng, const q: u64>(std_dev: f64, dimension: usize, rng: &mut T) -> Pow2CyclotomicPolyRing<Zq<q>, N> {
+pub fn get_poly_from_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
     let rand_vec = get_gaussian_vec(std_dev, dimension, rng);
-    let rand_vec: Vec<Zq<q>> = rand_vec.into_iter().map(|x| Zq::<q>::from(x)).collect();
+    let rand_vec: Vec<Zq<Q>> = rand_vec.into_iter().map(|x| Zq::<Q>::from(x)).collect();
 
     Pow2CyclotomicPolyRing::from(rand_vec)
 }
 
 
-struct Prover {
-    secret_key: SecretKey, // polynomial w/ coefficients in {-1, 0, +1}
-    public_key: PublicKey, // ring mod q
-    message: Pow2CyclotomicPolyRing<Rp, N>, // ring mod p
-    verifier_pk: PublicKey
+struct Prover<const Q: u64, const P: u64, const N: usize> {
+    secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}
+    public_key: PublicKey<Q, P, N>, // ring mod q
+    message: Pow2CyclotomicPolyRing<Zq<Q>, N>, // ring mod p
+    verifier_pk: PublicKey<Q, P, N>
 }
 
-struct Verifier {
-    secret_key: SecretKey,
-    public_key: PublicKey,
-    commitment: Option<Vec<Pow2CyclotomicPolyRing<Rp, N>>>
+struct Verifier<const Q: u64, const P: u64, const N: usize> {
+    secret_key: SecretKey<Q, P, N>,
+    public_key: PublicKey<Q, P, N>,
+    commitment: Option<Vec<Pow2CyclotomicPolyRing<Zq<Q>, N>>>
 }
 
+// TODO: do I need both modules everywhere?
 // move it to a dedicated library later on
-struct PublicKey {
-    pk1: Pow2CyclotomicPolyRing<Rq, N>, 
-    pk2: Pow2CyclotomicPolyRing<Rq, N>,
-    modulo: u64,
+struct PublicKey<const Q: u64, const P: u64, const N: usize> {
+    pk1: Pow2CyclotomicPolyRing<Zq<Q>, N>, 
+    pk2: Pow2CyclotomicPolyRing<Zq<Q>, N>,
+    pub modulo: u64,
 }
-struct SecretKey {
-    sk: Pow2CyclotomicPolyRing<Rp, N>,
-    modulo: u64,
+struct SecretKey<const Q: u64, const P: u64, const N: usize> {
+    sk: Pow2CyclotomicPolyRing<Zq<Q>, N>,  // p or q?
+    pub modulo: u64,
 }
 
-type Plaintext = Pow2CyclotomicPolyRing<Rp, N>;
-type Ciphertext = (Pow2CyclotomicPolyRing<Rq, N>, Pow2CyclotomicPolyRing<Rq, N>);
+struct Plaintext<const P: u64, const N: usize> {
+    ptxt: Pow2CyclotomicPolyRing<Zq<P>, N>,
+    pub modulo: u64,
+}
 
-impl SecretKey {
+struct Ciphertext<const Q: u64, const N: usize> {
+    c1: Pow2CyclotomicPolyRing<Zq<Q>, N>,
+    c2: Pow2CyclotomicPolyRing<Zq<Q>, N>,
+    pub modulo: u64,
+}
+
+impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     fn new() -> Self {
         let mut rng = rand::thread_rng();
         // let coeff: Matrix<Rp> = Matrix::<Rp>::rand_ternary(1, degree, &mut rng);
         // let coeff = coeff.row(0);
         // println!("{:?}", coeff);
 
-        let vec = Vector::<u8>::rand(N, &mut rng);
-        let vec_slice = vec.as_slice();
-        // TODO: fix the type cause now it's not statix
-        let sk = WeightedTernaryChallengeSet::<PolyRp>::try_from_random_bytes(vec_slice).unwrap();
+        let bytes = Vector::<u8>::rand(N, &mut rng);
+        let vec_slice = bytes.as_slice();
+        // TODO: fix the type cause now the ring is not passed
+        let sk = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(vec_slice).unwrap();
         Self {
             sk,
-            modulo: P,
+            modulo: Q,
         }
     }
 
-    fn pk_gen(&self) -> PublicKey {
-        todo!();
-        // let mut rng = rand::thread_rng();
+    fn pk_gen(&self) -> PublicKey<Q, P, N> {
+        let mut rng = rand::thread_rng();
 
-        // // e should have small std_dev, TODO: check the parameters
-        // let e = get_poly_from_gaussian(2.3, N, &mut rng);
-        // let a = Vector::<u8>::rand(N, &mut rng);
-        // let pk2 = PolyRq::try_from_random_bytes(a.as_slice()).unwrap();
-        // let pk1 = -(pk2 * self.sk) + e;
-        // PublicKey {
-
-        // }
+        // e should have small std_dev, TODO: check the parameters
+        let e = get_poly_from_gaussian(2.3, N, &mut rng);
+        let a = Vector::<u8>::rand(N, &mut rng);
+        let pk2 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(a.as_slice()).unwrap();
+        
+        let pk1 = -(pk2 * self.sk) + e;
+        PublicKey {
+            pk1,
+            pk2,
+            modulo: Q,
+        }
     }
     
-    fn decrypt(c: (Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>)) -> Pow2CyclotomicPolyRing<Rp, N> {
-        todo!();
+    // fn decrypt(c: (Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>)) -> Pow2CyclotomicPolyRing<Rp, N> {
+    //     todo!();
+    // }
+}
+
+impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
+    fn encrypt(&self, m: Plaintext<P, N>) -> Ciphertext<Q, N> {
+        let mut rng = rand::thread_rng();
+        let pk1 = self.pk1;
+        let pk2 = self.pk2;
+        
+        // samples a random polynomial u in Rq (?)
+        // let uniform = Uniform::new(0, Q as u8); // check
+        // let val: Vec<u8> = (0..N).map(|_| uniform.sample(&mut rng)).collect();
+        // let u = Pow2CyclotomicPolyRingNTT::from_fn(&val); // check
+        // let bytes = Vector::<u8>::rand(N, &mut rng);
+        // let u = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes.as_slice()).unwrap();
+
+        let u = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
+        // samples e1, e2 in Rq
+        let e1 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
+        let e2 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
+        
+        let p = m.modulo;
+        let q = self.modulo;
+
+        let delta = ((q as f64) / (p as f64)).floor() as u128; // round off
+
+        // mutliply each coeff of m with delta as bigint, and convert the polynomial into Zq
+        let coeffs: Vec<Zq<P>> = m.ptxt.coeffs();
+        let coeffs_zq: Vec<Zq<Q>> = coeffs.into_iter()
+            .map(|x| <Zq<Q>>::from(delta * UnsignedRepresentative::from(x).0))
+            .collect();
+        let m_delta = Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(coeffs_zq);
+
+        // compute a, b
+        let c1 = pk1 * u + e1 + m_delta;
+        let c2 = pk2 * u + e2;
+
+        // return the ciphertext
+        Ciphertext {
+            c1,
+            c2,
+            modulo: Q,
+        }
     }
 }
 
-impl PublicKey {
-    fn encrypt(&self, m: Pow2CyclotomicPolyRing<Rp, N>) -> Ciphertext {
-        todo!();
-        // let mut rng = rand::rngs::StdRng::seed_from_u64(16);
-        // let pk1 = self.pk1;
-        // let pk2 = self.pk2;
-        
-        // // samples a random polynomial u in Rq (?)
-        // // TODO: make the sampling a function
-        // // let uniform = Uniform::new(0, Q as u8); // check
-        // // let val: Vec<u8> = (0..N).map(|_| uniform.sample(&mut rng)).collect();
-        // // let u = Pow2CyclotomicPolyRingNTT::from_fn(&val); // check
-        
-        // let u = PolyRq::rand(&mut rng);
-        // // samples e1, e2 in Rq
-        // let e1 = PolyRq::rand(&mut rng);
-        // let e2 = PolyRq::rand(&mut rng);
-        
-        // let delta = Q/P as u64; // round off
-
-        // let delta = Rp::from(delta);
-        // // compute a, b
-        // // delta * m.coeffs();
-        // // TODO: convert it into NTT
-        // let a = pk1 * u + e1 + m * delta;
-
-        // // either cast m into Rq
-        // // mutliply each coeff with delta as bigint, and convert the polynomial into Zq
-        // // let b = pk2 * u + e2;
-
-        // // return the ciphertext
-        // // (a, b)
-    }
-}
-
-impl Prover {
+impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
     // instantiation
     // fn new(verifier_pk: PublicKey, message: Pow2CyclotomicPolyRing<Rp, N>) -> Self {
 
@@ -174,7 +170,7 @@ impl Prover {
     // }
 
     // generate-phase
-    fn generate(&self) -> Pow2CyclotomicPolyRing<Rp, N> {
+    fn generate(&self) -> Pow2CyclotomicPolyRing<Zq<P>, N> {
         todo!();
         // todo: use DGS
         // let mut Rp: (Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>) = (0.0, 0.0, 0.0);
@@ -185,7 +181,7 @@ impl Prover {
     }
 
     // prove-phase, which is a sigma protocol
-    fn commit(&self, l: usize) -> Vec<Pow2CyclotomicPolyRing<Rp, N>> {
+    fn commit(&self, l: usize) -> Vec<Pow2CyclotomicPolyRing<Zq<P>, N>> {
         todo!();
 
         // let mut u: Vec<Pow2CyclotomicPolyRing<Rp, N>> = Vec::new(); // vec poly of size l
@@ -204,12 +200,12 @@ impl Prover {
     }
 
     // or a tuple of two arrays
-    fn reveal(response: Vec<Pow2CyclotomicPolyRing<Rp, N>>) -> Vec<(Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>)> {
+    fn reveal(response: Vec<Pow2CyclotomicPolyRing<Zq<P>, N>>) -> Vec<(Pow2CyclotomicPolyRing<Zq<P>, N>, Pow2CyclotomicPolyRing<Zq<P>, N>)> {
         todo!();
     }
 }
 
-impl Verifier {
+impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
     // instantiation
     // fn new() -> Self {
     //     Self {
@@ -227,12 +223,12 @@ impl Verifier {
     //     }
     // }
 
-    fn challenge(&self, commitment: Vec<Pow2CyclotomicPolyRing<Rp, N>>) -> Vec<Pow2CyclotomicPolyRing<Rp, N>> {
+    fn challenge(&self, commitment: Vec<Pow2CyclotomicPolyRing<Zq<P>, N>>) -> Vec<Pow2CyclotomicPolyRing<Zq<P>, N>> {
         todo!();
         // self.commitment = Some(commitment);
     }
 
-    fn verify(response: Vec<(Pow2CyclotomicPolyRing<Rp, N>, Pow2CyclotomicPolyRing<Rp, N>)>) -> bool {
+    fn verify(response: Vec<(Pow2CyclotomicPolyRing<Zq<P>, N>, Pow2CyclotomicPolyRing<Zq<P>, N>)>) -> bool {
         todo!();
     }
 }
