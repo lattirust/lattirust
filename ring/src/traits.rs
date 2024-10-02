@@ -63,6 +63,10 @@ pub trait Cyclotomic: PolyRing {
     }
 
     fn rot(&mut self);
+
+    fn into_rot_iter(self) -> Rotation<Self> {
+        Rotation { curr: self }
+    }
 }
 
 pub fn rot_matrix<C: Cyclotomic>(mut f: C) -> Matrix<C::BaseRing> {
@@ -76,4 +80,20 @@ pub fn rot_matrix<C: Cyclotomic>(mut f: C) -> Matrix<C::BaseRing> {
     });
 
     Matrix::from_columns(&columns)
+}
+
+pub struct Rotation<R: Cyclotomic> {
+    curr: R,
+}
+
+impl<R: Cyclotomic> Iterator for Rotation<R> {
+    type Item = R;
+
+    fn next(&mut self) -> Option<R> {
+        let curr = self.curr;
+
+        self.curr.rot();
+
+        Some(curr)
+    }
 }
