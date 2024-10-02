@@ -1,6 +1,5 @@
-use std::marker::PhantomData;
-
 use ark_ff::{CubicExtConfig, CubicExtField, Fp3, Fp3Config, SqrtPrecomputation};
+use ark_std::marker::PhantomData;
 
 use super::{BabyBear3ExtConfig, Fq, Fq9};
 

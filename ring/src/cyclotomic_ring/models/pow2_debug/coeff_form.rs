@@ -5,7 +5,8 @@ use super::Pow2Rp64Config;
 use crate::{
     cyclotomic_ring::{models::pow2_debug::Fp64Pow2, CyclotomicPolyRingGeneral},
     traits::{WithL2Norm, WithLinfNorm},
-    OverField, PolyRing, WithRot,
+    zn::z_q::Zq,
+    Cyclotomic, OverField, PolyRing,
 };
 
 pub type Pow2CyclotomicPolyRing<const Q: u64, const PHI_D: usize> =
@@ -23,8 +24,8 @@ impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRing<Q
     }
 }
 
-impl<const Q: u64, const PHI_D: usize> WithRot for Pow2CyclotomicPolyRing<Q, PHI_D> {
-    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
+impl<const Q: u64, const PHI_D: usize> Pow2CyclotomicPolyRing<Q, PHI_D> {
+    fn multiply_by_xi(&self, i: usize) -> Vec<Zq<Q>> {
         let bs = self.0;
         #[cfg(not(feature = "native-array"))]
         let len = bs.ncols();
@@ -40,6 +41,12 @@ impl<const Q: u64, const PHI_D: usize> WithRot for Pow2CyclotomicPolyRing<Q, PHI
             }
         }
         result
+    }
+}
+
+impl<const Q: u64, const PHI_D: usize> Cyclotomic for Pow2CyclotomicPolyRing<Q, PHI_D> {
+    fn rot(&mut self) {
+        *self = Self::from(self.multiply_by_xi(1))
     }
 }
 

@@ -158,7 +158,7 @@ pub fn decompose_balanced_polyring<R: PolyRing>(
 where
     R::BaseRing: Decompose,
 {
-    decompose_balanced_vec::<R::BaseRing>(v.coeffs().as_slice(), b, padding_size)
+    decompose_balanced_vec::<R::BaseRing>(v.coeffs(), b, padding_size)
         .into_par_iter()
         .map(|v_i| R::from(v_i))
         .collect()
@@ -359,7 +359,7 @@ mod tests {
             let decomp = decompose_balanced_polyring(&v, b, None);
 
             for d_i in &decomp {
-                for d_ij in d_i.coeffs() {
+                for &d_ij in d_i.coeffs() {
                     let s_ij: i128 = SignedRepresentative::from(d_ij).0;
                     assert!(s_ij.unsigned_abs() <= b_half);
                 }

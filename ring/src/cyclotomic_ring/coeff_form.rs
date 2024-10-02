@@ -443,7 +443,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
     for CyclotomicPolyRingGeneral<C, N, { D * C::CRT_FIELD_EXTENSION_DEGREE }>
 {
     fn from(value: CyclotomicPolyRingNTTGeneral<C, N, D>) -> Self {
-        let coeffs: Vec<Fp<C::BaseFieldConfig, N>> = C::icrt(value.coeffs());
+        let coeffs: Vec<Fp<C::BaseFieldConfig, N>> = C::icrt(value.into_coeffs());
 
         Self(coeffs.try_into().unwrap())
     }
@@ -629,14 +629,14 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
 {
     type BaseRing = Fp<C::BaseFieldConfig, N>;
 
-    fn coeffs(&self) -> Vec<Fp<C::BaseFieldConfig, N>> {
+    fn coeffs(&self) -> &[Fp<C::BaseFieldConfig, N>] {
         #[cfg(not(feature = "native-array"))]
         {
-            self.0.as_slice().to_vec()
+            self.0.as_slice()
         }
         #[cfg(feature = "native-array")]
         {
-            self.0.to_vec()
+            &self.0
         }
     }
 
@@ -650,12 +650,21 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
         coeffs[0] = v;
         Self::from_array(coeffs)
     }
+
+    fn into_coeffs(self) -> Vec<Self::BaseRing> {
+        // TODO: unnecessary cloning. Remove it somehow.
+        self.0.as_slice().to_vec()
+    }
 }
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> From<Vec<Fp<C::BaseFieldConfig, N>>>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    fn from(value: Vec<Fp<C::BaseFieldConfig, N>>) -> Self {
+    fn from(mut value: Vec<Fp<C::BaseFieldConfig, N>>) -> Self {
+        if value.len() < D {
+            value.resize(D, Fp::zero())
+        }
+
         Self::from_coeffs_vec(value)
     }
 }
