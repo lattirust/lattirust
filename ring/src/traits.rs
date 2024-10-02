@@ -1,4 +1,7 @@
+use lattirust_linear_algebra::{Matrix, Vector};
 use num_bigint::BigUint;
+
+use crate::{PolyRing, Ring};
 
 pub trait WithL2Norm {
     fn l2_norm_squared(&self) -> BigUint;
@@ -46,4 +49,31 @@ pub trait Modulus {
 pub trait FromRandomBytes<T> {
     fn byte_size() -> usize;
     fn try_from_random_bytes(bytes: &[u8]) -> Option<T>;
+}
+
+pub trait Cyclotomic: PolyRing {
+    #[inline(always)]
+    fn degree() -> usize {
+        Self::dimension() - 1
+    }
+
+    #[inline]
+    fn x() -> Self {
+        Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
+    }
+
+    fn rot(&mut self);
+}
+
+pub fn rot_matrix<C: Cyclotomic>(mut f: C) -> Matrix<C::BaseRing> {
+    let degree = C::degree();
+    let mut columns = Vec::with_capacity(degree);
+
+    (0..degree).for_each(|_| {
+        f.rot();
+
+        columns.push(Vector::from_slice(f.coeffs()))
+    });
+
+    Matrix::from_columns(&columns)
 }

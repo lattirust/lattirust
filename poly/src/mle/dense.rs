@@ -48,7 +48,7 @@ impl<R: Ring> DenseMultilinearExtension<R> {
     pub fn relabel_in_place(&mut self, mut a: usize, mut b: usize, k: usize) {
         // enforce order of a and b
         if a > b {
-            std::mem::swap(&mut a, &mut b);
+            ark_std::mem::swap(&mut a, &mut b);
         }
         if a == b || k == 0 {
             return;
@@ -157,7 +157,7 @@ impl<'a, R: Ring> AddAssign<&'a DenseMultilinearExtension<R>> for DenseMultiline
 }
 impl<R: Ring> AddAssign<(R, &DenseMultilinearExtension<R>)> for DenseMultilinearExtension<R>
 where
-    R: Copy + std::ops::AddAssign,
+    R: Copy + ark_std::ops::AddAssign,
 {
     fn add_assign(&mut self, (r, other): (R, &DenseMultilinearExtension<R>)) {
         let other = Self {

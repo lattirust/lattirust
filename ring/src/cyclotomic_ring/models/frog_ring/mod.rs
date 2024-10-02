@@ -1,11 +1,11 @@
 use ark_ff::{Field, Fp2, Fp2Config, Fp4, Fp4Config, MontBackend, MontFp};
-use ark_std::ops::Mul;
+use ark_std::{mem::swap, ops::Mul};
 
 use crate::{
     cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
     poly_ring::PolyRing,
     traits::FromRandomBytes,
-    OverField, Ring,
+    Cyclotomic, OverField, Ring,
 };
 
 mod ntt;
@@ -126,6 +126,16 @@ impl From<Fq4> for RqNTT {
     }
 }
 
+impl Cyclotomic for RqPoly {
+    fn rot(&mut self) {
+        let mut buf = -self.0[Self::dimension() - 1];
+
+        for i in 0..Self::dimension() {
+            swap(&mut buf, &mut self.0[i]);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use ark_poly::{
@@ -213,5 +223,20 @@ mod test {
 
         // ntt_mul.coeffs() performs INTT while coeffs_mul.coeffs() just returns the coefficients
         assert_eq!(RqPoly::from(ntt_mul).coeffs(), coeffs_mul.coeffs());
+    }
+
+    #[test]
+    fn test_cyclotomic() {
+        let mut rng = thread_rng();
+
+        let mut a = RqPoly::rand(&mut rng);
+        let initial_a = a;
+
+        let x = RqPoly::x();
+
+        for i in 1..RqPoly::dimension() {
+            a.rot();
+            assert_eq!(a, initial_a * x.pow([i as u64]));
+        }
     }
 }

@@ -1,4 +1,4 @@
-use ark_ff::{Field, Fp64};
+use ark_ff::Fp64;
 use ark_std::ops::Mul;
 use num_bigint::BigUint;
 
@@ -6,7 +6,7 @@ use super::Pow2Rp64Config;
 use crate::{
     cyclotomic_ring::{CyclotomicPolyRingNTTGeneral, RpConfig},
     traits::{WithL2Norm, WithLinfNorm},
-    OverField, PolyRing, WithRot,
+    OverField, PolyRing,
 };
 
 pub type Fp64Pow2<const Q: u64, const PHI_D: usize> =
@@ -26,22 +26,6 @@ impl<const Q: u64, const PHI_D: usize> WithL2Norm for Pow2CyclotomicPolyRingNTT<
 impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
     fn linf_norm(&self) -> BigUint {
         self.coeffs().linf_norm()
-    }
-}
-
-impl<const Q: u64, const PHI_D: usize> WithRot for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
-    fn multiply_by_xi(&self, i: usize) -> Vec<Self::BaseRing> {
-        let mut xi = if i < PHI_D {
-            vec![<Fp64Pow2<Q, PHI_D> as Field>::ZERO; PHI_D]
-        } else {
-            vec![<Fp64Pow2<Q, PHI_D> as Field>::ZERO; i + 1] // Shouldn't get to this point for the
-                                                             // purpose of RotSum
-        };
-        xi[i] = <Fp64Pow2<Q, PHI_D> as Field>::ONE;
-
-        let xi_poly = Pow2CyclotomicPolyRingNTT::from(xi);
-        let result = (*self * xi_poly).0;
-        result.iter().copied().collect::<Vec<_>>()
     }
 }
 

@@ -132,12 +132,12 @@ impl<T: PartialOrd> PartialOrd for UnsignedRepresentative<T> {
 }
 
 impl<T: Ord> Ord for SignedRepresentative<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> ark_std::cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }
 impl<T: Ord> Ord for UnsignedRepresentative<T> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> ark_std::cmp::Ordering {
         self.0.cmp(&other.0)
     }
 }

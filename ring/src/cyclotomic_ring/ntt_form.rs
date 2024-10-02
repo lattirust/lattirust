@@ -469,7 +469,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
     fn from(value: CyclotomicPolyRingGeneral<C, N, { D * C::CRT_FIELD_EXTENSION_DEGREE }>) -> Self {
-        Self::from_coeffs_vec(value.coeffs())
+        Self::from_coeffs_vec(value.into_coeffs())
     }
 }
 
@@ -682,8 +682,8 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
 {
     type BaseRing = C::BaseCRTField;
 
-    fn coeffs(&self) -> Vec<C::BaseCRTField> {
-        self.0.as_slice().into()
+    fn coeffs(&self) -> &[C::BaseCRTField] {
+        self.0.as_slice()
     }
     fn dimension() -> usize {
         D
@@ -692,6 +692,11 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
     fn from_scalar(v: Self::BaseRing) -> Self {
         // NTT([v, 0, ..., 0]) = ([v, ..., v])
         Self::from_array([v; D])
+    }
+
+    fn into_coeffs(self) -> Vec<Self::BaseRing> {
+        // TODO: unnecessary cloning. Remove it somehow.
+        self.0.as_slice().to_vec()
     }
 }
 
@@ -746,7 +751,7 @@ mod tests {
                     $size => {
                         let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, $size> =
                                 Pow2CyclotomicPolyRingNTT::<FERMAT_Q, $size>::from(Pow2CyclotomicPolyRing::from($initial_coeffs.clone()));
-                        let intt_coeffs = Pow2CyclotomicPolyRing::<FERMAT_Q, $size>::from(ntt_form).coeffs();//
+                        let intt_coeffs = Pow2CyclotomicPolyRing::<FERMAT_Q, $size>::from(ntt_form).into_coeffs();//
                         assert_eq!($initial_coeffs, intt_coeffs);
                     },
                 )+

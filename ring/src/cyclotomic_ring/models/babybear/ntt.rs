@@ -3,9 +3,8 @@
 //!
 use ark_ff::BigInt;
 
-use crate::cyclotomic_ring::models::babybear::fq9::fq9_vec_to_fq_vec;
-
 use super::{fq9::fq_vec_to_fq9_vec, Fq, Fq9};
+use crate::cyclotomic_ring::models::babybear::fq9::fq9_vec_to_fq_vec;
 
 // The degree of the cyclotomic polynomial
 pub(super) const D: usize = 72;

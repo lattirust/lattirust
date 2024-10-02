@@ -6,6 +6,7 @@
 pub use balanced_decomposition::representatives::{SignedRepresentative, UnsignedRepresentative};
 pub use poly_ring::*;
 pub use ring::*;
+pub use traits::*;
 
 pub mod balanced_decomposition;
 pub mod cyclotomic_ring;
