@@ -52,7 +52,7 @@ struct PublicKey<const Q: u64, const P: u64, const N: usize> {
     pub modulo: u64,
 }
 struct SecretKey<const Q: u64, const P: u64, const N: usize> {
-    sk: Pow2CyclotomicPolyRing<Zq<Q>, N>,  // p or q?
+    sk: Pow2CyclotomicPolyRing<Zq<Q>, N>,  // p or q? maybe I need to handle the conversion of ring elements
     pub modulo: u64,
 }
 
@@ -67,32 +67,32 @@ struct Ciphertext<const Q: u64, const N: usize> {
     pub modulo: u64,
 }
 
+// TODO: do I need to handle the error if unwrap unsucceds?
 impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     fn new() -> Self {
         let mut rng = rand::thread_rng();
-        // let coeff: Matrix<Rp> = Matrix::<Rp>::rand_ternary(1, degree, &mut rng);
-        // let coeff = coeff.row(0);
-        // println!("{:?}", coeff);
-
+        
+        // generate random bytes to sample a ternary secret
+        // TODO: DRY
         let bytes = Vector::<u8>::rand(N, &mut rng);
-        let vec_slice = bytes.as_slice();
-        // TODO: fix the type cause now the ring is not passed
-        let sk = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(vec_slice).unwrap();
+        let sk: Pow2CyclotomicPolyRing::<Zq<Q>, N> = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing<Zq<Q>, N>>::try_from_random_bytes(bytes.as_slice()).unwrap();
+
         Self {
             sk,
-            modulo: Q,
+            modulo: P,
         }
     }
 
     fn pk_gen(&self) -> PublicKey<Q, P, N> {
         let mut rng = rand::thread_rng();
 
-        // e should have small std_dev, TODO: check the parameters
-        let e = get_poly_from_gaussian(2.3, N, &mut rng);
-        let a = Vector::<u8>::rand(N, &mut rng);
-        let pk2 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(a.as_slice()).unwrap();
-        
-        let pk1 = -(pk2 * self.sk) + e;
+        // e should have small std_dev (how small?), TODO: check the parameters
+        let e = get_poly_from_gaussian(1.0, N, &mut rng);
+
+        let bytes: Vector<u8> = Vector::<u8>::rand(N, &mut rng);
+        let pk2: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes.as_slice()).unwrap();
+        let pk1: Pow2CyclotomicPolyRing::<Zq<Q>, N> = -(pk2 * self.sk) + e;
+
         PublicKey {
             pk1,
             pk2,
@@ -110,16 +110,9 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
         let mut rng = rand::thread_rng();
         let pk1 = self.pk1;
         let pk2 = self.pk2;
-        
-        // samples a random polynomial u in Rq (?)
-        // let uniform = Uniform::new(0, Q as u8); // check
-        // let val: Vec<u8> = (0..N).map(|_| uniform.sample(&mut rng)).collect();
-        // let u = Pow2CyclotomicPolyRingNTT::from_fn(&val); // check
-        // let bytes = Vector::<u8>::rand(N, &mut rng);
-        // let u = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes.as_slice()).unwrap();
 
+        // samples u, e1, e2 in Rq
         let u = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
-        // samples e1, e2 in Rq
         let e1 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
         let e2 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
         
