@@ -7,7 +7,7 @@ use ark_std::rand;
 // use commitments::ppk::get_gaussian_vec;
 use lattirust_arithmetic::{challenge_set::{ternary, weighted_ternary::WeightedTernaryChallengeSet}, linear_algebra::{Matrix, Scalar, Vector}, ntt::ntt_modulus, ring::{ConvertibleRing, Pow2CyclotomicPolyRing, Zq}, traits::FromRandomBytes};
 use rand::{CryptoRng, RngCore, SeedableRng};
-use commitments::ppk;
+use commitment::ppk;
 
 const N: usize = 128;
 const Q: u64 = ntt_modulus::<N>(16);
