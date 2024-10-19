@@ -1,10 +1,34 @@
 use ark_ff::Field;
+use icicle_core::traits::FieldImpl;
 use num_bigint::BigUint;
 use num_traits::One;
 use std::ops::Rem;
 
+use crate::gpu_context::{convert_to_Zq, convert_to_babybear, copy_from_host, copy_to_host, get_default_ntt_config, init_ntt_context_on_device, try_load_and_set_GPU_backend_device};
 use crate::ring::{const_fq_from, Zq};
 use crate::traits::Modulus;
+
+use log::{info, warn, debug, error};
+use pretty_env_logger::env_logger;
+
+use icicle_core::ntt::{self};
+use icicle_babybear::field::ScalarField as BabybearField;
+
+use clap::Parser;
+
+use crate::gpu_context::Error::*;
+
+
+// -----------------------------------------------------------------------------------------------
+
+
+#[derive(Parser, Debug)]
+struct Args {
+    size: u8,
+    device_type: String,
+}
+
+// -----------------------------------------------------------------------------------------------
 
 //noinspection RsAssertEqual
 /// Return q such that 2^(bit_size-1) <= q < 2^bit_size and q mod 2*N = 1
@@ -111,6 +135,47 @@ const fn root_of_unity_neg_pows_bit_reversed<const Q: u64, const N: usize>(psi: 
     pows
 }
 
+
+fn gpu_ntt_acceleration<const Q: u64, const N: usize>(
+    size: usize,
+    input: &mut [Zq<Q>; N],
+    direction: ntt::NTTDir,
+) -> Result<(), crate::gpu_context::Error> {
+
+    #[cfg(feature = "GPU")]
+    {
+
+        if try_load_and_set_GPU_backend_device().val() != ErrNone.val() {
+            return Err(GpuNotAvailable);
+        }
+
+        let (mut d_input, mut d_output) = init_ntt_context_on_device(size).map_err(|_| IcicleBackendNotFound)?;
+        let data = convert_to_babybear(*input);
+
+        copy_from_host(&mut d_input, data).map_err(|_| CopyFailed)?;
+        let config = get_default_ntt_config();
+
+        ntt::ntt(&d_input, direction, &config, &mut d_output[..]).map_err(|_| InvalidInput)?;
+        let mut host_babybear_results = vec![BabybearField::zero(); size];
+
+        copy_to_host(&mut host_babybear_results, d_output).map_err(|_| CopyFailed)?;
+        let res: Result<[Zq<Q>; N], _> = convert_to_Zq(host_babybear_results);
+
+        res.map_err(|_| InvalidInput)?.iter().enumerate().for_each(|(i, val)| input[i] = *val);
+
+        Ok(())
+    }
+    #[cfg(not(feature = "GPU"))]
+    {
+        warn!("GPU feature not enabled at compile time, using CPU implementation.");
+    }
+
+    // Default to CPU
+    return Err(GpuNotAvailable)
+
+}
+// -----------------------------------------------------------------------------------------------
+
 pub trait NTT<const Q: u64, const N: usize> {
     const ROOT_OF_UNITY: u64 = primitive_root_of_unity::<Q, N>();
     const POWS_ROOT_OF_UNITY: [Zq<Q>; N] = root_of_unity_pows_bit_reversed(Self::ROOT_OF_UNITY);
@@ -125,6 +190,13 @@ pub trait NTT<const Q: u64, const N: usize> {
         let mut j1: usize;
         let mut j2: usize;
         let mut s: Zq<Q>;
+
+        let direction = ntt::NTTDir::kForward;
+        let res = gpu_ntt_acceleration::<Q, N>(t, a, direction);
+        if res.is_ok() {
+            return;
+        }
+
         while m < N {
             t = t / 2;
             for i in 0..m {
@@ -151,6 +223,13 @@ pub trait NTT<const Q: u64, const N: usize> {
         let mut j2: usize;
         let mut h: usize;
         let mut s: Zq<Q>;
+
+        let direction = ntt::NTTDir::kInverse;
+        let res = gpu_ntt_acceleration::<Q, N>(m, a, direction);
+        if res.is_ok() {
+            return;
+        }
+
         while m > 1 {
             j1 = 0;
             h = m / 2;
@@ -185,8 +264,8 @@ mod tests {
 
     use super::*;
 
-    const Q: u64 = 2u64.pow(16) + 1;
-    // 4th Fermat prime, NTT_friendly for N up to 2**15
+    // const Q: u64 = 2u64.pow(16) + 1;
+    const Q: u64 = 0x78000001;
 
     const N: usize = 64; // as used by labrador
 
@@ -207,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_primitive_root_of_unity() {
+    fn test_primitive_root_of_unity() { 
         let psi = Zq::<Q>::from(primitive_root_of_unity::<Q, N>());
         assert_eq!(psi.pow([N as u64]), Zq::<Q>::one());
         for i in 1..N {
@@ -221,10 +300,11 @@ mod tests {
             );
         }
     }
-
+    
     #[test]
     fn test_ntt_intt() {
         let mut a: [Zq<Q>; N] = core::array::from_fn(|i| Zq::<Q>::from(i as u128));
+
         let a_original = a.clone();
         NttStruct::ntt(&mut a);
         NttStruct::intt(&mut a);

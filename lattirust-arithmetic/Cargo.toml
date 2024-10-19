@@ -6,6 +6,7 @@ rust-version = "1.80"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
 [dependencies]
 ark-ff = "0.4.2"
 ark-serialize = { version = "0.4.2", features = ["derive"] }
@@ -27,3 +28,14 @@ zeroize = "1.7.0"
 num-bigint = "0.4.4"
 rand = "0.8.5"
 displaydoc = "0.2.5"
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+icicle-babybear = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+pretty_env_logger = "0.5.0"
+log = "0.4.21"
+
+clap = { version = "<=4.4.12", features = ["derive"] }
+
+[features]
+GPU = []
+cuda = ["icicle-runtime/cuda_backend"]

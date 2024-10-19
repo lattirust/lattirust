@@ -17,3 +17,4 @@ pub mod ring;
 pub mod serde;
 pub mod traits;
 pub mod polynomials;
+mod gpu_context;
