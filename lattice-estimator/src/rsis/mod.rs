@@ -107,7 +107,7 @@ mod test{
         let lambda = test_l2.security_level();
         println!("External {test_l2} -> lambda: {lambda}");
 
-        let lambda = test_l2.security_level_internal(Estimates::LLL);
+        let lambda = test_l2.security_level_internal(Estimates::BDGL16);
         println!("Internal  LLL {test_l2} -> lambda: {lambda}");
 
         let lambda = test_l2.security_level_internal(Estimates::CheNgue12);

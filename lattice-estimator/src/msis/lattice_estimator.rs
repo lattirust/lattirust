@@ -77,7 +77,7 @@ mod test {
         let lambda: f64 = test_l2.security_level();
         println!("External {test_l2} -> lambda: {lambda}");
 
-        let lambda: f64 = test_l2.security_level_internal(Estimates::LLL);
+        let lambda: f64 = test_l2.security_level_internal(Estimates::BDGL16);
         println!("Internal  {test_l2} -> lambda: {lambda}");
     }
 

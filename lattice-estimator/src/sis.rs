@@ -6,7 +6,6 @@ use std::str::FromStr;
 
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
-use roots::SimpleConvergency;
 
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
@@ -76,56 +75,122 @@ impl SIS {
     }
 
     fn optimal_w(&self) -> f64 {
+
+        //see how to deal with BigUint and f64 conversion
+        
         let q: f64 = self.q.to_f64().unwrap();
         let log_delta = self.length_bound.log2().powi(2) / (4.0 * self.h as f64 * q.log2());
         (self.h as f64 * q.log2() / log_delta).sqrt() 
     }
 
-    fn optimal_block_size(&self, delta: f64) -> Result<f64, roots::SearchError> {
-        let f = |beta| {beta / (2.0 * PI * E) * (PI * beta as f64).powf(1.0 / beta).powf(1.0 / (2.0 * (beta - 1.0)))- delta};
-        let mut conv: SimpleConvergency<f64> = SimpleConvergency {eps: 1e-15, max_iter: 100};
-        roots::find_root_secant(f64::powf(2.0, 16.0), 40f64, f, &mut conv)
+    fn optimal_block_size(&self, delta: f64) -> usize {
+        let mut beta: usize = 40; 
+
+        while reduction::bkz_delta(2 * beta) > delta {
+            beta *= 2;
+        }
+        while reduction::bkz_delta(beta + 10) > delta {
+            beta += 10;
+        }
+        while reduction::bkz_delta(beta) >= delta {
+            beta += 1;
+        }
+        beta
+    }
+
+    fn infinity_cost(&self, block_size: usize, zeta: usize) -> f64 {
+
+        let q: f64 = self.q.to_f64().unwrap();
+
+        let new_dim: usize = self.w - zeta;
+        if new_dim < block_size {
+            panic!("The new dimension is smaller than the block size");
+        }
+    
+        //get the Gram Schmidt vector squared
+        let mut gs: Vec<f64> = gsa_simulator(new_dim, new_dim - self.h, self.q, block_size, None);
+        
+        //cost of sampling short vectors
+    
+        //2-style analysis
+        if(self.w as f64 * self.length_bound <= q)
+    
     }
 
     pub fn security_level_internal(&self, estimate_type: Estimates) -> f64 {
         let q = self.q.to_f64().unwrap();
+        
+
         //Check for trivial case and impossible case
-        if self.length_bound < (self.w as f64 * q.log2()).sqrt() {
-            panic!("The length bound is too small for the given parameters");
+        //0.1 is arbitrary see if it can be changed
+        if self.length_bound < (self.w as f64 * q.log2()).sqrt() || q < self.length_bound * (self.h as f64).powf(0.1) {
+            panic!("The length bound is too small for the given parameters, no short vector is expected to be found.");
         } else if self.length_bound >= q {
-            panic!("The solution is trivial for the given parameters");
+            panic!("The solution is trivial for the given parameters. Please set the norm < q");
         } else {
 
-            //find optimal lattice dimension for reduction
-            let w_opt = f64::min(self.optimal_w(), self.w as f64);
-            println!("Optimal w: {}", w_opt);
+            match self.norm {
+                Norm::L2 => {
+                    
+                    //find optimal lattice dimension for reduction
+                    let w_opt: f64 = f64::min(self.optimal_w(), self.w as f64);
 
-            //find the root hermite factor required for the optimal lattice dimension
-            let log_delta: f64 = (1.0 / (w_opt - 1.0)) * (self.length_bound.log2() - (self.h as f64 / w_opt) * q.log2());
-            let delta: f64 = log_delta.exp2();
+                    //find the root hermite factor required for the optimal lattice dimension
+                    let log_delta: f64 = (1.0 / (w_opt - 1.0)) * (self.length_bound.log2() - (self.h as f64 / w_opt) * q.log2());
+                    let delta: f64 = log_delta.exp2();
 
-            //For now use the rule of thumb in "On the concrete hardness with learning with errors"
-            let block_size_thumb: usize = (1.0 / log_delta).round() as usize; 
-            println!("Block size thumb: {}", block_size_thumb);
-            
-            //find optimal block size
-            let block_size: usize = match self.optimal_block_size(delta) {
-                Ok(bl_size) => bl_size as usize,
-                Err(e) => panic!("Error finding optimal block size: {}", e)
-            }; 
+                    //Find optimal BKZ block size
+                    let block_size: usize = self.optimal_block_size(delta);  
+                    
+                    //Actual reduction
+                    if delta >= 1.0 && block_size <= w_opt.round() as usize {
+                        return self.estimate(estimate_type, block_size);
+                    }
+                    else {
+                        panic!("The reduction is not doable with the given parameters");
+                    }
+                }
+                
+                Norm::Linf => {
 
-            println!("Block size: {}", block_size);  
-            
-            if delta >= 1.0 && block_size <= w_opt.round() as usize {
-                let estimate_params: EstimatesParams = match estimate_type {
-                    Estimates::LLL => EstimatesParams::LLL(reduction::LLL::new(self.h, q.to_bits() as usize)),
-                    Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize))
-                };
-                reduction::cost(estimate_params).unwrap().log2()
+                    let simulator = reduction::gsa_simulator(self.h, self.w, self.q.to_usize().unwrap(), block_size, None);
+
+                    //worst-case start : euclidean simulator
+                    let new_bound: f64 = match self.length_bound {
+                        1.0 => 2.0,
+                        _ => self.length_bound,
+                    };
+                    let worst_cost: f64 = self.with_length_bound(new_bound).security_level_internal(estimate_type);
+                    return 0.0
+                    }
+                    else {
+                        panic!("The reduction is not doable with the given parameters");
+                    }
+                }
             }
-            else {
-                panic!("The reduction is not doable with the given parameters");
-            }
+        }
+    }
+
+    fn estimate(&self, estimate_type: Estimates, block_size: usize) -> f64 {
+        
+        let q: f64 = self.q.to_f64().unwrap();
+        let estimate_params: EstimatesParams = match estimate_type {
+            Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+            Estimates::BDGL16=> EstimatesParams::BDGL16(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+
+            //TODO see if it was intentional not to use the bitsize in the LLL calculation for LaaMosPol14
+            Estimates::LaaMosPol14=> EstimatesParams::LaaMosPol14(reduction::BKZ::new(block_size, self.h, 0)),
+            Estimates::ABFKSW20=> EstimatesParams::ABFKSW20(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+            Estimates::ABLR21=> EstimatesParams::ABLR21(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+            Estimates::ADPS16=> EstimatesParams::ADPS16(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+            Estimates::ChaLoy21=> EstimatesParams::ChaLoy21(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
+            Estimates::Kyber(classical)=> EstimatesParams::Kyber(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize), classical),
+        };
+
+        
+        match reduction::cost(estimate_params) {
+            Ok(cost) => cost.log2(),
+            Err(e) => panic!("Error in estimating the cost: {}", e),
         }
     }
 
@@ -229,12 +294,37 @@ mod test {
         assert!(lambda >= 128.);
         println!("External : {falcon512_unf} -> lambda: {lambda}");
 
+        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true));
+        println!("Internal : {falcon512_unf} -> lambda: {cost_internal}");
+    }
 
-        let cost_internal_lll: f64 = falcon512_unf.security_level_internal(Estimates::LLL);
-        println!("Internal LLL: {falcon512_unf} -> lambda: {cost_internal_lll}");
+    #[test]
+    fn test_cost_models_l2() {
+        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        
+        let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgue12);
+        println!("Cost CheNgue12: {falcon512_unf} -> lambda: {cost_chengue12}");
 
-        let cost_internal_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgue12);
-        println!("Internal CheNgue12: {falcon512_unf} -> lambda: {cost_internal_chengue12}");
+        let cost_bdgl16: f64 = falcon512_unf.security_level_internal(Estimates::BDGL16);
+        println!("Cost BDGL16: {falcon512_unf} -> lambda: {cost_bdgl16}");
+
+        let cost_laamospol14: f64 = falcon512_unf.security_level_internal(Estimates::LaaMosPol14);
+        println!("Cost LaaMosPol14: {falcon512_unf} -> lambda: {cost_laamospol14}");
+
+        let cost_abfksw20: f64 = falcon512_unf.security_level_internal(Estimates::ABFKSW20);
+        println!("Cost ABFKSW20: {falcon512_unf} -> lambda: {cost_abfksw20}");
+
+        let cost_ablr21: f64 = falcon512_unf.security_level_internal(Estimates::ABLR21);
+        println!("Cost ABLR21: {falcon512_unf} -> lambda: {cost_ablr21}");
+
+        let cost_adps16: f64 = falcon512_unf.security_level_internal(Estimates::ADPS16);
+        println!("Cost ADPS16: {falcon512_unf} -> lambda: {cost_adps16}");
+
+        let cost_chaloy21: f64 = falcon512_unf.security_level_internal(Estimates::ChaLoy21);
+        println!("Cost ChaLoy21: {falcon512_unf} -> lambda: {cost_chaloy21}");
+
+        let cost_kyber: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true));
+        println!("Cost Kyber: {falcon512_unf} -> lambda: {cost_kyber}");
     }
 
     #[test]
@@ -242,9 +332,20 @@ mod test {
         let dilithium2_msis_wk_unf: SIS =
             SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
 
+            let dilithium2_msis_wk_l2: SIS =
+            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::L2);
+
+
         let lambda = dilithium2_msis_wk_unf.security_level();
         assert!(lambda >= 128.);
-        println!("{dilithium2_msis_wk_unf} -> lambda: {lambda}");
+        println!("External {dilithium2_msis_wk_unf} -> lambda: {lambda}");
+
+        let cost_internal: f64 =
+        SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::L2).security_level();
+        println!("Internal L2 {cost_internal} -> lambda: {cost_internal}");
+
+        let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::ABFKSW20);
+        println!("Internal Linf {dilithium2_msis_wk_unf} -> lambda: {cost_internal}");
     }
 
     #[test]
