@@ -40,7 +40,9 @@ impl<'a, R: Scalar + AddAssign<R> + Zero> From<&'a [Vec<R>]> for SparseMatrix<R>
 
         for (i, row) in matrix.iter().enumerate() {
             for (j, value) in row.iter().enumerate() {
-                coo_matrix.push(i, j, value.clone());
+                if !value.is_zero() {
+                    coo_matrix.push(i, j, value.clone());
+                }
             }
         }
 
