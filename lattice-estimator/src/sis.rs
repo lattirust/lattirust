@@ -1,18 +1,21 @@
-use std::f64::consts::{E, PI};
+use core::{f64, panic};
+use std::cmp::max;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
 use num_bigint::BigUint;
-use num_traits::ToPrimitive;
+use num_traits::{ToPrimitive, Zero};
 
+use crate::utils::CostParameters;
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
 use crate::sage_util::sagemath_eval;
-use crate::reduction::EstimatesParams;
+use crate::reduction::{matzov_short_vectors, EstimatesParams, BKZ};
 use crate::reduction::Estimates;
-use crate::reduction;
+use crate::{reduction, utils};
+use statrs::distribution::{ContinuousCDF, Normal};
 
 pub struct SIS {
     h: usize,
@@ -74,13 +77,76 @@ impl SIS {
         }
     }
 
+    fn cost_infinity(&self, zeta: usize, block_size: usize, classical: bool, estimate_type: Estimates) -> CostParameters{
+        
+        let q: f64 = self.q.to_f64().unwrap();
+        let dim: usize = self.w - zeta;
+
+        if dim < block_size || dim < self.h {
+            return CostParameters::with_values(f64::INFINITY, f64::INFINITY, 0.0, block_size, 0,  zeta, dim);
+        }
+
+        // Step 1: Simulate Gram-Schmidt vector lengths using reduction simulator
+        let gs_vectors_sizes =  reduction::gsa_simulator(dim, dim - self.h, q as usize, block_size, None);
+        let bkz: BKZ = reduction::BKZ::new(block_size, dim, None);
+        let sampling_cost: (f64, f64, usize, usize) = matzov_short_vectors(bkz, Some(dim), classical);
+        let bkz_cost: f64 = self.estimate(estimate_type, block_size);
+        
+        let mut log_proba: f64;
+        if (self.w as f64).sqrt() * self.length_bound <= q {
+
+            let vec_len = sampling_cost.0 * gs_vectors_sizes[0].sqrt();
+            let std_dev: f64 = vec_len / (dim as f64).sqrt();
+            let cdf = Normal::new(0.0, std_dev).unwrap().cdf(-self.length_bound);
+            log_proba = (1.0 - 2.0 * cdf).log2() * dim as f64;
+        
+        } else {
+            
+            let idx_start = if (gs_vectors_sizes[0].sqrt() - q).abs() < 1e-8 {
+                gs_vectors_sizes.iter().position(|&r| r < gs_vectors_sizes[0]).unwrap_or(0)
+            } else {
+                0
+            };
+    
+            let idx_end = if (gs_vectors_sizes[gs_vectors_sizes.len() - 1] - 1.0).abs() < 1e-8 {
+                gs_vectors_sizes.iter().position(|&r| r.sqrt() <= 1.0 + 1e-8).unwrap_or(dim - 1)
+            } else {
+                dim - 1
+            };
+    
+            let vector_length = gs_vectors_sizes[idx_start].sqrt();
+            let gaussian_coords = (idx_end - idx_start + 1).max(block_size);
+            let std_dev = vector_length / (gaussian_coords as f64).sqrt();
+            let cdf = Normal::new(0.0, std_dev).unwrap().cdf(-self.length_bound);
+            log_proba = (1.0 - 2.0 * cdf).log2() * gaussian_coords as f64;
+            log_proba += ((2.0 * self.length_bound + 1.0) / q).log2() * idx_start as f64;
+        }
+        
+        let proba = (2.0 as f64).powf(f64::min(0.0, log_proba + (sampling_cost.2 as f64).log2()));
+
+        let amplificator: f64 = utils::amplify_via_trials(0.99, proba);
+        if amplificator == f64::INFINITY {
+            return CostParameters::with_values(f64::INFINITY, f64::INFINITY, 0.0, block_size, 0, zeta, dim);
+        }
+        return CostParameters::with_values(
+            (sampling_cost.1 * amplificator).log2(),
+            (bkz_cost * amplificator).log2(),
+            (f64::max(sampling_cost.1 - bkz_cost, 1e-100) * amplificator).log2(), 
+            block_size, 
+            sampling_cost.3, 
+            zeta, 
+            dim);
+
+    }
+
+
     fn optimal_w(&self) -> f64 {
 
         //see how to deal with BigUint and f64 conversion
-        
         let q: f64 = self.q.to_f64().unwrap();
-        let log_delta = self.length_bound.log2().powi(2) / (4.0 * self.h as f64 * q.log2());
-        (self.h as f64 * q.log2() / log_delta).sqrt() 
+        let log_delta = self.length_bound.log2().powf(2.0) / (4.0 * self.h as f64 * q.log2());
+        let optimal_w: f64 = (self.h as f64 * q.log2() / log_delta).sqrt();
+        optimal_w 
     }
 
     fn optimal_block_size(&self, delta: f64) -> usize {
@@ -98,24 +164,6 @@ impl SIS {
         beta
     }
 
-    fn infinity_cost(&self, block_size: usize, zeta: usize) -> f64 {
-
-        let q: f64 = self.q.to_f64().unwrap();
-
-        let new_dim: usize = self.w - zeta;
-        if new_dim < block_size {
-            panic!("The new dimension is smaller than the block size");
-        }
-    
-        //get the Gram Schmidt vector squared
-        let mut gs: Vec<f64> = gsa_simulator(new_dim, new_dim - self.h, self.q, block_size, None);
-        
-        //cost of sampling short vectors
-    
-        //2-style analysis
-        if(self.w as f64 * self.length_bound <= q)
-    
-    }
 
     pub fn security_level_internal(&self, estimate_type: Estimates) -> f64 {
         let q = self.q.to_f64().unwrap();
@@ -153,38 +201,48 @@ impl SIS {
                 
                 Norm::Linf => {
 
-                    let simulator = reduction::gsa_simulator(self.h, self.w, self.q.to_usize().unwrap(), block_size, None);
+                    // Define the range for zeta 
+                    let zeta_range = (1, self.w); 
+                    
+                    //Get the L2 upperbound on blocksize
+                    let w_opt: f64 = f64::min(self.optimal_w(), self.w as f64);
+                    let log_delta: f64 = (1.0 / (w_opt - 1.0)) * (self.length_bound.log2() - (self.h as f64 / w_opt) * q.log2());
+                    let delta: f64 = log_delta.exp2();
+                    let l2_block_bound: usize = self.optimal_block_size(delta);  
+                   
+                    // Define the range for block size
+                    let block_size_range = (40, l2_block_bound);
 
-                    //worst-case start : euclidean simulator
-                    let new_bound: f64 = match self.length_bound {
-                        1.0 => 2.0,
-                        _ => self.length_bound,
-                    };
-                    let worst_cost: f64 = self.with_length_bound(new_bound).security_level_internal(estimate_type);
-                    return 0.0
-                    }
-                    else {
-                        panic!("The reduction is not doable with the given parameters");
-                    }
+                    // Run grid search to find optimal zeta and block_size that minimize cost
+                    let (_best_zeta, _best_beta, best_cost) = utils::tree_param_search(
+                        |zeta, block_size| self.cost_infinity(zeta, block_size, true, estimate_type),
+                        zeta_range,
+                        block_size_range,
+                    );
+                    
+                    // Update best cost value based on found parameters
+                    let final_cost = best_cost.rop;
+
+                    // Return the security level corresponding to the minimal found cost
+                    return final_cost;
                 }
             }
         }
     }
 
     fn estimate(&self, estimate_type: Estimates, block_size: usize) -> f64 {
-        
+        //Some(q.to_bits() as usize) //TODO see if it is better not to use the bitsize or not
         let q: f64 = self.q.to_f64().unwrap();
         let estimate_params: EstimatesParams = match estimate_type {
-            Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-            Estimates::BDGL16=> EstimatesParams::BDGL16(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-
-            //TODO see if it was intentional not to use the bitsize in the LLL calculation for LaaMosPol14
-            Estimates::LaaMosPol14=> EstimatesParams::LaaMosPol14(reduction::BKZ::new(block_size, self.h, 0)),
-            Estimates::ABFKSW20=> EstimatesParams::ABFKSW20(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-            Estimates::ABLR21=> EstimatesParams::ABLR21(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-            Estimates::ADPS16=> EstimatesParams::ADPS16(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-            Estimates::ChaLoy21=> EstimatesParams::ChaLoy21(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize)),
-            Estimates::Kyber(classical)=> EstimatesParams::Kyber(reduction::BKZ::new(block_size, self.h, q.to_bits() as usize), classical),
+            Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::BDGL16=> EstimatesParams::BDGL16(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::LaaMosPol14=> EstimatesParams::LaaMosPol14(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::ABFKSW20=> EstimatesParams::ABFKSW20(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::ABLR21=> EstimatesParams::ABLR21(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::ADPS16=> EstimatesParams::ADPS16(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::ChaLoy21=> EstimatesParams::ChaLoy21(reduction::BKZ::new(block_size, self.h, None)),
+            Estimates::Kyber(classical)=> EstimatesParams::Kyber(reduction::BKZ::new(block_size, self.h, None), classical),
+            Estimates::Matzov(classical)=> EstimatesParams::Matzov(reduction::BKZ::new(block_size, self.h, None), classical),
         };
 
         
@@ -269,7 +327,7 @@ impl SIS {
         // We can't assume that length_bound is monotonic, so we can't use binary search.
         // Instead, exhaustively search powers of 2 until we find a suitable n.
         // TODO: use a better search algorithm / return a more fine-grained result
-        let log2_m = self.w.ilog2();
+        let log2_m: u32 = self.w.ilog2();
         let candidates = (1..log2_m).map(|i| 2usize.pow(i));
         candidates
             .map(|n| self.with_h(n).with_length_bound(length_bound(n)))
@@ -279,10 +337,13 @@ impl SIS {
                 "no suitable h found".to_string(),
             ))
     }
+
 }
 
 #[cfg(test)]
 mod test {
+    use statrs::assert_almost_eq;
+
     use crate::norms::Norm;
     use crate::sis::SIS;
     use crate::reduction::Estimates;
@@ -332,17 +393,9 @@ mod test {
         let dilithium2_msis_wk_unf: SIS =
             SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
 
-            let dilithium2_msis_wk_l2: SIS =
-            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::L2);
-
-
-        let lambda = dilithium2_msis_wk_unf.security_level();
+        let lambda: f64 = dilithium2_msis_wk_unf.security_level();
         assert!(lambda >= 128.);
         println!("External {dilithium2_msis_wk_unf} -> lambda: {lambda}");
-
-        let cost_internal: f64 =
-        SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::L2).security_level();
-        println!("Internal L2 {cost_internal} -> lambda: {cost_internal}");
 
         let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::ABFKSW20);
         println!("Internal Linf {dilithium2_msis_wk_unf} -> lambda: {cost_internal}");
@@ -377,5 +430,20 @@ mod test {
             dilithium2_msis_wk_unf.security_level()
         );
         println!("{sis} -> lambda: {lambda}");
+    }
+
+    #[test]
+    fn test_cost_infinity() {
+        let dilithium2_msis_wk_unf: SIS =
+            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+        
+        let cost = dilithium2_msis_wk_unf.cost_infinity(575, 776, true, Estimates::Matzov(true));
+        assert_almost_eq!(cost.rop, 248.0, 1e1);
+
+        let cost = dilithium2_msis_wk_unf.cost_infinity(2303, 224, true, Estimates::Matzov(true));
+        assert_almost_eq!(cost.rop, f64::INFINITY, 1e1);
+
+        let cost = dilithium2_msis_wk_unf.cost_infinity(1152, 42, true, Estimates::Matzov(true));
+        assert_almost_eq!(cost.rop, f64::INFINITY, 1e1);
     }
 }
