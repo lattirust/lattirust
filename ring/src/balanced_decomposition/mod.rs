@@ -7,6 +7,7 @@ use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::Signed;
 use rayon::prelude::*;
+use std::time::Instant;
 
 use crate::{PolyRing, Ring};
 use convertible_ring::ConvertibleRing;
@@ -250,6 +251,23 @@ where
         .sum()
 }
 
+pub fn faster_recompose<A, B>(v: &[A], b: B) -> A
+where
+    A: ark_std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
+    B: Ring,
+{
+    let mut b_powers = Vec::with_capacity(v.len());
+    let mut current_power = B::one();
+    for _ in 0..v.len() {
+        b_powers.push(current_power);
+        current_power = current_power * b;
+    }
+    v.par_iter()
+        .enumerate()
+        .map(|(i, v_i)| *v_i * b_powers[i])
+        .sum()
+}
+
 /// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
 pub fn recompose_left_right_symmetric_matrix<F: Clone + Sum + Send + Sync>(
     mat: &SymmetricMatrix<F>,
@@ -318,6 +336,33 @@ mod tests {
                 // Check that the decomposition is correct
                 assert_eq!(*v, recompose(&decomp, R::from(b)));
             }
+        }
+    }
+
+    #[test]
+    fn test_recompose_speed() {
+        let v = get_test_vec();
+        for b in BASIS_TEST_RANGE {
+            let b_value = R::from(b);
+
+            // Measure time for recompose
+            let start = Instant::now();
+            let result_recompose = recompose(&v, b_value);
+            let duration_recompose = start.elapsed();
+
+            // Measure time for faster_recompose
+            let start = Instant::now();
+            let result_faster_recompose = faster_recompose(&v, b_value);
+            let duration_faster_recompose = start.elapsed();
+
+            // Print the durations
+            println!(
+                "Recompose took: {:?}, Faster recompose took: {:?}",
+                duration_recompose, duration_faster_recompose
+            );
+
+            // Assert equality
+            assert_eq!(result_recompose, result_faster_recompose);
         }
     }
 
