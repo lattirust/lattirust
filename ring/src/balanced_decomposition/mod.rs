@@ -341,7 +341,8 @@ mod tests {
 
     #[test]
     fn test_recompose_speed() {
-        let v = get_test_vec();
+        let v = (0..16).map(R::from).collect::<Vec<_>>();
+        println!("k: {:?}", v.len());
         for b in BASIS_TEST_RANGE {
             let b_value = R::from(b);
 
@@ -357,8 +358,8 @@ mod tests {
 
             // Print the durations
             println!(
-                "Recompose took: {:?}, Faster recompose took: {:?}",
-                duration_recompose, duration_faster_recompose
+                "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}",
+                duration_recompose, duration_faster_recompose, b
             );
 
             // Assert equality
