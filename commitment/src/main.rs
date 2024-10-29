@@ -45,9 +45,11 @@ fn main() {
     // let vec = Vector::<u8>::rand(size, &mut rng);
     // let vec = vec.as_slice();
     // let vec: PolyRq = WeightedTernaryChallengeSet::<PolyRq>::try_from_random_bytes(vec).unwrap();
-    // let mut vec: Vec<Zq<Q>> = vec.coeffs();
-    // let sk: PolyRq = vec.clone();
-    // println!("{:?}", vec);
+    // let coeffs: Vec<Zq<Q>> = vec.coeffs();
+    // let coeffs: Result<[Zq<Q>; N], _> = coeffs.try_into();
+    // let coeffs = coeffs.unwrap();
+    // let sk: PolyRq = PolyRq::from(coeffs);
+    // println!("{:?}", sk);
 
     // let params = ParamsBFV::new(1, 2, 3);
 

@@ -234,6 +234,7 @@ impl<BaseRing: ConvertibleRing, const N: usize> Mul<Self> for Pow2CyclotomicPoly
                 out[i + j - N] -= self.0[i] * rhs.0[j];
             }
         }
+        let out: [BaseRing; N] = out.try_into().expect("Bad format");
         Self::from(out)
     }
 }
