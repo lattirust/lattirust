@@ -6,7 +6,7 @@ use ark_std::rand;
 // use commitments::ppk::get_gaussian_vec;
 use lattirust_arithmetic::{challenge_set::{ternary, weighted_ternary::WeightedTernaryChallengeSet}, linear_algebra::{Matrix, Scalar, Vector}, ntt::ntt_modulus, ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRing, Zq}, traits::FromRandomBytes};
 use rand::{CryptoRng, RngCore, SeedableRng};
-use commitment::ppk::{ParamsBFV, Plaintext, Prover, SecretKey, Verifier};
+use commitment::ppk::{Plaintext, Prover, SecretKey, Verifier};
 use rand_distr::num_traits::Pow;
 
 const N: usize = 128;

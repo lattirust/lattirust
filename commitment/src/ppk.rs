@@ -15,11 +15,14 @@ use ark_std::rand;
 use lattirust_arithmetic::challenge_set::ternary;
 use lattirust_arithmetic::traits::FromRandomBytes;
 
-type N = usize;
-type Rq = Zq<Q>;
-
 // TODO: toy sampling, need to use OpenFHE code 
-pub fn get_gaussian_vec<T: RngCore + CryptoRng, const Q: u64>(std_dev: f64, dimension: usize, rng: &mut T) -> Vec<Zq<Q>> {
+pub fn get_gaussian_vec<
+    T: RngCore + CryptoRng, 
+    const Q: u64
+>(  std_dev: f64, 
+    dimension: usize, 
+    rng: &mut T
+) -> Vec<Zq<Q>> {
     // TODO: modulo the coefficients
     let gaussian = Normal::new(0.0, std_dev).unwrap();
     let val: Vec<Zq<Q>> = (0..dimension)
@@ -36,7 +39,6 @@ pub fn get_gaussian_vec<T: RngCore + CryptoRng, const Q: u64>(std_dev: f64, dime
 //     // Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng)
 // }
 
-// define Q, P, N before using 
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
     secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}
@@ -105,7 +107,7 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
         let size = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing<Zq<P>, N>>::byte_size();
         let bytes = Vector::<u8>::rand(size, &mut rng);
 
-        let sk: Pow2CyclotomicPolyRing::<Zq<P>, N> = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing<Zq<P>, N>>::try_from_random_bytes(bytes.as_slice()).unwrap();
+        let sk: Pow2CyclotomicPolyRing::<Zq<P>, N> = WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing::<Zq<P>, N>>::try_from_random_bytes(bytes.as_slice()).unwrap();
 
         Self {
             // params,
@@ -116,13 +118,13 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
 
     pub fn pk_gen(&self) -> PublicKey<Q, P, N> {
         let mut rng = rand::thread_rng();
-
+        type Rq<const Q: u64, const N: usize> = Pow2CyclotomicPolyRing::<Zq<Q>, N>;
         // let size = Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size();
         
         // e should have small std_dev (how small?), TODO: check the parameters
         // TODO: use OpenFHE DGS
         // let e = get_poly_from_gaussian(1.0, size, &mut rng);
-        let e: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
+        let e: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Rq::rand(&mut rng);
         // let e = e.coeffs();
         // let e: [Zq<Q>; N] = e.try_into().expect("Bad format");
         // println!("{e:?}");
@@ -132,19 +134,8 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
 
         // convert sk in Rp to Rq in order to perform the operation in Rq
         let sk_zq = p_to_q_ring(self.poly.clone());
-        // let coeffs: Vec<Zq<P>> = self.poly.coeffs().clone();
-        // let coeffs: Vec<Zq<Q>> = coeffs.into_iter()
-        //     .map(|x| <Zq<Q>>::from(UnsignedRepresentative::from(x).0))
-        //     .collect();
-        // let sk_zq: [Zq<Q>; N] = coeffs.try_into().expect("Bad format");
-        // let sk_zq = Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(sk_zq);
-        
         // compute the actual pk pair
-        // let pk2: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Pow2CyclotomicPolyRing::<Zq<Q>, N>::try_from_random_bytes(bytes.as_slice()).unwrap();
-        let pk2: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
-        // TODO: refactor 
-        // let pk2 = pk2.coeffs();
-        // let pk2: [Zq<Q>; N] = pk2.try_into().expect("Bad format");
+        let pk2: Pow2CyclotomicPolyRing<Zq<Q>, N> = Rq::rand(&mut rng);
         let pk1 = -(pk2 * sk_zq) + e;
 
         PublicKey {
@@ -156,6 +147,7 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     }
     
     fn decrypt(&self, c: Ciphertext<Q, N>) -> Plaintext<P, N> {
+        type Rp<const P: u64, const N: usize> = Pow2CyclotomicPolyRing::<Zq<P>, N>;
         let a = c.c1.clone();
         let b = c.c2.clone();
 
@@ -174,7 +166,7 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
             .map(|x| <Zq<P>>::from((delta * (UnsignedRepresentative::from(x).0 as f64)) as u128))
             .collect();
         let coeffs: [Zq<P>; N] = coeffs.try_into().expect("Bad format");
-        let poly = Pow2CyclotomicPolyRing::<Zq<P>, N>::from(coeffs);
+        let poly = Rp::from(coeffs);
 
         // println!("poly: {poly:?} \n");
         Plaintext {
@@ -191,10 +183,6 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
         let pk1 = self.poly1.clone();
         let pk2 = self.poly2.clone();
         let (u, e1, e2) = r;
-        // samples u, e1, e2 in Rq
-        // let u = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
-        // let e1 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
-        // let e2 = Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng);
         
         let p = m.modulo;
         let q = self.modulo;
@@ -221,11 +209,19 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
         }
     }
 
-    pub fn rand_tuple(factor: Option<Pow2CyclotomicPolyRing<Zq<Q>, N>>) -> (Pow2CyclotomicPolyRing<Zq<Q>, N>, Pow2CyclotomicPolyRing<Zq<Q>, N>, Pow2CyclotomicPolyRing<Zq<Q>, N>) {
+    pub fn rand_tuple(factor: Option<Pow2CyclotomicPolyRing<Zq<Q>, N>>) 
+    -> (Pow2CyclotomicPolyRing<Zq<Q>, N>, 
+        Pow2CyclotomicPolyRing<Zq<Q>, N>, 
+        Pow2CyclotomicPolyRing<Zq<Q>, N>) {
+        type Rq<const Q: u64, const N: usize> = Pow2CyclotomicPolyRing::<Zq<Q>, N>;
+        let mut rng = rand::thread_rng();
         match factor {
-            Some(f) => 
-                (f * Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng()), f * Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng()), f * Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng())),
-            None => (Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng()), Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng()), Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rand::thread_rng())),
+            Some(f) => (
+                f * Rq::rand(&mut rng), 
+                f * Rq::rand(&mut rng), 
+                f * Rq::rand(&mut rng)),
+
+            None => (Rq::rand(&mut rng), Rq::rand(&mut rng), Rq::rand(&mut rng)),
         }
     }
 
