@@ -80,6 +80,51 @@ where
 }
 
 
+pub fn adaptive_grid_search<F>(function: F, x_range: (usize, usize), y_range: (usize, usize), step_size: usize) -> (usize, usize, CostParameters)
+where
+    F: Fn(usize, usize) -> CostParameters
+{
+    let (x_min, x_max) = x_range;
+    let (y_min, y_max) = y_range;
+
+    let mut best_x = x_min;
+    let mut best_y = y_min;
+
+    let mut best_value: CostParameters = CostParameters::with_values(f64::INFINITY, 0.0, 0.0, 0, 0, 0, 0);
+
+    //broad search
+    for x in (x_min..=x_max).step_by(step_size) {
+        for y in (y_min..=y_max).step_by(step_size) {
+            let r: CostParameters = function(x, y);
+
+            // Choose the parameter set (x, y) that minimizes `rop`
+            if r.rop < best_value.rop {
+                best_x = x;
+                best_y = y;
+                best_value = r;
+            }
+        }
+    }
+
+    //narrow search
+    for x in best_x..=best_y + step_size {
+        for y in best_y..=best_y + step_size {
+            let r: CostParameters = function(x, y);
+
+            // Choose the parameter set (x, y) that minimizes `rop`
+            if r.rop < best_value.rop {
+                best_x = x;
+                best_y = y;
+                best_value = r;
+            }
+        }
+    }
+
+    (best_x, best_y, best_value)
+}
+
+
+
  /// The number of trials required to reach the target success probability.
 pub fn amplify_via_trials(target_p: f64, success_p: f64) -> f64 {
     

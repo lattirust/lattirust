@@ -214,10 +214,11 @@ impl SIS {
                     let block_size_range = (40, l2_block_bound);
 
                     // Run grid search to find optimal zeta and block_size that minimize cost
-                    let (_best_zeta, _best_beta, best_cost) = utils::tree_param_search(
+                    let (_best_zeta, _best_beta, best_cost) = utils::adaptive_grid_search(
                         |zeta, block_size| self.cost_infinity(zeta, block_size, true, estimate_type),
                         zeta_range,
                         block_size_range,
+                        10
                     );
                     
                     // Update best cost value based on found parameters
