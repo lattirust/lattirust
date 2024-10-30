@@ -341,29 +341,31 @@ mod tests {
 
     #[test]
     fn test_recompose_speed() {
-        let v = (0..16).map(R::from).collect::<Vec<_>>();
-        println!("k: {:?}", v.len());
-        for b in BASIS_TEST_RANGE {
-            let b_value = R::from(b);
+        for k in 2..=32 {
+            let v = (0..k).map(R::from).collect::<Vec<_>>();
+            println!("k: {:?}", v.len());
+            for b in BASIS_TEST_RANGE {
+                let b_value = R::from(b);
 
-            // Measure time for recompose
-            let start = Instant::now();
-            let result_recompose = recompose(&v, b_value);
-            let duration_recompose = start.elapsed();
+                // Measure time for recompose
+                let start = Instant::now();
+                let result_recompose = recompose(&v, b_value);
+                let duration_recompose = start.elapsed();
 
-            // Measure time for faster_recompose
-            let start = Instant::now();
-            let result_faster_recompose = faster_recompose(&v, b_value);
-            let duration_faster_recompose = start.elapsed();
+                // Measure time for faster_recompose
+                let start = Instant::now();
+                let result_faster_recompose = faster_recompose(&v, b_value);
+                let duration_faster_recompose = start.elapsed();
 
-            // Print the durations
-            println!(
-                "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}",
-                duration_recompose, duration_faster_recompose, b
-            );
+                let reduction_percentage = 100.0 * (duration_recompose.as_secs_f64() - duration_faster_recompose.as_secs_f64()) / duration_recompose.as_secs_f64();
+                println!(
+                    "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}, Reduction: {:.2}%",
+                    duration_recompose, duration_faster_recompose, b, reduction_percentage
+                );
 
-            // Assert equality
-            assert_eq!(result_recompose, result_faster_recompose);
+                // Assert equality
+                assert_eq!(result_recompose, result_faster_recompose);
+            }
         }
     }
 
@@ -511,4 +513,51 @@ mod tests {
     //         assert_eq!(expected, actual);
     //     }
     // }
+}
+
+#[cfg(test)]
+mod test_stark {
+    use std::time::Instant;
+
+    use crate::balanced_decomposition::faster_recompose;
+    use crate::balanced_decomposition::recompose;
+    use crate::cyclotomic_ring::models::stark_prime::RqPoly;
+    use crate::cyclotomic_ring::models::stark_prime::RqNTT;
+    use crate::cyclotomic_ring::models::stark_prime::Fq;
+
+    type R = Fq;
+    type PolyNTT = RqNTT;
+    type PolyR = RqPoly;
+
+    const BASIS_TEST_RANGE: [u128; 8] = [2, 4, 8, 16, 32, 64, 128, 256];
+
+    #[test]
+    fn test_recompose_speed() {
+        for k in 2..=32 {
+            let v = (0..k).map(R::from).collect::<Vec<_>>();
+            println!("k: {:?}", v.len());
+            for b in BASIS_TEST_RANGE {
+                let b_value = R::from(b);
+
+                // Measure time for recompose
+                let start = Instant::now();
+                let result_recompose = recompose(&v, b_value);
+                let duration_recompose = start.elapsed();
+
+                // Measure time for faster_recompose
+                let start = Instant::now();
+                let result_faster_recompose = faster_recompose(&v, b_value);
+                let duration_faster_recompose = start.elapsed();
+
+                let reduction_percentage = 100.0 * (duration_recompose.as_secs_f64() - duration_faster_recompose.as_secs_f64()) / duration_recompose.as_secs_f64();
+                println!(
+                    "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}, Reduction: {:.2}%",
+                    duration_recompose, duration_faster_recompose, b, reduction_percentage
+                );
+
+                // Assert equality
+                assert_eq!(result_recompose, result_faster_recompose);
+            }
+        }
+    }
 }
