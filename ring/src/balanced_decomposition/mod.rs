@@ -519,39 +519,51 @@ mod tests {
 mod test_stark {
     use std::time::Instant;
 
+    use ark_ff::UniformRand;
+    use rand::thread_rng;
+
     use crate::balanced_decomposition::faster_recompose;
     use crate::balanced_decomposition::recompose;
     use crate::cyclotomic_ring::models::stark_prime::RqPoly;
     use crate::cyclotomic_ring::models::stark_prime::RqNTT;
     use crate::cyclotomic_ring::models::stark_prime::Fq;
+    use crate::PolyRing;
 
     type R = Fq;
     type PolyNTT = RqNTT;
     type PolyR = RqPoly;
 
-    const BASIS_TEST_RANGE: [u128; 8] = [2, 4, 8, 16, 32, 64, 128, 256];
 
     #[test]
     fn test_recompose_speed() {
-        for k in 2..=32 {
-            let v = (0..k).map(R::from).collect::<Vec<_>>();
-            println!("k: {:?}", v.len());
-            for b in BASIS_TEST_RANGE {
-                let b_value = R::from(b);
-
+        let mut rng = thread_rng();
+        let basis_test_range: [PolyNTT; 8] = [
+            PolyNTT::from_scalar(R::from(2)),
+            PolyNTT::from_scalar(R::from(4)),
+            PolyNTT::from_scalar(R::from(8)),
+            PolyNTT::from_scalar(R::from(16)),
+            PolyNTT::from_scalar(R::from(32)),
+            PolyNTT::from_scalar(R::from(64)),
+            PolyNTT::from_scalar(R::from(128)),
+            PolyNTT::from_scalar(R::from(256)),
+        ];
+        for L in 2..=16 {
+            let v = (0..L).map(|_| PolyNTT::rand(&mut rng)).collect::<Vec<_>>();
+            println!("L: {:?}", v.len());
+            for b in basis_test_range {
                 // Measure time for recompose
                 let start = Instant::now();
-                let result_recompose = recompose(&v, b_value);
+                let result_recompose = recompose(&v, b);
                 let duration_recompose = start.elapsed();
 
                 // Measure time for faster_recompose
                 let start = Instant::now();
-                let result_faster_recompose = faster_recompose(&v, b_value);
+                let result_faster_recompose = faster_recompose(&v, b);
                 let duration_faster_recompose = start.elapsed();
 
                 let reduction_percentage = 100.0 * (duration_recompose.as_secs_f64() - duration_faster_recompose.as_secs_f64()) / duration_recompose.as_secs_f64();
                 println!(
-                    "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}, Reduction: {:.2}%",
+                    "Recompose took: {:?}, Faster recompose took: {:?}, b: {}, Reduction: {:.2}%",
                     duration_recompose, duration_faster_recompose, b, reduction_percentage
                 );
 
