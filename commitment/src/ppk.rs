@@ -16,13 +16,6 @@ use lattirust_arithmetic::challenge_set::ternary;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use crate::bfv::{Ciphertext, Plaintext, PublicKey, SecretKey};
 
-// pub fn get_poly_from_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
-//     // let rand_vec = get_gaussian_vec(std_dev, dimension, rng);
-
-//     // Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(rand_vec)
-//     // Pow2CyclotomicPolyRing::<Zq<Q>, N>::rand(&mut rng)
-// }
-
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
     secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}

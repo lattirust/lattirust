@@ -32,6 +32,13 @@ pub fn get_gaussian_vec<
     val
 }
 
+pub fn get_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> Pow2CyclotomicPolyRing<Zq<Q>, N> {
+    let rand_vec: Vec<Zq<Q>> = get_gaussian_vec(std_dev, dimension, rng)
+        .try_into()
+        .expect("Bad format");
+    Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(rand_vec)
+}
+
 
 // TODO: do I need both modules everywhere?
 // move it to a dedicated library later on
@@ -98,18 +105,17 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     pub fn pk_gen(&self) -> PublicKey<Q, P, N> {
         let mut rng = rand::thread_rng();
         type Rq<const Q: u64, const N: usize> = Pow2CyclotomicPolyRing::<Zq<Q>, N>;
-        // let size = Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size();
+        let size = Pow2CyclotomicPolyRing::<Zq<Q>, N>::byte_size();
         
-        // e should have small std_dev (how small?), TODO: check the parameters
+        // e should have small std_dev (how small?) for the correctness, TODO: check the parameters
         // TODO: use OpenFHE DGS
-        // let e = get_poly_from_gaussian(1.0, size, &mut rng);
-        let e: Pow2CyclotomicPolyRing::<Zq<Q>, N> = Rq::rand(&mut rng);
+        let e = get_gaussian(1.0, size, &mut rng);
 
         // convert sk in Rp to Rq in order to perform the operation in Rq
         let sk_zq = p_to_q_ring(self.poly.clone());
         // compute the actual pk pair
         let pk2: Pow2CyclotomicPolyRing<Zq<Q>, N> = Rq::rand(&mut rng);
-        let pk1 = -(pk2 * sk_zq) + e;
+        let pk1: Pow2CyclotomicPolyRing<Zq<Q>, N> = -(pk2 * sk_zq + e);
 
         PublicKey {
             // params,
@@ -121,29 +127,28 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     
     pub fn decrypt(&self, c: Ciphertext<Q, N>) -> Plaintext<P, N> {
         type Rp<const P: u64, const N: usize> = Pow2CyclotomicPolyRing::<Zq<P>, N>;
-        let a = c.c1.clone();
-        let b = c.c2.clone();
+        let c1 = c.c1.clone();
+        let c2 = c.c2.clone();
+        let sk_zq = p_to_q_ring(self.poly.clone());
+        let raw: Pow2CyclotomicPolyRing<Zq<Q>, N> = c1 + c2 * sk_zq;
 
         // convert the elements to the other field
-        // TODO: DRY
-        let a_zp = q_to_p_ring(a);
-        let b_zp = q_to_p_ring(b);
+        // let c1_zq = q_to_p_ring(c1);
+        // let c2_zq = q_to_p_ring(c2);
 
         let p = self.modulo as f64;
         let q = c.modulo as f64;
-        let delta = p/q; // round off
+        let delta = p/q; 
 
-        let raw: Pow2CyclotomicPolyRing<Zq<P>, N> = a_zp + b_zp * self.poly;
-        let coeffs: Vec<Zq<P>> = raw.coeffs();
-        let coeffs: Vec<Zq<P>> = coeffs.into_iter()
+        let coeffs: Vec<Zq<P>> = raw
+            .coeffs()
+            .into_iter()
             .map(|x| <Zq<P>>::from((delta * (UnsignedRepresentative::from(x).0 as f64)) as u128))
             .collect();
         let coeffs: [Zq<P>; N] = coeffs.try_into().expect("Bad format");
-        let poly = Rp::from(coeffs);
 
-        // println!("poly: {poly:?} \n");
         Plaintext {
-            poly,
+            poly: Rp::from(coeffs),
             modulo: P,
         }
 
@@ -151,28 +156,38 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
 }
 
 impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
-    pub fn encrypt(&self, m: &Plaintext<P, N>, r: (Pow2CyclotomicPolyRing<Zq<Q>, N>, Pow2CyclotomicPolyRing<Zq<Q>, N>, Pow2CyclotomicPolyRing<Zq<Q>, N>)) -> Ciphertext<Q, N> {
-        // let mut rng = rand::thread_rng();
-        let pk1 = self.poly1.clone();
-        let pk2 = self.poly2.clone();
+    pub fn encrypt(
+        &self, 
+        m: &Plaintext<P, N>, 
+        r: (
+            Pow2CyclotomicPolyRing<Zq<Q>, N>, 
+            Pow2CyclotomicPolyRing<Zq<Q>, N>, 
+            Pow2CyclotomicPolyRing<Zq<Q>, N>
+            )
+        ) -> Ciphertext<Q, N> {
+        let (pk1, pk2) = (self.poly1.clone(), self.poly2.clone());
         let (u, e1, e2) = r;
         
         let p = m.modulo;
         let q = self.modulo;
-
         let delta = (q as f64 / p as f64).floor() as u128; // round off
 
         // mutliply each coeff of m with delta as bigint, and convert the polynomial into Zq, or convert m into Rq and multiply, but attention overflow
-        let coeffs: Vec<Zq<P>> = m.poly.coeffs();
-        let coeffs_zq: Vec<Zq<Q>> = coeffs.into_iter()
+        // TODO: define it as scalar - poly multiplication 
+        // let coeffs: Vec<Zq<P>> = m.poly.coeffs();
+
+        let coeffs_zq: Vec<Zq<Q>> = m
+            .poly
+            .coeffs()
+            .into_iter()
             .map(|x| <Zq<Q>>::from(delta * UnsignedRepresentative::from(x).0))
             .collect();
         let coeffs_zq: [Zq<Q>; N] = coeffs_zq.try_into().expect("Bad format");
-        let m_delta = Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(coeffs_zq);
+        let m_delta= Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(coeffs_zq);
 
         // compute a, b
-        let c1: Pow2CyclotomicPolyRing<Zq<Q>, N> = pk1 * u + e1 + m_delta;
-        let c2: Pow2CyclotomicPolyRing<Zq<Q>, N> = pk2 * u + e2;
+        let c1 = pk1 * u.clone() + e1 + m_delta;
+        let c2 = pk2 * u.clone() + e2;
 
         // return the ciphertext
         Ciphertext {
@@ -193,13 +208,12 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
         match factor {
             Some(f) => (
                 f * rand_ternary_poly(size), 
-                f * Rq::rand(&mut rng), 
-                f * Rq::rand(&mut rng)),
-
+                f * get_gaussian(3.2, N, &mut rng), 
+                f * get_gaussian(3.2, N, &mut rng)),
             None => (
                 rand_ternary_poly(size), 
-                Rq::rand(&mut rng), 
-                Rq::rand(&mut rng)),
+                get_gaussian(3.2, N, &mut rng),
+                get_gaussian(3.2, N, &mut rng)),
         }
     }
 
