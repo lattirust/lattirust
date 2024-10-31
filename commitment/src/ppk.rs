@@ -14,7 +14,7 @@ use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand;
 use lattirust_arithmetic::challenge_set::ternary;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use crate::bfv::{Ciphertext, Plaintext, PublicKey, SecretKey};
+use crate::bfv::{Ciphertext, Plaintext, PublicKey, SecretKey, rand_tuple};
 
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
@@ -50,7 +50,7 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         let two = Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(Zq::<Q>::from(2));
         
         // todo: use DGS
-        let r = PublicKey::<Q, P, N>::rand_tuple(Some(two));
+        let r = rand_tuple::<Q, P, N>(Some(two));
         let c = self.verifier_pk.encrypt(&self.message, r);
         
         c
@@ -66,7 +66,7 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
 
         for i in 0..l {
             u.push(Pow2CyclotomicPolyRing::<Zq<P>, N>::rand(&mut rand::thread_rng()));
-            y.push(PublicKey::<Q, P, N>::rand_tuple(Some(two)));
+            y.push(rand_tuple::<Q, P, N>(Some(two)));
             let ui = Plaintext::<P, N> {
                 poly: u[i].clone(),
                 modulo: P,
