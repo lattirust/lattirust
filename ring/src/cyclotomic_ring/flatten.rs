@@ -2,16 +2,25 @@
 //! This module introduces a function `flatten_to_coeffs` on vectors of cyclotomic ring elements
 //! to cheaply cast them into vectors of corresponding base field coefficients and its "inverse" `promote_from_coeffs`.
 //!
+use crate::PolyRing;
+
 use super::{CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
 
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingNTTGeneral<C, N, D> {
-    pub fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<C::BaseCRTField> {
+pub trait Flatten: PolyRing {
+    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing>;
+    fn promote_from_coeffs(vec: Vec<Self::BaseRing>) -> Option<Vec<Self>>;
+}
+
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
+    for CyclotomicPolyRingNTTGeneral<C, N, D>
+{
+    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<C::BaseCRTField> {
         let (ptr, len, cap) = vec.into_raw_parts();
 
         unsafe { Vec::from_raw_parts(ptr as *mut C::BaseCRTField, len * D, cap * D) }
     }
 
-    pub fn promote_from_coeffs(
+    fn promote_from_coeffs(
         mut vec: Vec<C::BaseCRTField>,
     ) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>> {
         if vec.len() % D != 0 {
@@ -38,7 +47,10 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingN
 mod tests {
     use ark_ff::One;
 
-    use crate::cyclotomic_ring::models::goldilocks::{Fq3, RqNTT};
+    use crate::cyclotomic_ring::{
+        flatten::Flatten,
+        models::goldilocks::{Fq3, RqNTT},
+    };
 
     #[test]
     fn test_flatten_ntt() {
