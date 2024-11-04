@@ -15,8 +15,6 @@ use derive_more::{From, Into};
 
 use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingGeneral};
 use crate::{traits::FromRandomBytes, PolyRing, Ring};
-#[cfg(not(feature = "native-array"))]
-use lattirust_linear_algebra::SVector;
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the CRT-form.
 /// * `C` is the configuration of the cyclotomic ring.
@@ -24,8 +22,7 @@ use lattirust_linear_algebra::SVector;
 /// * `D` is the number of factors in the CRT-representation of the ring.
 #[derive(From, Into)]
 pub struct CyclotomicPolyRingNTTGeneral<C: CyclotomicConfig<N>, const N: usize, const D: usize>(
-    #[cfg(not(feature = "native-array"))] pub(crate) SVector<C::BaseCRTField, D>,
-    #[cfg(feature = "native-array")] pub(crate) [C::BaseCRTField; D],
+    pub(crate) [C::BaseCRTField; D],
 );
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingNTTGeneral<C, N, D> {
@@ -54,12 +51,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingN
         Self::from_array(core::array::from_fn::<_, D, _>(f))
     }
 
-    #[cfg(not(feature = "native-array"))]
-    fn from_array(ntt_coeffs: [C::BaseCRTField; D]) -> Self {
-        Self(SVector::const_from_array(ntt_coeffs))
-    }
-
-    #[cfg(feature = "native-array")]
     fn from_array(ntt_coeffs: [C::BaseCRTField; D]) -> Self {
         Self(ntt_coeffs)
     }
@@ -123,11 +114,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Hash
     }
 }
 
-#[cfg(not(feature = "native-array"))]
-const fn vec_from_element<F: Field, const D: usize>(elem: F) -> SVector<F, D> {
-    SVector::const_from_array([elem; D])
-}
-
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalSerialize
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
@@ -155,16 +141,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Valid
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalDeserialize
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn deserialize_with_mode<R: Read>(
-        reader: R,
-        compress: Compress,
-        validate: Validate,
-    ) -> Result<Self, SerializationError> {
-        SVector::deserialize_with_mode(reader, compress, validate).map(|x| Self(x))
-    }
-
-    #[cfg(feature = "native-array")]
     fn deserialize_with_mode<R: Read>(
         reader: R,
         compress: Compress,
@@ -174,15 +150,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalDeserializ
     }
 }
 
-#[cfg(not(feature = "native-array"))]
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Ring
-    for CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-    const ZERO: Self = Self(vec_from_element(<C::BaseCRTField as Field>::ZERO));
-    const ONE: Self = Self(vec_from_element(<C::BaseCRTField as Field>::ONE));
-}
-
-#[cfg(feature = "native-array")]
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Ring
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
@@ -247,12 +214,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self(self.0.component_mul(&rhs.0))
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul(mut self, rhs: Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -268,12 +229,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Neg
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn neg(self) -> Self::Output {
-        Self(self.0.neg())
-    }
-
-    #[cfg(feature = "native-array")]
     fn neg(mut self) -> Self::Output {
         self.0.iter_mut().for_each(|x| {
             *x = x.neg();
@@ -294,12 +249,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> UniformRand
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn mul_assign(&mut self, rhs: Self) {
-        self.0.component_mul_assign(&rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul_assign(&mut self, rhs: Self) {
         self.0
             .iter_mut()
@@ -313,12 +262,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<&'a Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: &'a Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn add(mut self, rhs: &'a Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -334,12 +277,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<&'a Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: &'a Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(mut self, rhs: &'a Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -355,12 +292,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<&'a mut Sel
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: &'a mut Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn add(mut self, rhs: &'a mut Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -376,12 +307,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<&'a mut Sel
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: &'a mut Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(mut self, rhs: &'a mut Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -397,12 +322,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a mut Sel
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn mul(self, rhs: &'a mut Self) -> Self::Output {
-        Self(self.0.component_mul(&rhs.0))
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul(mut self, rhs: &'a mut Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -416,12 +335,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a mut Sel
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a mut Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0 += rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: &'a mut Self) {
         self.0
             .iter_mut()
@@ -433,12 +346,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a m
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a mut Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0 -= rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: &'a mut Self) {
         self.0
             .iter_mut()
@@ -450,12 +357,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a m
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<&'a mut Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn mul_assign(&mut self, rhs: &'a mut Self) {
-        self.0.component_mul_assign(&rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul_assign(&mut self, rhs: &'a mut Self) {
         self.0
             .iter_mut()
@@ -502,12 +403,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn mul(self, rhs: &'a Self) -> Self::Output {
-        Self(self.0.component_mul(&rhs.0))
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul(mut self, rhs: &'a Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -521,12 +416,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a Self>
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: &'a Self) {
-        self.0 += rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: &'a Self) {
         self.0
             .iter_mut()
@@ -538,12 +427,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a S
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: &'a Self) {
-        self.0 -= rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: &'a Self) {
         self.0
             .iter_mut()
@@ -555,12 +438,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a S
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<&'a Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn mul_assign(&mut self, rhs: &'a Self) {
-        self.0.component_mul_assign(&rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn mul_assign(&mut self, rhs: &'a Self) {
         self.0
             .iter_mut()
@@ -574,12 +451,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn add(mut self, rhs: Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -595,12 +466,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(mut self, rhs: Self) -> Self::Output {
         self.0
             .iter_mut()
@@ -614,12 +479,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<Self>
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: Self) {
         self.0
             .iter_mut()
@@ -631,12 +490,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<Self>
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<Self>
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: Self) {
         self.0
             .iter_mut()
@@ -695,8 +548,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
     }
 
     fn into_coeffs(self) -> Vec<Self::BaseRing> {
-        // TODO: unnecessary cloning. Remove it somehow.
-        self.0.as_slice().to_vec()
+        self.0.into()
     }
 }
 

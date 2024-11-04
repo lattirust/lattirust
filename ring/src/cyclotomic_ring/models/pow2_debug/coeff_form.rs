@@ -27,9 +27,6 @@ impl<const Q: u64, const PHI_D: usize> WithLinfNorm for Pow2CyclotomicPolyRing<Q
 impl<const Q: u64, const PHI_D: usize> Pow2CyclotomicPolyRing<Q, PHI_D> {
     fn multiply_by_xi(&self, i: usize) -> Vec<Zq<Q>> {
         let bs = self.0;
-        #[cfg(not(feature = "native-array"))]
-        let len = bs.ncols();
-        #[cfg(feature = "native-array")]
         let len = bs.len();
         assert_eq!(len, PHI_D);
         let mut result = vec![<Fp64Pow2<Q, PHI_D> as Field>::ZERO; len];
