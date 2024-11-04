@@ -3,20 +3,24 @@
 //! to cheaply cast them into vectors of corresponding base field coefficients.
 //!
 
+use std::ops::Deref;
+
+use crate::PolyRing;
+
 use super::{CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
 
 /// A trait to implement `flatten_to_coeffs` on the foreign type `Vec`.
-pub trait Flatten<C: CyclotomicConfig<N>, const N: usize> {
-    fn flatten_to_coeffs(self) -> Vec<C::BaseCRTField>;
+pub trait Flatten<R: PolyRing>: Deref<Target = [R]> {
+    fn flatten_to_coeffs(self) -> Vec<R::BaseRing>;
 }
 
 /// A trait to implement `promote_from_coeffs` on the foreign type `Vec`.
-pub trait Promote<C: CyclotomicConfig<N>, const N: usize, const D: usize> {
-    fn promote_from_coeffs(self) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>>;
+pub trait Promote<R: PolyRing>: Deref<Target = [R::BaseRing]> {
+    fn promote_from_coeffs(self) -> Option<Vec<R>>;
 }
 
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten<C, N>
-    for Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
+    Flatten<CyclotomicPolyRingNTTGeneral<C, N, D>> for Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>
 {
     fn flatten_to_coeffs(self) -> Vec<C::BaseCRTField> {
         let (ptr, len, cap) = self.into_raw_parts();
@@ -25,8 +29,8 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten<C, N>
     }
 }
 
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Promote<C, N, D>
-    for Vec<C::BaseCRTField>
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
+    Promote<CyclotomicPolyRingNTTGeneral<C, N, D>> for Vec<C::BaseCRTField>
 {
     fn promote_from_coeffs(mut self) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>> {
         if self.len() % D != 0 {
