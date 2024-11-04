@@ -1,47 +1,28 @@
 //!
 //! This module introduces a function `flatten_to_coeffs` on vectors of cyclotomic ring elements
-//! to cheaply cast them into vectors of corresponding base field coefficients.
+//! to cheaply cast them into vectors of corresponding base field coefficients and its "inverse" `promote_from_coeffs`.
 //!
-
-use std::ops::Deref;
-
-use crate::PolyRing;
-
 use super::{CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
 
-/// A trait to implement `flatten_to_coeffs` on the foreign type `Vec`.
-pub trait Flatten<R: PolyRing>: Deref<Target = [R]> {
-    fn flatten_to_coeffs(self) -> Vec<R::BaseRing>;
-}
-
-/// A trait to implement `promote_from_coeffs` on the foreign type `Vec`.
-pub trait Promote<R: PolyRing>: Deref<Target = [R::BaseRing]> {
-    fn promote_from_coeffs(self) -> Option<Vec<R>>;
-}
-
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
-    Flatten<CyclotomicPolyRingNTTGeneral<C, N, D>> for Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>
-{
-    fn flatten_to_coeffs(self) -> Vec<C::BaseCRTField> {
-        let (ptr, len, cap) = self.into_raw_parts();
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingNTTGeneral<C, N, D> {
+    pub fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<C::BaseCRTField> {
+        let (ptr, len, cap) = vec.into_raw_parts();
 
         unsafe { Vec::from_raw_parts(ptr as *mut C::BaseCRTField, len * D, cap * D) }
     }
-}
 
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
-    Promote<CyclotomicPolyRingNTTGeneral<C, N, D>> for Vec<C::BaseCRTField>
-{
-    fn promote_from_coeffs(mut self) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>> {
-        if self.len() % D != 0 {
+    pub fn promote_from_coeffs(
+        mut vec: Vec<C::BaseCRTField>,
+    ) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>> {
+        if vec.len() % D != 0 {
             return None;
         }
 
-        if self.capacity() % D != 0 {
-            self.shrink_to_fit();
+        if vec.capacity() % D != 0 {
+            vec.shrink_to_fit();
         }
 
-        let (ptr, len, cap) = self.into_raw_parts();
+        let (ptr, len, cap) = vec.into_raw_parts();
 
         Some(unsafe {
             Vec::from_raw_parts(
@@ -57,15 +38,12 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
 mod tests {
     use ark_ff::One;
 
-    use crate::cyclotomic_ring::{
-        flatten::*,
-        models::goldilocks::{Fq3, RqNTT},
-    };
+    use crate::cyclotomic_ring::models::goldilocks::{Fq3, RqNTT};
 
     #[test]
     fn test_flatten_ntt() {
         let vec: Vec<RqNTT> = vec![RqNTT::one(), RqNTT::from(3u32), RqNTT::from(42u32)];
-        let flattened = vec.flatten_to_coeffs();
+        let flattened = RqNTT::flatten_to_coeffs(vec);
 
         assert_eq!(
             flattened,
@@ -126,7 +104,7 @@ mod tests {
             Fq3::from(42u32),
             Fq3::from(42u32),
         ];
-        let promoted = vec.promote_from_coeffs().unwrap();
+        let promoted = RqNTT::promote_from_coeffs(vec).unwrap();
 
         assert_eq!(
             promoted,
