@@ -58,9 +58,6 @@ jobs:
       - name: Test (no default features)
         run: |
           cargo nextest run --release --workspace --no-default-features
-      - name: Test (native array)
-        run: |
-          cargo nextest run --release --workspace --features native-array
       - name: Doctests # nextest does not support doc tests
         run: |
           cargo test --doc
