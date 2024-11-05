@@ -4,7 +4,7 @@
 //!
 use crate::PolyRing;
 
-use super::{CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
+use super::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral};
 
 pub trait Flatten: PolyRing {
     fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing>;
@@ -43,13 +43,44 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
     }
 }
 
+impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
+    for CyclotomicPolyRingGeneral<C, N, D>
+{
+    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing> {
+        let (ptr, len, cap) = vec.into_raw_parts();
+
+        unsafe { Vec::from_raw_parts(ptr as *mut Self::BaseRing, len * D, cap * D) }
+    }
+
+    fn promote_from_coeffs(mut vec: Vec<Self::BaseRing>) -> Option<Vec<Self>> {
+        if vec.len() % D != 0 {
+            return None;
+        }
+
+        if vec.capacity() % D != 0 {
+            vec.shrink_to_fit();
+        }
+
+        let (ptr, len, cap) = vec.into_raw_parts();
+
+        Some(unsafe {
+            Vec::from_raw_parts(
+                ptr as *mut CyclotomicPolyRingGeneral<C, N, D>,
+                len / D,
+                cap / D,
+            )
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use ark_ff::One;
+    use ark_ff::{One, UniformRand};
+    use rand::thread_rng;
 
     use crate::cyclotomic_ring::{
         flatten::Flatten,
-        models::goldilocks::{Fq3, RqNTT},
+        models::goldilocks::{Fq3, RqNTT, RqPoly},
     };
 
     #[test]
@@ -122,5 +153,16 @@ mod tests {
             promoted,
             vec![RqNTT::one(), RqNTT::from(3u32), RqNTT::from(42u32)]
         )
+    }
+
+    #[test]
+    fn test_flatten_promote_coeff() {
+        let mut rng = thread_rng();
+
+        let orig: Vec<RqPoly> = (0..3).map(|_| RqPoly::rand(&mut rng)).collect();
+        let flattened = RqPoly::flatten_to_coeffs(orig.clone());
+        let promoted = RqPoly::promote_from_coeffs(flattened).unwrap();
+
+        assert_eq!(orig, promoted);
     }
 }
