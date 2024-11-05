@@ -2,9 +2,8 @@ use ark_ff::{Field, Fp, FpConfig};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-#[cfg(feature = "native-array")]
-use ark_std::array;
 use ark_std::{
+    array,
     convert::TryInto,
     fmt::{Debug, Display, Formatter},
     hash::Hash,
@@ -22,8 +21,6 @@ use crate::{
     traits::FromRandomBytes,
     PolyRing, Ring,
 };
-#[cfg(not(feature = "native-array"))]
-use lattirust_linear_algebra::SVector;
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the coefficient form.
 /// * `C` is the configuration of the cyclotomic ring.
@@ -31,8 +28,7 @@ use lattirust_linear_algebra::SVector;
 /// * `D` is the degree of the cyclotomic polynomial.
 #[derive(From, Into)]
 pub struct CyclotomicPolyRingGeneral<C: CyclotomicConfig<N>, const N: usize, const D: usize>(
-    #[cfg(not(feature = "native-array"))] pub(crate) SVector<Fp<C::BaseFieldConfig, N>, D>,
-    #[cfg(feature = "native-array")] pub(crate) [Fp<C::BaseFieldConfig, N>; D],
+    pub(crate) [Fp<C::BaseFieldConfig, N>; D],
 );
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingGeneral<C, N, D> {
@@ -51,14 +47,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingG
     }
 
     fn from_array(coeffs: [Fp<C::BaseFieldConfig, N>; D]) -> Self {
-        #[cfg(not(feature = "native-array"))]
-        {
-            Self(SVector::const_from_array(coeffs))
-        }
-        #[cfg(feature = "native-array")]
-        {
-            Self(coeffs)
-        }
+        Self(coeffs)
     }
 
     fn poly_mul(&self, rhs: &Self) -> Self {
@@ -139,23 +128,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Hash
     }
 }
 
-#[cfg(not(feature = "native-array"))]
-const fn vec_from_element<FP: FpConfig<N>, const N: usize, const D: usize>(
-    elem: Fp<FP, N>,
-) -> SVector<Fp<FP, N>, D> {
-    SVector::const_from_array([elem; D])
-}
-
-#[cfg(not(feature = "native-array"))]
-const fn vec_from_element_one<FP: FpConfig<N>, const N: usize, const D: usize>(
-    elem: Fp<FP, N>,
-) -> SVector<Fp<FP, N>, D> {
-    let mut array = [elem; D];
-    array[0] = FP::ONE;
-    SVector::const_from_array(array)
-}
-
-#[cfg(feature = "native-array")]
 const fn array_one<FP: FpConfig<N>, const N: usize, const D: usize>() -> [Fp<FP, N>; D] {
     let mut array = [FP::ZERO; D];
     array[0] = FP::ONE;
@@ -194,34 +166,15 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalDeserializ
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-        #[cfg(not(feature = "native-array"))]
-        {
-            SVector::<Fp<C::BaseFieldConfig, N>, D>::deserialize_with_mode(
-                reader, compress, validate,
-            )
+        <[Fp<C::BaseFieldConfig, N>; D]>::deserialize_with_mode(reader, compress, validate)
             .map(Self)
-        }
-        #[cfg(feature = "native-array")]
-        {
-            <[Fp<C::BaseFieldConfig, N>; D]>::deserialize_with_mode(reader, compress, validate)
-                .map(Self)
-        }
     }
 }
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Ring
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    const ZERO: Self = Self(vec_from_element(<Fp<C::BaseFieldConfig, N> as Field>::ZERO));
-    #[cfg(not(feature = "native-array"))]
-    const ONE: Self = Self(vec_from_element_one(
-        <Fp<C::BaseFieldConfig, N> as Field>::ZERO,
-    ));
-
-    #[cfg(feature = "native-array")]
     const ZERO: Self = Self([<Fp<C::BaseFieldConfig, N> as Field>::ZERO; D]);
-    #[cfg(feature = "native-array")]
     const ONE: Self = Self(array_one());
 }
 
@@ -292,11 +245,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Neg
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn neg(self) -> Self::Output {
-        Self(self.0.neg())
-    }
-    #[cfg(feature = "native-array")]
     fn neg(self) -> Self::Output {
         Self(self.0.map(|x| -x))
     }
@@ -323,12 +271,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<&'a Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: &'a Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn add(self, rhs: &'a Self) -> Self::Output {
         Self(array::from_fn(|i| self.0[i] + rhs.0[i]))
     }
@@ -339,15 +281,8 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<&'a Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: &'a Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(self, rhs: &'a Self) -> Self::Output {
         Self(array::from_fn(|i| self.0[i] - rhs.0[i]))
-        //Self(self.0.zip(rhs.0).map(|(a, b)| a - b))
     }
 }
 
@@ -356,11 +291,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<&'a mut Sel
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: &'a mut Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-    #[cfg(feature = "native-array")]
     fn add(self, rhs: &'a mut Self) -> Self::Output {
         for (a, b) in rhs.0.iter_mut().zip(self.0.iter()) {
             *a += *b;
@@ -374,12 +304,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<&'a mut Sel
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: &'a mut Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(self, rhs: &'a mut Self) -> Self::Output {
         for (a, b) in rhs.0.iter_mut().zip(self.0.iter()) {
             *a -= *b;
@@ -401,12 +325,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a mut Sel
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a mut Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: &'a mut Self) {
-        self.0 += rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: &'a mut Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a += *b;
@@ -417,12 +335,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a m
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a mut Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: &'a mut Self) {
-        self.0 -= rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: &'a mut Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a -= *b;
@@ -491,12 +403,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<&'a Self>
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: &'a Self) {
-        self.0 += rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: &'a Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a += *b;
@@ -507,12 +413,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<&'a S
 impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<&'a Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: &'a Self) {
-        self.0 -= rhs.0;
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: &'a Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a -= *b;
@@ -533,11 +433,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
-    }
-    #[cfg(feature = "native-array")]
     fn add(self, rhs: Self) -> Self::Output {
         Self(array::from_fn(|i| self.0[i] + rhs.0[i]))
     }
@@ -548,27 +443,14 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<Self>
 {
     type Output = Self;
 
-    #[cfg(not(feature = "native-array"))]
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub(self, rhs: Self) -> Self::Output {
         Self(array::from_fn(|i| self.0[i] - rhs.0[i]))
-        //Self(self.0.zip(rhs.0).map(|(a, b)| a - b))
     }
 }
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn add_assign(&mut self, rhs: Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a += *b;
@@ -579,12 +461,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<Self>
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> SubAssign<Self>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    #[cfg(not(feature = "native-array"))]
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0
-    }
-
-    #[cfg(feature = "native-array")]
     fn sub_assign(&mut self, rhs: Self) {
         for (a, b) in self.0.iter_mut().zip(rhs.0.iter()) {
             *a -= *b;
@@ -630,14 +506,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
     type BaseRing = Fp<C::BaseFieldConfig, N>;
 
     fn coeffs(&self) -> &[Fp<C::BaseFieldConfig, N>] {
-        #[cfg(not(feature = "native-array"))]
-        {
-            self.0.as_slice()
-        }
-        #[cfg(feature = "native-array")]
-        {
-            &self.0
-        }
+        &self.0
     }
 
     fn dimension() -> usize {
@@ -652,8 +521,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
     }
 
     fn into_coeffs(self) -> Vec<Self::BaseRing> {
-        // TODO: unnecessary cloning. Remove it somehow.
-        self.0.as_slice().to_vec()
+        self.0.into()
     }
 }
 
