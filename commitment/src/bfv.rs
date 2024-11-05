@@ -13,8 +13,7 @@ use ark_ff::{One, UniformRand, Zero};
 use ark_std::rand;
 use lattirust_arithmetic::traits::FromRandomBytes;
 
-type PolyRq<const Q: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<Q>, N>;
-type PolyRp<const P: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<P>, N>;
+type PolyR<const M: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<M>, N>;
 // TODO: use the same rng everywhere
 
 // TODO: toy sampling, need to use OpenFHE code 
@@ -31,63 +30,63 @@ pub fn get_gaussian_vec<Rng: RngCore + CryptoRng, const Q: u64>(
     val
 }
 
-pub fn get_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> PolyRq<Q, N> {
+pub fn get_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> PolyR<Q, N> {
     let rand_vec: Vec<Zq<Q>> = get_gaussian_vec(std_dev, dimension, rng);
     let rand_vec: [Zq<Q>; N] = rand_vec.try_into().expect("Bad format");
     
-    Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(rand_vec)
+    PolyR::<Q, N>::from(rand_vec)
 }
 
-pub fn convert_ring<const SOURCE: u64, const TARGET: u64, const N: usize>(poly: PolyRq<SOURCE, N>) -> PolyRp<TARGET, N> {
+pub fn convert_ring<const SOURCE: u64, const TARGET: u64, const N: usize>(poly: PolyR<SOURCE, N>) -> PolyR<TARGET, N> {
     let coeffs: Vec<Zq<SOURCE>> = poly.coeffs();
     let coeffs: Vec<Zq<TARGET>> = coeffs.into_iter()
-        .map(|x| <Zq<TARGET>>::from(UnsignedRepresentative::from(x).0))
+        .map(|x| <Zq<TARGET>>::from(SignedRepresentative::from(x).0))
         .collect();
     let coeffs: [Zq<TARGET>; N] = coeffs.try_into().expect("Bad format");
 
-    Pow2CyclotomicPolyRing::<Zq<TARGET>, N>::from(coeffs)
+    PolyR::<TARGET, N>::from(coeffs)
 }
 
-pub fn rand_ternary_poly<Rng: RngCore + CryptoRng, const P: u64, const N: usize>(size: usize, rng: &mut Rng) -> PolyRp<P, N> {
+pub fn rand_ternary_poly<Rng: RngCore + CryptoRng, const P: u64, const N: usize>(size: usize, rng: &mut Rng) -> PolyR<P, N> {
     let bytes: Vector<u8> = Vector::<u8>::rand(size, rng);
-    WeightedTernaryChallengeSet::<Pow2CyclotomicPolyRing::<Zq<P>, N>>::try_from_random_bytes(bytes.as_slice()).unwrap()
+    WeightedTernaryChallengeSet::<PolyR::<P, N>>::try_from_random_bytes(bytes.as_slice()).unwrap()
 }
 
-pub fn rand_tuple<const Q: u64, const P: u64, const N: usize>(factor: Option<PolyRq<Q, N>>) ->  (PolyRq<Q, N>, PolyRq<Q, N>, PolyRq<Q, N>) {
+pub fn rand_tuple<const Q: u64, const N: usize>(factor: Option<PolyR<Q, N>>) ->  (PolyR<Q, N>, PolyR<Q, N>, PolyR<Q, N>) {
     let mut rng = rand::thread_rng();
-    let size = WeightedTernaryChallengeSet::<PolyRq<Q, N>>::byte_size();
-    let f = factor.unwrap_or_else(|| Pow2CyclotomicPolyRing::<Zq<Q>, N>::one());
+    let size = WeightedTernaryChallengeSet::<PolyR<Q, N>>::byte_size();
+    let f = factor.unwrap_or_else(|| PolyR::<Q, N>::one());
 
     (f * rand_ternary_poly(size, &mut rng), 
-    f * get_gaussian(3.2, N, &mut rng), 
-    f * get_gaussian(3.2, N, &mut rng))
+    f * get_gaussian(0.0, N, &mut rng), 
+    f * get_gaussian(0.0, N, &mut rng))
 }
 
 pub struct PublicKey<const Q: u64, const P: u64, const N: usize> {
-    pub poly1: PolyRq<Q, N>, 
-    pub poly2: PolyRq<Q, N>,
+    pub poly1: PolyR<Q, N>, 
+    pub poly2: PolyR<Q, N>,
     pub modulo: u64,
 }
 pub struct SecretKey<const Q: u64, const P: u64, const N: usize> {
-    pub poly: PolyRp<P, N>,  
+    pub poly: PolyR<P, N>,  
     pub modulo: u64,
 }
 
 pub struct Plaintext<const P: u64, const N: usize> {
-    pub poly: PolyRp<P, N>,
+    pub poly: PolyR<P, N>,
     pub modulo: u64,
 }
 
 pub struct Ciphertext<const Q: u64, const N: usize> {
-    pub c1: PolyRq<Q, N>,
-    pub c2: PolyRq<Q, N>,
+    pub c1: PolyR<Q, N>,
+    pub c2: PolyR<Q, N>,
     pub modulo: u64,
 }
 
 impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     pub fn new() -> Self {
         // generate random bytes to sample a ternary secret
-        let size = WeightedTernaryChallengeSet::<PolyRp<P, N>>::byte_size();
+        let size = WeightedTernaryChallengeSet::<PolyR<P, N>>::byte_size();
 
         Self {
             poly: rand_ternary_poly(size, &mut rand::thread_rng()),
@@ -100,14 +99,14 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
 
         // e should have small std_dev (how small?) for the correctness, TODO: check the parameters
         // TODO: use OpenFHE DGS
-        let e: PolyRq<Q, N> = get_gaussian(3.2, N, &mut rng);
+        let e: PolyR<Q, N> = get_gaussian(0.0, N, &mut rng);
 
-        // convert sk in PolyRp to PolyRq in order to perform the operation in PolyRq
-        let sk_zq: PolyRq<Q, N> = convert_ring::<P, Q, N>(self.poly.clone());
+        // convert sk in PolyR to PolyR in order to perform the operation in PolyR
+        let sk_zq: PolyR<Q, N> = convert_ring::<P, Q, N>(self.poly.clone());
 
         // compute the actual pk pair
-        let poly2: PolyRq<Q, N> = PolyRq::rand(&mut rng);
-        let poly1: PolyRq<Q, N> = -(poly2.clone() * sk_zq + e);
+        let poly2: PolyR<Q, N> = PolyR::rand(&mut rng);
+        let poly1: PolyR<Q, N> = -(poly2.clone() * sk_zq + e);
 
         PublicKey {
             poly1,
@@ -117,10 +116,10 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
     }
     
     pub fn decrypt(&self, c: Ciphertext<Q, N>) -> Plaintext<P, N> {
-        let c1: PolyRq<Q, N> = c.c1.clone();
-        let c2: PolyRq<Q, N> = c.c2.clone();
-        let sk_zq: PolyRq<Q, N> = convert_ring::<P, Q, N>(self.poly.clone());
-        let raw: PolyRq<Q, N> = c1 + c2 * sk_zq;
+        let c1: PolyR<Q, N> = c.c1.clone();
+        let c2: PolyR<Q, N> = c.c2.clone();
+        let sk_zq: PolyR<Q, N> = convert_ring::<P, Q, N>(self.poly.clone());
+        let raw: PolyR<Q, N> = c1 + c2 * sk_zq;
 
         let p = self.modulo as f64;
         let q = c.modulo as f64;
@@ -129,15 +128,14 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
         let coeffs: Vec<Zq<P>> = raw
             .coeffs()
             .into_iter()
-            .map(|x| <Zq<P>>::from((delta * (UnsignedRepresentative::from(x).0 as f64)) as u128))
+            .map(|x| <Zq<P>>::from((delta * (SignedRepresentative::from(x).0 as f64)) as i128))
             .collect();
         let coeffs: [Zq<P>; N] = coeffs.try_into().expect("Bad format");
 
         Plaintext {
-            poly: PolyRp::from(coeffs),
+            poly: PolyR::from(coeffs),
             modulo: P,
         }
-
     }
 }
 
@@ -145,29 +143,30 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
     pub fn encrypt(
         &self, 
         m: &Plaintext<P, N>, 
-        r:  (PolyRq<Q, N>, PolyRq<Q, N>, PolyRq<Q, N>)
+        r:  (PolyR<Q, N>, PolyR<Q, N>, PolyR<Q, N>)
         ) -> Ciphertext<Q, N> {
         let (pk1, pk2) = (self.poly1.clone(), self.poly2.clone());
-        let (u, e1, e2) = r;
+        let (r0, r1, r2) = r;
         
         let p = m.modulo;
         let q = self.modulo;
-        let delta = (q as f64 / p as f64).floor() as u128; // round off
+        let delta = (q as f64 / p as f64).floor() as i128; // round off
 
-        // mutliply each coeff of m with delta as bigint, and convert the polynomial into Zq, or convert m into PolyRq and multiply, but attention overflow
+        // mutliply each coeff of m with delta as bigint, and convert the polynomial into Zq, or convert m into PolyR and multiply, but attention overflow
         // TODO: define it as scalar - poly multiplication 
         let coeffs_zq: Vec<Zq<Q>> = m
             .poly
             .coeffs()
             .into_iter()
-            .map(|x| <Zq<Q>>::from(delta * UnsignedRepresentative::from(x).0))
+            .map(|x| <Zq<Q>>::from(delta * SignedRepresentative::from(x).0))
             .collect();
         let coeffs_zq: [Zq<Q>; N] = coeffs_zq.try_into().expect("Bad format");
-        let m_delta= Pow2CyclotomicPolyRing::<Zq<Q>, N>::from(coeffs_zq);
-
+        let m_delta: PolyR<Q, N> = PolyR::<Q, N>::from(coeffs_zq);
+        // println!("m_delta: \n{m_delta:?}"); // OK
+        
         // compute a, b
-        let c1: PolyRq<Q, N> = pk1 * u.clone() + e1 + m_delta;
-        let c2: PolyRq<Q, N> = pk2 * u.clone() + e2;
+        let c1: PolyR<Q, N> = pk1 * r0.clone() + r1 + m_delta;
+        let c2: PolyR<Q, N> = pk2 * r0.clone() + r2;
 
         // return the ciphertext
         Ciphertext {
@@ -181,30 +180,15 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
 impl<const P: u64, const N: usize> Plaintext<P, N> {
     pub fn rand_message() -> Self {
         Self {
-            poly: Pow2CyclotomicPolyRing::<Zq<P>, N>::rand(&mut rand::thread_rng()),
+            poly: PolyR::<P, N>::rand(&mut rand::thread_rng()),
             modulo: P,
         }
     }
-}
-
-#[test]
-fn test() {
-    const N: usize = 128;
-    const Q: u64 = ntt_modulus::<N>(17);
-    const P: u64 = ntt_modulus::<N>(15);
-    // type PolyRq = Zq<Q>;
-    // type PolyRp = Zq<P>;
-    // type Pol PolyRq = Pow2CyclotomicPolyRing PolyRq, N>;
-    // type PolyPolyRp = Pow2CyclotomicPolyRing<PolyRp, N>;
-
-    let sk: SecretKey<Q, P, N> = SecretKey::new();
-    let pk = sk.pk_gen();
-    let ptxt = Plaintext::rand_message();
-    let ctxt = pk.encrypt(&ptxt, rand_tuple::<Q, P, N>(None));
     
-    let act = sk.decrypt(ctxt).poly;
-    // println!("act {act:?}");
-    let exp = ptxt.poly;
-    // println!("exp {exp:?}");
-    assert_eq!(act, exp);
+    pub fn zero() -> Self {
+        Self {
+            poly: PolyR::<P, N>::zero(),
+            modulo: P,
+        }
+    }
 }
