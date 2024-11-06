@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 #![allow(unused_imports)]
 
+use std::default;
+
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::linear_algebra::{Matrix, Vector};
 use lattirust_arithmetic::ntt::ntt_modulus;
@@ -30,6 +32,7 @@ pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     r: TuplePolyR<Q, N>,
     u: Vec<PolyR<P, N>>,
     y: Vec<TuplePolyR<Q, N>>,
+    l: usize,
 }
 
 pub struct Verifier<const Q: u64, const P: u64, const N: usize> {
@@ -37,11 +40,16 @@ pub struct Verifier<const Q: u64, const P: u64, const N: usize> {
     secret_key: SecretKey<Q, P, N>,
     public_key: PublicKey<Q, P, N>,
     prover_pk: PublicKey<Q, P, N>,
+    l: usize,
+    c: Ciphertext<Q, N>, 
+    w: Vec<Ciphertext<Q, N>>,
+    gamma: Vec<PolyR<P, N>>,
 }
 
 impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
     // instantiation
-    fn new(verifier_pk: PublicKey<Q, P, N>, message: Plaintext<P, N>) -> Self {
+    // TODO: cannot use verifier pk to encrypt, would leak m
+    fn new(verifier_pk: PublicKey<Q, P, N>, message: Plaintext<P, N>, l: usize) -> Self {
         let secret_key =  SecretKey::new(); 
         let public_key = secret_key.pk_gen();
         
@@ -50,9 +58,11 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
             public_key, 
             verifier_pk,
             message,
+            // TODO: create defaults
             r: (PolyR::<Q, N>::zero(), PolyR::<Q, N>::zero(), PolyR::<Q, N>::zero()),
-            u: Vec::new(),
-            y: Vec::new(),
+            u: Vec::default(),
+            y: Vec::default(),
+            l
         }
     }
 
@@ -129,7 +139,7 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
 
 impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
     // instantiation
-    fn new(prover_pk: PublicKey<Q, P, N>) -> Self {
+    fn new(prover_pk: PublicKey<Q, P, N>, l: usize) -> Self {
         let secret_key =  SecretKey::new(); 
         let public_key = secret_key.pk_gen();
 
@@ -137,25 +147,52 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
             secret_key, 
             public_key, 
             prover_pk,
+            l, 
+            c: Ciphertext::default(),
+            w: Vec::default(),
+            gamma: Vec::default(),
         }
+    }
+
+    fn end_genenerate(&mut self, c: Ciphertext<Q, N>) {
+        self.c = c;
     }
 
     fn challenge(&self, commitment: Vec<PolyR<P, N>>, l: usize) -> Vec<PolyR<P, N>> {
         // sample l monomials
         let mut rng = rand::thread_rng();
-        let mut vec = Vec::new();
+        let mut gamma = Vec::new();
 
         for _ in 0..l {
             let mut coeffs: [Zq<P>; N] = [Zq::<P>::zero(); N];
-            let index: usize = rng.gen_range(0..N);
-            coeffs[index] = Zq::<P>::one();
-            let coeffs = coeffs; // immutate it
-            vec.push(PolyR::from(coeffs));
+            let rand_index: usize = rng.gen_range(0..N);
+            coeffs[rand_index] = Zq::<P>::one();
+            gamma.push(PolyR::from(coeffs));
         }
-        vec
+        gamma
     }
 
-    fn verify(response: Vec<(PolyR<P, N>, PolyR<P, N>)>) -> bool {
-        todo!();
+    fn verify(&self, response: (Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>)) -> bool {
+        let two = PolyR::<Q, N>::from(Zq::<Q>::from(2));
+        let (v, z) = (response.0, response.1);
+        let (w, c, gamma) = (&self.w, &self.c, &self.gamma);
+        let pk= &self.prover_pk;
+        let mut vfy = true;
+
+        for i in 0..self.l {
+            let vi = Plaintext{ poly: v[i].clone(), modulo: P};
+            let ctxt = pk.encrypt(&vi, (two * z[i].0, two * z[i].1, two * z[i].2));
+            let left = (ctxt.c1, ctxt.c2);
+            let gamma_zq = convert_ring::<P, Q, N>(gamma[i]);
+            let right = (w[i].c1 + gamma_zq * c.c1, w[i].c2 + gamma_zq * c.c2);
+
+            if left != right {
+                vfy = false;
+            }
+
+            // TODO: check the second condition
+        }
+
+        vfy
     }
 }

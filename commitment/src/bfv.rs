@@ -192,3 +192,13 @@ impl<const P: u64, const N: usize> Plaintext<P, N> {
         }
     }
 }
+
+impl<const Q: u64, const N: usize>Default for Ciphertext<Q, N> {
+    fn default() -> Self {
+         Self {
+            c1: PolyR::<Q, N>::zero(),
+            c2: PolyR::<Q, N>::zero(),
+            modulo: Q,
+         }
+    }
+}
