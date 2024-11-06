@@ -8,6 +8,7 @@ pub trait PolyRing: Ring + From<Vec<Self::BaseRing>> + FromRandomBytes<Self> + F
     type BaseRing: Ring;
 
     fn coeffs(&self) -> &[Self::BaseRing];
+    fn coeffs_mut(&mut self) -> &mut [Self::BaseRing];
     fn into_coeffs(self) -> Vec<Self::BaseRing>;
 
     fn dimension() -> usize;
