@@ -536,8 +536,13 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> PolyRing
     type BaseRing = C::BaseCRTField;
 
     fn coeffs(&self) -> &[C::BaseCRTField] {
-        self.0.as_slice()
+        &self.0
     }
+
+    fn coeffs_mut(&mut self) -> &mut [Self::BaseRing] {
+        &mut self.0
+    }
+
     fn dimension() -> usize {
         D
     }
