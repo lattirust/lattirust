@@ -7,70 +7,39 @@ use crate::PolyRing;
 use super::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral};
 
 pub trait Flatten: PolyRing {
-    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing>;
-    fn promote_from_coeffs(vec: Vec<Self::BaseRing>) -> Option<Vec<Self>>;
+    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing> {
+        let dimension = Self::dimension();
+
+        let (ptr, len, cap) = vec.into_raw_parts();
+
+        unsafe { Vec::from_raw_parts(ptr as *mut Self::BaseRing, len * dimension, cap * dimension) }
+    }
+
+    fn promote_from_coeffs(mut vec: Vec<Self::BaseRing>) -> Option<Vec<Self>> {
+        let dimension = Self::dimension();
+
+        if vec.len() % dimension != 0 {
+            return None;
+        }
+
+        if vec.capacity() % dimension != 0 {
+            vec.shrink_to_fit();
+        }
+
+        let (ptr, len, cap) = vec.into_raw_parts();
+
+        Some(unsafe { Vec::from_raw_parts(ptr as *mut Self, len / dimension, cap / dimension) })
+    }
 }
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
     for CyclotomicPolyRingNTTGeneral<C, N, D>
 {
-    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<C::BaseCRTField> {
-        let (ptr, len, cap) = vec.into_raw_parts();
-
-        unsafe { Vec::from_raw_parts(ptr as *mut C::BaseCRTField, len * D, cap * D) }
-    }
-
-    fn promote_from_coeffs(
-        mut vec: Vec<C::BaseCRTField>,
-    ) -> Option<Vec<CyclotomicPolyRingNTTGeneral<C, N, D>>> {
-        if vec.len() % D != 0 {
-            return None;
-        }
-
-        if vec.capacity() % D != 0 {
-            vec.shrink_to_fit();
-        }
-
-        let (ptr, len, cap) = vec.into_raw_parts();
-
-        Some(unsafe {
-            Vec::from_raw_parts(
-                ptr as *mut CyclotomicPolyRingNTTGeneral<C, N, D>,
-                len / D,
-                cap / D,
-            )
-        })
-    }
 }
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
     for CyclotomicPolyRingGeneral<C, N, D>
 {
-    fn flatten_to_coeffs(vec: Vec<Self>) -> Vec<Self::BaseRing> {
-        let (ptr, len, cap) = vec.into_raw_parts();
-
-        unsafe { Vec::from_raw_parts(ptr as *mut Self::BaseRing, len * D, cap * D) }
-    }
-
-    fn promote_from_coeffs(mut vec: Vec<Self::BaseRing>) -> Option<Vec<Self>> {
-        if vec.len() % D != 0 {
-            return None;
-        }
-
-        if vec.capacity() % D != 0 {
-            vec.shrink_to_fit();
-        }
-
-        let (ptr, len, cap) = vec.into_raw_parts();
-
-        Some(unsafe {
-            Vec::from_raw_parts(
-                ptr as *mut CyclotomicPolyRingGeneral<C, N, D>,
-                len / D,
-                cap / D,
-            )
-        })
-    }
 }
 
 #[cfg(test)]
