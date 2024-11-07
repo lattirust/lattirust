@@ -845,4 +845,17 @@ mod tests {
             ],
         );
     }
+
+    #[test]
+    #[allow(clippy::erasing_op)]
+    fn test_primitive_ops() {
+        use ark_std::One;
+        use ark_std::Zero;
+        type R = Pow2CyclotomicPolyRingNTT<131072, 1024>;
+        assert_eq!(R::one() + 1u32, R::one() + R::one());
+        assert_eq!(R::one() * 1u32, R::one());
+        assert_eq!(R::one() * 0u32, R::zero());
+        assert_eq!(R::one() - 0u32, R::one());
+        assert_eq!(R::one() - 1u32, R::zero());
+    }
 }
