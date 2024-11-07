@@ -559,6 +559,42 @@ where
     }
 }
 
+macro_rules! impl_add_mul_primitive_type {
+    ($primitive_type: ty) => {
+        impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<$primitive_type>
+            for CyclotomicPolyRingGeneral<C, N, D>
+        {
+            type Output = Self;
+
+            fn mul(mut self, rhs: $primitive_type) -> Self::Output {
+                self.0.iter_mut().for_each(|lhs| *lhs *= Fp::from(rhs));
+
+                self
+            }
+        }
+
+        impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<$primitive_type>
+            for CyclotomicPolyRingGeneral<C, N, D>
+        {
+            type Output = Self;
+
+            fn add(mut self, rhs: $primitive_type) -> Self::Output {
+                self.0[0] += Fp::from(rhs);
+
+                self
+            }
+        }
+    };
+}
+
+// only works for types that can be cast to Field
+impl_add_mul_primitive_type!(u128);
+impl_add_mul_primitive_type!(u64);
+impl_add_mul_primitive_type!(u32);
+impl_add_mul_primitive_type!(u16);
+impl_add_mul_primitive_type!(u8);
+impl_add_mul_primitive_type!(bool);
+
 #[cfg(test)]
 mod tests {
     use crate::{
