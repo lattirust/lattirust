@@ -407,6 +407,16 @@ macro_rules! impl_add_mul_primitive_type {
             }
         }
 
+        impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<$primitive_type>
+            for &'a CyclotomicPolyRingNTTGeneral<C, N, D>
+        {
+            type Output = CyclotomicPolyRingNTTGeneral<C, N, D>;
+
+            fn mul(self, rhs: $primitive_type) -> Self::Output {
+                *self * rhs
+            }
+        }
+
         impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<$primitive_type>
             for CyclotomicPolyRingNTTGeneral<C, N, D>
         {
@@ -418,6 +428,40 @@ macro_rules! impl_add_mul_primitive_type {
                     .for_each(|lhs| *lhs += C::BaseCRTField::from(rhs));
 
                 self
+            }
+        }
+
+        impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<$primitive_type>
+            for &'a CyclotomicPolyRingNTTGeneral<C, N, D>
+        {
+            type Output = CyclotomicPolyRingNTTGeneral<C, N, D>;
+
+            fn add(self, rhs: $primitive_type) -> Self::Output {
+                *self + rhs
+            }
+        }
+
+        impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<$primitive_type>
+            for CyclotomicPolyRingNTTGeneral<C, N, D>
+        {
+            type Output = Self;
+
+            fn sub(mut self, rhs: $primitive_type) -> Self::Output {
+                self.0
+                    .iter_mut()
+                    .for_each(|lhs| *lhs -= C::BaseCRTField::from(rhs));
+
+                self
+            }
+        }
+
+        impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> Sub<$primitive_type>
+            for &'a CyclotomicPolyRingNTTGeneral<C, N, D>
+        {
+            type Output = CyclotomicPolyRingNTTGeneral<C, N, D>;
+
+            fn sub(self, rhs: $primitive_type) -> Self::Output {
+                *self - rhs
             }
         }
     };
