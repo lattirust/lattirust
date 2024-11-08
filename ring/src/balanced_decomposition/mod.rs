@@ -241,13 +241,14 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 
 pub fn recompose<A, B>(v: &[A], b: B) -> A
 where
-    A: ark_std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
+    A: Zero + Mul<B, Output = A> + Clone,
     B: Ring,
 {
-    v.par_iter()
-        .enumerate()
-        .map(|(i, v_i)| *v_i * b.pow([i as u64]))
-        .sum()
+    v.iter()
+        .fold((A::zero(), B::one()), |(acc, power), v_i| {
+            (acc + v_i.clone() * power, power * b)
+        })
+        .0
 }
 
 /// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
