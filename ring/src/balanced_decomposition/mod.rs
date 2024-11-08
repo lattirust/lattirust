@@ -7,7 +7,6 @@ use num_bigint::BigInt;
 use num_integer::Integer;
 use num_traits::Signed;
 use rayon::prelude::*;
-use std::time::Instant;
 
 use crate::{PolyRing, Ring};
 use convertible_ring::ConvertibleRing;
@@ -242,30 +241,14 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 
 pub fn recompose<A, B>(v: &[A], b: B) -> A
 where
-    A: ark_std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
+    A: Zero + Mul<B, Output = A> + Clone,
     B: Ring,
 {
-    v.par_iter()
-        .enumerate()
-        .map(|(i, v_i)| *v_i * b.pow([i as u64]))
-        .sum()
-}
-
-pub fn faster_recompose<A, B>(v: &[A], b: B) -> A
-where
-    A: ark_std::ops::Mul<B, Output = A> + Copy + Sum + Send + Sync,
-    B: Ring,
-{
-    let mut b_powers = Vec::with_capacity(v.len());
-    let mut current_power = B::one();
-    for _ in 0..v.len() {
-        b_powers.push(current_power);
-        current_power = current_power * b;
-    }
-    v.par_iter()
-        .enumerate()
-        .map(|(i, v_i)| *v_i * b_powers[i])
-        .sum()
+    v.iter()
+        .fold((A::zero(), B::one()), |(acc, power), v_i| {
+            (acc + v_i.clone() * power, power * b)
+        })
+        .0
 }
 
 /// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
@@ -335,36 +318,6 @@ mod tests {
 
                 // Check that the decomposition is correct
                 assert_eq!(*v, recompose(&decomp, R::from(b)));
-            }
-        }
-    }
-
-    #[test]
-    fn test_recompose_speed() {
-        for k in 2..=32 {
-            let v = (0..k).map(R::from).collect::<Vec<_>>();
-            println!("k: {:?}", v.len());
-            for b in BASIS_TEST_RANGE {
-                let b_value = R::from(b);
-
-                // Measure time for recompose
-                let start = Instant::now();
-                let result_recompose = recompose(&v, b_value);
-                let duration_recompose = start.elapsed();
-
-                // Measure time for faster_recompose
-                let start = Instant::now();
-                let result_faster_recompose = faster_recompose(&v, b_value);
-                let duration_faster_recompose = start.elapsed();
-
-                let reduction_percentage = 100.0 * (duration_recompose.as_secs_f64() - duration_faster_recompose.as_secs_f64()) / duration_recompose.as_secs_f64();
-                println!(
-                    "Recompose took: {:?}, Faster recompose took: {:?}, b_small: {}, Reduction: {:.2}%",
-                    duration_recompose, duration_faster_recompose, b, reduction_percentage
-                );
-
-                // Assert equality
-                assert_eq!(result_recompose, result_faster_recompose);
             }
         }
     }
@@ -513,63 +466,4 @@ mod tests {
     //         assert_eq!(expected, actual);
     //     }
     // }
-}
-
-#[cfg(test)]
-mod test_stark {
-    use std::time::Instant;
-
-    use ark_ff::UniformRand;
-    use rand::thread_rng;
-
-    use crate::balanced_decomposition::faster_recompose;
-    use crate::balanced_decomposition::recompose;
-    use crate::cyclotomic_ring::models::stark_prime::RqPoly;
-    use crate::cyclotomic_ring::models::stark_prime::RqNTT;
-    use crate::cyclotomic_ring::models::stark_prime::Fq;
-    use crate::PolyRing;
-
-    type R = Fq;
-    type PolyNTT = RqNTT;
-    type PolyR = RqPoly;
-
-
-    #[test]
-    fn test_recompose_speed() {
-        let mut rng = thread_rng();
-        let basis_test_range: [PolyNTT; 8] = [
-            PolyNTT::from_scalar(R::from(2)),
-            PolyNTT::from_scalar(R::from(4)),
-            PolyNTT::from_scalar(R::from(8)),
-            PolyNTT::from_scalar(R::from(16)),
-            PolyNTT::from_scalar(R::from(32)),
-            PolyNTT::from_scalar(R::from(64)),
-            PolyNTT::from_scalar(R::from(128)),
-            PolyNTT::from_scalar(R::from(256)),
-        ];
-        for L in 2..=16 {
-            let v = (0..L).map(|_| PolyNTT::rand(&mut rng)).collect::<Vec<_>>();
-            println!("L: {:?}", v.len());
-            for b in basis_test_range {
-                // Measure time for recompose
-                let start = Instant::now();
-                let result_recompose = recompose(&v, b);
-                let duration_recompose = start.elapsed();
-
-                // Measure time for faster_recompose
-                let start = Instant::now();
-                let result_faster_recompose = faster_recompose(&v, b);
-                let duration_faster_recompose = start.elapsed();
-
-                let reduction_percentage = 100.0 * (duration_recompose.as_secs_f64() - duration_faster_recompose.as_secs_f64()) / duration_recompose.as_secs_f64();
-                println!(
-                    "Recompose took: {:?}, Faster recompose took: {:?}, b: {}, Reduction: {:.2}%",
-                    duration_recompose, duration_faster_recompose, b, reduction_percentage
-                );
-
-                // Assert equality
-                assert_eq!(result_recompose, result_faster_recompose);
-            }
-        }
-    }
 }
