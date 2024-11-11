@@ -1,16 +1,14 @@
-use ark_std::{
-    iter::Sum,
-    ops::{BitXor, Mul},
-    One, Zero,
-};
+use ark_std::{iter::Sum, ops::Mul, One, Zero};
 use num_bigint::BigInt;
-use num_integer::Integer;
 use num_traits::Signed;
 use rayon::prelude::*;
 
 use crate::{PolyRing, Ring};
 use convertible_ring::ConvertibleRing;
-use lattirust_linear_algebra::{Matrix, RowVector, SymmetricMatrix, Vector};
+use lattirust_linear_algebra::{
+    ops::{rounded_div, Transpose},
+    Matrix, RowVector, SymmetricMatrix, Vector,
+};
 
 pub mod convertible_ring;
 mod fq_convertible;
@@ -18,32 +16,6 @@ pub(crate) mod representatives;
 
 pub trait Decompose: Sized {
     fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self>;
-}
-
-/// Given a vector of vectors `v`, pads each row to the same length $l = \max_i \texttt{v}\[i\]\texttt{.len()}$ and transposes the result. The output is a Vec of Vec of dimensionts `l` times `v.len()`.
-pub fn pad_and_transpose<F: Copy + Zero>(mut v: Vec<Vec<F>>) -> Vec<Vec<F>> {
-    let rows = v.len();
-    let cols = v.iter().map(|d_i| d_i.len()).max().unwrap();
-    // Pad each row to the same length `cols
-    for row in &mut v {
-        row.resize(cols, F::zero());
-    }
-
-    // Reshape as cols x rows
-    (0..cols)
-        .map(|col| (0..rows).map(|row| v[row][col]).collect::<Vec<F>>())
-        .collect()
-}
-
-pub fn rounded_div<T: Integer + From<i128> + BitXor<Output = T> + Clone>(
-    dividend: T,
-    divisor: T,
-) -> T {
-    if dividend.clone() ^ divisor.clone() >= T::zero() {
-        (dividend + (divisor.clone() / From::from(2))) / divisor.clone()
-    } else {
-        (dividend - (divisor.clone() / From::from(2))) / divisor.clone()
-    }
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -68,28 +40,32 @@ pub fn decompose_balanced<R: ConvertibleRing>(
     // TODO: not sure if this really necessary, but having b be even allow for more efficient divisions/remainders
     assert_eq!(b % 2, 0, "decomposition basis must be even");
 
-    let b_half_floor = b.div_euclid(2);
-    let b = b as i128;
-    let mut decomp_bal_signed = Vec::<R::SignedInt>::new();
+    let mut decomp_bal_signed = if let Some(padding_size) = padding_size {
+        Vec::<R::SignedInt>::with_capacity(padding_size)
+    } else {
+        Vec::<R::SignedInt>::new()
+    };
     let mut curr = Into::<R::SignedInt>::into(*v);
+    let b = b as i128;
+    let b_half_floor = b.div_euclid(2);
     loop {
-        let rem = curr.clone() % b.into(); // rem = curr % b is in [-(b-1), (b-1)]
+        let rem = curr.clone() % b; // rem = curr % b is in [-(b-1), (b-1)]
 
         let rem_bigint: BigInt = rem.clone().into();
 
         // Ensure digit is in [-b/2, b/2]
         if rem_bigint.abs() <= b_half_floor.into() {
-            decomp_bal_signed.push(rem.clone());
-            curr /= b.into(); // Rust integer division rounds towards zero
+            decomp_bal_signed.push(rem);
+            curr /= b; // Rust integer division rounds towards zero
         } else {
             // The next element in the decomposition is sign(rem) * (|rem| - b)
             if rem < 0.into() {
-                decomp_bal_signed.push(rem.clone() + b.into());
+                decomp_bal_signed.push(rem.clone() + b);
             } else {
-                decomp_bal_signed.push(rem.clone() - b.into());
+                decomp_bal_signed.push(rem.clone() - b);
             }
-            let carry = rounded_div(rem, b.into()); // Round toward nearest integer, not towards 0
-            curr = (curr / b.into()) + carry;
+            let carry = rounded_div(rem, b); // Round toward nearest integer, not towards 0
+            curr = (curr / b) + carry;
         }
 
         if curr.is_zero() {
@@ -133,11 +109,9 @@ pub fn decompose_balanced_vec<D: Ring + Decompose>(
     b: u128,
     padding_size: Option<usize>,
 ) -> Vec<Vec<D>> {
-    let decomp: Vec<Vec<D>> = v
-        .par_iter()
+    v.par_iter()
         .map(|v_i| v_i.decompose(b, padding_size))
-        .collect(); // v.len() x decomp_size
-    pad_and_transpose(decomp) // decomp_size x v.len()
+        .collect()
 }
 
 /// Returns the balanced decomposition of a [`PolyRing`] element as a Vec of [`PolyRing`] elements.
@@ -159,7 +133,8 @@ where
     R::BaseRing: Decompose,
 {
     decompose_balanced_vec::<R::BaseRing>(v.coeffs(), b, padding_size)
-        .into_par_iter()
+        .transpose()
+        .into_iter()
         .map(|v_i| R::from(v_i))
         .collect()
 }
@@ -172,11 +147,9 @@ pub fn decompose_balanced_slice_polyring<R: PolyRing>(
 where
     R::BaseRing: Decompose,
 {
-    let decomp: Vec<Vec<R>> = v
-        .par_iter()
+    v.par_iter()
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
-        .collect(); // v.len() x decomp_size
-    pad_and_transpose(decomp).into_par_iter().collect() // decomp_size x v.len()
+        .collect()
 }
 
 /// Returns the balanced decomposition of a slice of [`PolyRing`] elements as a Vec of [`Vector`] of [`PolyRing`] elements.
@@ -197,15 +170,11 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
 where
     R::BaseRing: Decompose,
 {
-    let decomp: Vec<Vec<R>> = v
-        .as_slice()
+    v.as_slice()
         .par_iter()
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
-        .collect(); // v.len() x decomp_size
-    pad_and_transpose(decomp)
-        .into_par_iter()
         .map(Vector::from)
-        .collect() // decomp_size x v.len()
+        .collect()
 }
 
 /// Returns the balanced gadget decomposition of a [`Matrix`] of dimensions `m × n` as a matrix of dimensions `m × (k * n)`.
@@ -334,7 +303,7 @@ mod tests {
         let v = get_test_vec();
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
-            let decomp = decompose_balanced_vec(&v, b, None);
+            let decomp = decompose_balanced_vec(&v, b, None).transpose();
 
             // Check that all entries are smaller than b/2 in absolute value
             for d_i in &decomp {

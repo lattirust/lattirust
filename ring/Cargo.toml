@@ -20,6 +20,6 @@ serde = { workspace = true }
 serde_with = { workspace = true }
 zeroize = { workspace = true }
 num-bigint = { workspace = true }
+num-integer = { workspace = true }
 rand = { workspace = true }
-num-traits = "0.2.19"
-num-integer = "0.1.46"
+num-traits = "0.2"

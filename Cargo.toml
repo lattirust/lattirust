@@ -28,6 +28,7 @@ serde = { version = "1.0.197", features = ["derive"] }
 serde_with = "3.7.0"
 zeroize = "1.7.0"
 num-bigint = "0.4.4"
+num-integer = "0.1"
 rand = "0.8.5"
 displaydoc = "0.2.5"
 ark-crypto-primitives = { version = "0.4.0", default-features = false, features = [
