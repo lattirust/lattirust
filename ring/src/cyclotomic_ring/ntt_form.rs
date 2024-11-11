@@ -1,11 +1,8 @@
 use ark_ff::{Field, Fp};
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
     fmt::{Debug, Display, Formatter},
     hash::Hash,
-    io::{Read, Write},
     iter::{Product, Sum},
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     rand::Rng,
@@ -20,7 +17,7 @@ use crate::{traits::FromRandomBytes, PolyRing, Ring};
 /// * `C` is the configuration of the cyclotomic ring.
 /// * `N` is the byte size of the underlying prime field.
 /// * `D` is the number of factors in the CRT-representation of the ring.
-#[derive(From, Into)]
+#[derive(From, Into, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CyclotomicPolyRingNTTGeneral<C: CyclotomicConfig<N>, const N: usize, const D: usize>(
     pub(crate) [C::BaseCRTField; D],
 );
@@ -111,42 +108,6 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Hash
 {
     fn hash<H: ark_std::hash::Hasher>(&self, state: &mut H) {
         self.0.hash(state);
-    }
-}
-
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalSerialize
-    for CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-    fn serialize_with_mode<W: Write>(
-        &self,
-        writer: W,
-        compress: Compress,
-    ) -> Result<(), SerializationError> {
-        self.0.serialize_with_mode(writer, compress)
-    }
-
-    fn serialized_size(&self, compress: Compress) -> usize {
-        self.0.serialized_size(compress)
-    }
-}
-
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Valid
-    for CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-    fn check(&self) -> Result<(), SerializationError> {
-        self.0.check()
-    }
-}
-
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CanonicalDeserialize
-    for CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-    fn deserialize_with_mode<R: Read>(
-        reader: R,
-        compress: Compress,
-        validate: Validate,
-    ) -> Result<Self, SerializationError> {
-        <[C::BaseCRTField; D]>::deserialize_with_mode(reader, compress, validate).map(|x| Self(x))
     }
 }
 
