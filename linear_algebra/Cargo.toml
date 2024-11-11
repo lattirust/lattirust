@@ -16,3 +16,4 @@ nalgebra-sparse = { workspace = true }
 rayon = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
+num-integer = { workspace = true }

@@ -571,6 +571,7 @@ dependencies = [
  "derive_more",
  "nalgebra",
  "nalgebra-sparse",
+ "num-integer",
  "rand",
  "rayon",
  "serde",

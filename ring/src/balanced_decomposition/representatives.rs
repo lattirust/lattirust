@@ -1,6 +1,6 @@
 use ark_ff::{One, Zero};
 use ark_serialize::{SerializationError, Valid};
-use ark_std::ops::{BitXor, Div, DivAssign, Mul, Rem};
+use ark_std::ops::{Add, BitXor, Div, DivAssign, Mul, Rem, Sub};
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Product, Sub, SubAssign, Sum};
 use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
@@ -120,13 +120,13 @@ impl<T: Into<BigUint>> From<UnsignedRepresentative<T>> for BigUint {
 }
 
 impl<T: PartialOrd> PartialOrd for SignedRepresentative<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<ark_std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
 
 impl<T: PartialOrd> PartialOrd for UnsignedRepresentative<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<ark_std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
     }
 }
@@ -171,6 +171,14 @@ impl<T: Rem<Output = T>> Rem for SignedRepresentative<T> {
 
     fn rem(self, rhs: Self) -> Self::Output {
         Self(self.0.rem(rhs.0))
+    }
+}
+
+impl<T: Rem<i128, Output = T>> Rem<i128> for SignedRepresentative<T> {
+    type Output = Self;
+
+    fn rem(self, rhs: i128) -> Self::Output {
+        Self(self.0.rem(rhs))
     }
 }
 
@@ -262,9 +270,36 @@ impl<T: Integer> Integer for UnsignedRepresentative<T> {
     }
 }
 
+impl<T: Add<i128, Output = T>> Add<i128> for SignedRepresentative<T> {
+    type Output = Self;
+    fn add(self, value: i128) -> Self {
+        Self(self.0 + value)
+    }
+}
+
+impl<T: Sub<i128, Output = T>> Sub<i128> for SignedRepresentative<T> {
+    type Output = Self;
+    fn sub(self, value: i128) -> Self {
+        Self(self.0 - value)
+    }
+}
+
+impl<T: Div<i128, Output = T>> Div<i128> for SignedRepresentative<T> {
+    type Output = Self;
+    fn div(self, value: i128) -> Self {
+        Self(self.0 / value)
+    }
+}
+
 impl<T: DivAssign> DivAssign for SignedRepresentative<T> {
     fn div_assign(&mut self, rhs: Self) {
         self.0.div_assign(rhs.0);
+    }
+}
+
+impl<T: DivAssign<i128>> DivAssign<i128> for SignedRepresentative<T> {
+    fn div_assign(&mut self, rhs: i128) {
+        self.0.div_assign(rhs);
     }
 }
 

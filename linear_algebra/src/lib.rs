@@ -4,6 +4,7 @@
 
 mod generic_matrix;
 mod matrix;
+pub mod ops;
 pub mod serialization;
 mod sparse_matrix;
 mod symmetric_matrix;

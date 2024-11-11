@@ -1,4 +1,4 @@
-use ark_std::ops::{BitXor, DivAssign};
+use ark_std::ops::{Add, BitXor, Div, DivAssign, Rem, Sub};
 use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
 use num_traits::sign::Signed;
@@ -26,7 +26,12 @@ pub trait ConvertibleRing:
     type SignedInt: Integer
         + Into<BigInt>
         + DivAssign<Self::SignedInt>
+        + DivAssign<i128>
         + From<i128>
+        + Add<i128, Output = Self::SignedInt>
+        + Sub<i128, Output = Self::SignedInt>
+        + Div<i128, Output = Self::SignedInt>
+        + Rem<i128, Output = Self::SignedInt>
         + Clone
         + BitXor<Output = Self::SignedInt>
         + Sized;
