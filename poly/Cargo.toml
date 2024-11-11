@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+lattirust-linear-algebra = { workspace = true }
 lattirust-ring = { workspace = true }
 ark-ff = { workspace = true }
 ark-serialize = { workspace = true }

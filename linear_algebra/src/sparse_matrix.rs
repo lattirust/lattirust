@@ -61,6 +61,36 @@ impl<R: Scalar> SparseMatrix<R> {
         CscMatrix::try_from_csc_data(num_rows, num_cols, col_offsets, row_indices, values)
             .map(|matrix| SparseMatrix(matrix))
     }
+
+    /// Pad matrix so that its columns and rows are powers of two
+    pub fn pad(&self) -> Self {
+        let nrows_new = self.nrows().next_power_of_two();
+
+        let ncols_new = self.ncols().next_power_of_two();
+
+        if self.nrows() == nrows_new && self.ncols() == ncols_new {
+            self.clone()
+        } else {
+            let offsets = Self::pad_vector(self.col_offsets().to_vec(), ncols_new + 1);
+            SparseMatrix::try_from_csc_data(
+                nrows_new,
+                ncols_new,
+                offsets,
+                self.row_indices().to_vec(),
+                self.values().to_vec(),
+            )
+            .expect("this shouldn't have happened since we're just enlarging the matrix")
+        }
+    }
+
+    fn pad_vector(mut vec: Vec<usize>, target_length: usize) -> Vec<usize> {
+        if vec.len() < target_length {
+            if let Some(&last_element) = vec.last() {
+                vec.resize(target_length, last_element);
+            }
+        }
+        vec
+    }
 }
 
 impl<R> Serialize for SparseMatrix<R>
