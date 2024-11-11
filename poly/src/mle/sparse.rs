@@ -4,8 +4,10 @@ use ark_std::{
     cfg_iter,
     collections::{BTreeMap, HashMap},
     hash::{DefaultHasher, Hash},
+    log2,
     ops::{Add, AddAssign, Index, Neg, Sub, SubAssign},
 };
+use lattirust_linear_algebra::SparseMatrix;
 use rand::Rng;
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
@@ -82,7 +84,40 @@ impl<R: Ring> SparseMultilinearExtension<R> {
             zero: R::zero(),
         }
     }
+
+    /// Returns the sparse MLE from the given matrix, without modifying the original matrix.
+    pub fn from_matrix(m: &SparseMatrix<R>) -> Self {
+        let n_rows = m.nrows().next_power_of_two();
+        let n_cols = m.ncols().next_power_of_two();
+        let n_vars: usize = (log2(n_rows * n_cols)) as usize; // n_vars = s + s'
+
+        // build the sparse vec representing the sparse matrix
+        let mut v: Vec<(usize, R)> = Vec::with_capacity(m.nnz());
+
+        for (col, row, val) in m.triplet_iter().filter(|(_, _, val)| !val.is_zero()) {
+            v.push((row * n_cols + col, *val));
+        }
+
+        // convert the sparse vector into a mle
+        Self::from_sparse_slice(n_vars, &v)
+    }
+
+    /// Takes n_vars and a sparse slice and returns its sparse MLE.
+    pub fn from_sparse_slice(n_vars: usize, v: &[(usize, R)]) -> Self {
+        SparseMultilinearExtension::<R>::from_evaluations(n_vars, v)
+    }
+
+    /// Takes n_vars and a dense slice and returns its sparse MLE.
+    pub fn from_slice(n_vars: usize, v: &[R]) -> Self {
+        let v_sparse = v
+            .iter()
+            .enumerate()
+            .map(|(i, v_i)| (i, *v_i))
+            .collect::<Vec<(usize, R)>>();
+        SparseMultilinearExtension::<R>::from_evaluations(n_vars, &v_sparse)
+    }
 }
+
 impl<R: Ring> MultilinearExtension<R> for SparseMultilinearExtension<R> {
     fn num_vars(&self) -> usize {
         self.num_vars
@@ -343,4 +378,106 @@ fn precompute_eq<R: Ring>(g: &[R]) -> Vec<R> {
         }
     }
     dp
+}
+
+#[cfg(test)]
+#[allow(non_snake_case)]
+mod tests {
+    use super::*;
+
+    use ark_ff::Zero;
+    use lattirust_ring::cyclotomic_ring::models::goldilocks::Fq;
+
+    // Function to convert usize to a binary vector of Ring elements.
+    fn usize_to_binary_vector<R: Ring>(n: usize, dimensions: usize) -> Vec<R> {
+        let mut bits = Vec::with_capacity(dimensions);
+        let mut current = n;
+
+        for _ in 0..dimensions {
+            if (current & 1) == 1 {
+                bits.push(R::one());
+            } else {
+                bits.push(R::zero());
+            }
+            current >>= 1;
+        }
+        bits
+    }
+
+    // Wrapper function to generate a boolean hypercube.
+    fn boolean_hypercube<R: Ring>(dimensions: usize) -> Vec<Vec<R>> {
+        let max_val = 1 << dimensions; // 2^dimensions
+        (0..max_val)
+            .map(|i| usize_to_binary_vector::<R>(i, dimensions))
+            .collect()
+    }
+
+    fn vec_cast<R: Ring>(v: &[usize]) -> Vec<R> {
+        v.iter().map(|c| R::from(*c as u64)).collect()
+    }
+
+    fn matrix_cast<R: Ring>(m: &[Vec<usize>]) -> SparseMatrix<R> {
+        m.iter()
+            .map(|r| vec_cast::<R>(r))
+            .collect::<Vec<Vec<R>>>()
+            .as_slice()
+            .into()
+    }
+
+    fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
+        vec_cast(&[
+            input, // io
+            1,
+            input * input * input + input + 5, // x^3 + x + 5
+            input * input,                     // x^2
+            input * input * input,             // x^2 * x
+            input * input * input + input,     // x^3 + x
+        ])
+    }
+
+    #[test]
+    fn test_matrix_to_mle() {
+        type R = Fq;
+        let A = matrix_cast::<R>(&[
+            vec![2, 3, 4, 4],
+            vec![4, 11, 14, 14],
+            vec![2, 8, 17, 17],
+            vec![420, 4, 2, 0],
+        ]);
+
+        let A_mle = SparseMultilinearExtension::from_matrix(&A);
+        assert_eq!(A_mle.evaluations.len(), 15); // 15 non-zero elements
+        assert_eq!(A_mle.num_vars, 4); // 4x4 matrix, thus 2bit x 2bit, thus 2^4=16 evals
+
+        let A = matrix_cast::<R>(&[
+            vec![2, 3, 4, 4, 1],
+            vec![4, 11, 14, 14, 2],
+            vec![2, 8, 17, 17, 3],
+            vec![420, 4, 2, 0, 4],
+            vec![420, 4, 2, 0, 5],
+        ]);
+        let A_mle = SparseMultilinearExtension::from_matrix(&A);
+        assert_eq!(A_mle.evaluations.len(), 23); // 23 non-zero elements
+        assert_eq!(A_mle.num_vars, 6); // 5x5 matrix, thus 3bit x 3bit, thus 2^6=64 evals
+    }
+
+    #[test]
+    fn test_vec_to_mle() {
+        type R = Fq;
+        let z = get_test_z::<R>(3);
+        let n_vars = 3;
+        let z_mle = SparseMultilinearExtension::from_slice(n_vars, &z);
+
+        // check that the z_mle evaluated over the boolean hypercube equals the vec z_i values
+        let bhc = boolean_hypercube(z_mle.num_vars);
+
+        for (i, z_i) in z.iter().enumerate() {
+            let s_i = &bhc[i];
+            assert_eq!(z_mle.evaluate(s_i), z_i.clone());
+        }
+        // for the rest of elements of the boolean hypercube, expect it to evaluate to zero
+        for s_i in bhc.iter().take(1 << z_mle.num_vars).skip(z.len()) {
+            assert_eq!(z_mle.fix_variables(s_i)[0], R::zero());
+        }
+    }
 }

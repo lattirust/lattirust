@@ -585,6 +585,7 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "displaydoc",
+ "lattirust-linear-algebra",
  "lattirust-ring",
  "rand",
  "rayon",

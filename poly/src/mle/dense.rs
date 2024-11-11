@@ -1,9 +1,10 @@
 use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
-    cfg_iter,
+    cfg_iter, log2,
     ops::{Add, AddAssign, Index, Mul, Neg, Sub, SubAssign},
 };
+use lattirust_linear_algebra::SparseMatrix;
 #[cfg(feature = "parallel")]
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
@@ -43,6 +44,41 @@ impl<R: Ring> DenseMultilinearExtension<R> {
             num_vars,
             evaluations,
         }
+    }
+
+    /// Returns the dense MLE from the given matrix, without modifying the original matrix.
+    pub fn from_matrix(matrix: &SparseMatrix<R>) -> Self {
+        let n_vars: usize = (log2(matrix.nrows()) + log2(matrix.ncols())) as usize; // n_vars = s + s'
+
+        // Matrices might need to get padded before turned into an MLE
+        let padded_matrix = matrix.pad();
+
+        // build dense vector representing the sparse padded matrix
+        let mut v: Vec<R> = vec![R::zero(); padded_matrix.nrows() * padded_matrix.ncols()];
+
+        for (col_i, row_i, val) in matrix.triplet_iter() {
+            v[(padded_matrix.ncols() * row_i) + col_i] = *val;
+        }
+
+        // convert the dense vector into a mle
+        Self::from_slice(n_vars, &v)
+    }
+
+    /// Takes n_vars and a dense slice and returns its dense MLE.
+    pub fn from_slice(n_vars: usize, v: &[R]) -> Self {
+        let v_padded: Vec<R> = if v.len() != (1 << n_vars) {
+            // pad to 2^n_vars
+            [
+                v.to_owned(),
+                ark_std::iter::repeat(R::zero())
+                    .take((1 << n_vars) - v.len())
+                    .collect(),
+            ]
+            .concat()
+        } else {
+            v.to_owned()
+        };
+        DenseMultilinearExtension::<R>::from_evaluations_vec(n_vars, v_padded)
     }
 
     pub fn relabel_in_place(&mut self, mut a: usize, mut b: usize, k: usize) {
