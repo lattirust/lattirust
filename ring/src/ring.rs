@@ -11,53 +11,55 @@ use ark_std::{
 use crate::traits::FromRandomBytes;
 
 pub trait Ring: 'static +
-    Copy +
-    Clone +
-    Debug +
-    Display +
-    Default +
-    Send +
-    Sync +
-    Eq +
-    Zero +
-    One +
-    Neg<Output = Self> +
-    UniformRand +
-    Sized +
-    Hash +
-    CanonicalSerialize +
-    CanonicalDeserialize +
-    Add<Self, Output = Self> +
-    Sub<Self, Output = Self> +
-    Mul<Self, Output = Self> +
-    AddAssign<Self> +
-    SubAssign<Self> +
-    MulAssign<Self> +
-    for<'a> Add<&'a Self, Output = Self> +
-    for<'a> Sub<&'a Self, Output = Self> +
-    for<'a> Mul<&'a Self, Output = Self> +
+Copy +
+Clone +
+Debug +
+Display +
+Default +
+Send +
+Sync +
+Eq +
+Zero +
+One +
+Neg<Output=Self> +
+UniformRand +
+Sized +
+Hash +
+CanonicalSerialize +
+CanonicalDeserialize +
+Add<Self, Output=Self> +
+Sub<Self, Output=Self> +
+Mul<Self, Output=Self> +
+AddAssign<Self> +
+SubAssign<Self> +
+MulAssign<Self> +
+    for<'a> Add<&'a Self, Output=Self> +
+    for<'a> Sub<&'a Self, Output=Self> +
+    for<'a> Mul<&'a Self, Output=Self> +
     for<'a> AddAssign<&'a Self> +
     for<'a> SubAssign<&'a Self> +
     for<'a> MulAssign<&'a Self> +
-    for<'a> Add<&'a mut Self, Output = Self> +
-    for<'a> Sub<&'a mut Self, Output = Self> +
-    for<'a> Mul<&'a mut Self, Output = Self> +
+    for<'a> Add<&'a mut Self, Output=Self> +
+    for<'a> Sub<&'a mut Self, Output=Self> +
+    for<'a> Mul<&'a mut Self, Output=Self> +
     for<'a> AddAssign<&'a mut Self> +
     for<'a> SubAssign<&'a mut Self> +
     for<'a> MulAssign<&'a mut Self> +
-    Sum<Self> +
+Sum<Self> +
     for<'a> Sum<&'a Self> +
-    Product<Self> +
+Product<Self> +
     for<'a> Product<&'a Self> +
-    Sum<Self> +
-    From<u128> +
-    From<u64> +
-    From<u32> +
-    From<u16> +
-    From<u8> +
-    From<bool> +
-    // Differs from arkworks
-    FromRandomBytes<Self>
+Sum<Self> +
+From<u128> +
+From<u64> +
+From<u32> +
+From<u16> +
+From<u8> +
+From<bool> +
+// Differs from arkworks
+FromRandomBytes<Self> +
+CanonicalSerialize +
+CanonicalDeserialize
 {
     /// The additive identity of the ring.
     const ZERO: Self;
