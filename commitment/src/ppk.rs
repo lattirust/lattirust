@@ -27,7 +27,6 @@ pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
     secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}
     public_key: PublicKey<Q, P, N>, // ring mod q
-    verifier_pk: PublicKey<Q, P, N>,
     message: Plaintext<P, N>, // ring mod p
     r: TuplePolyR<Q, N>,
     u: Vec<PolyR<P, N>>,
@@ -49,14 +48,13 @@ pub struct Verifier<const Q: u64, const P: u64, const N: usize> {
 impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
     // instantiation
     // TODO: cannot use verifier pk to encrypt, would leak m
-    fn new(verifier_pk: PublicKey<Q, P, N>, message: Plaintext<P, N>, l: usize) -> Self {
+    pub fn new(message: Plaintext<P, N>, l: usize) -> Self {
         let secret_key =  SecretKey::new(); 
         let public_key = secret_key.pk_gen();
         
         Self {
             secret_key, 
             public_key, 
-            verifier_pk,
             message,
             // TODO: create defaults
             r: (PolyR::<Q, N>::zero(), PolyR::<Q, N>::zero(), PolyR::<Q, N>::zero()),
@@ -66,21 +64,30 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         }
     }
 
-    // generate-phase
-    fn generate(&mut self) -> Ciphertext<Q, N> {
-        let two = PolyR::<Q, N>::from(Zq::<Q>::from(2));
-        
-        // todo: use DGS
-        let r = rand_tuple::<Q, N>(Some(two));
-        let c = self.verifier_pk.encrypt(&self.message, r);
-        
-        self.r = r;
+    // TODO: move PublicKey out and derive clone
+    pub fn return_pk(&self) -> PublicKey<Q, P, N> {
+        PublicKey {
+            poly1: self.public_key.poly1.clone(),
+            poly2: self.public_key.poly2.clone(),
+            modulo: Q,
+        }
+    }
 
-        c
+    // generate-phase
+    // TODO: use RefCell and make self immutable (?)
+    pub fn generate(&mut self) -> Ciphertext<Q, N> {
+        let two = PolyR::<Q, N>::from(Zq::<Q>::from(2));
+
+        // todo: use DGS
+        let r = rand_tuple::<Q, N>(None);
+        self.r = r.clone();
+        let r = (r.0.clone() * two, r.1.clone() * two, r.2.clone() * two);
+
+        self.public_key.encrypt(&self.message, r)
     }
 
     // prove-phase, which is a sigma protocol with soundness amplification
-    fn commit(&mut self, l: usize) -> Vec<Ciphertext<Q, N>> {
+    pub fn commit(&mut self, l: usize) -> Vec<Ciphertext<Q, N>> {
         let two = PolyR::<Q, N>::from(Zq::<Q>::from(2));
         let mut rng = rand::thread_rng();
         let mut u: Vec<PolyR<P, N>> = Vec::new(); // vec poly of size l
@@ -94,11 +101,13 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
             self.y.push(yi);
             y_times_2.push((yi.0 * two, yi.1 * two, yi.2 * two));
             
+            // transform ui into a Plaintext so we can encrypt it
             let ui = Plaintext::<P, N> {
                 poly: u[i].clone(),
                 modulo: P,
             };
-            w.push(self.verifier_pk.encrypt(&ui, y_times_2[i].clone())) 
+            // TODO: create a helper method to use self.encrypt instead of self.pk.encrypt
+            w.push(self.public_key.encrypt(&ui, y_times_2[i].clone())) 
         }
 
         self.u = u;
@@ -106,26 +115,25 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         w
     }
 
-    fn reveal(&self, challenge: Vec<PolyR<P, N>>) -> (Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>) {
-        let l = challenge.len();
-        assert_eq!(l, self.u.len());
+    pub fn reveal(&self, challenge: Vec<PolyR<P, N>>) -> (Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>) {
         let mut v: Vec<PolyR<P, N>> = Vec::new();
         let mut z: Vec<TuplePolyR<Q, N>> = Vec::new();
+        let l = self.l;
+        let m = self.message.poly.clone();
+        let r = self.r.clone();
 
         for i in 0..l {
             let u_i = self.u[i].clone();
             let y_i = self.y[i].clone();
-            let r = self.r.clone();
-            let m = self.message.poly.clone();
             let gamma_i = challenge[i].clone();
 
-            let v_i = u_i + gamma_i * m;
+            let v_i: PolyR<P, N> = u_i + gamma_i * m;
 
-            let gamma_i = convert_ring::<P, Q, N>(gamma_i);
+            let gamma_i: PolyR<Q, N> = convert_ring::<P, Q, N>(gamma_i);
             let z_i = (
-                y_i.0 + gamma_i * r.0, 
-                y_i.1 + gamma_i * r.1,
-                y_i.2 + gamma_i * r.2
+                y_i.0.clone() + gamma_i.clone() * r.0.clone(), 
+                y_i.1.clone() + gamma_i.clone() * r.1.clone(),
+                y_i.2.clone() + gamma_i.clone() * r.2.clone()
             );
 
             v.push(v_i);
@@ -139,7 +147,7 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
 
 impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
     // instantiation
-    fn new(prover_pk: PublicKey<Q, P, N>, l: usize) -> Self {
+    pub fn new(prover_pk: PublicKey<Q, P, N>, l: usize) -> Self {
         let secret_key =  SecretKey::new(); 
         let public_key = secret_key.pk_gen();
 
@@ -153,12 +161,31 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
             gamma: Vec::default(),
         }
     }
+    
+    // instantiation with no prover_pk and l, 
+    // pub fn new() -> Self {
+    //     let secret_key =  SecretKey::new(); 
+    //     let public_key = secret_key.pk_gen();
 
-    fn end_genenerate(&mut self, c: Ciphertext<Q, N>) {
+    //     Self {
+    //         secret_key, 
+    //         public_key, 
+    //         prover_pk,
+    //         l, 
+    //         c: Ciphertext::default(),
+    //         w: Vec::default(),
+    //         gamma: Vec::default(),
+    //     }
+    // }
+
+    pub fn end_genenerate(&mut self, c: Ciphertext<Q, N>) {
+        assert_ne!(self.l, 0); // not sure if it's necessary
         self.c = c;
     }
 
-    fn challenge(&self, commitment: Vec<PolyR<P, N>>, l: usize) -> Vec<PolyR<P, N>> {
+    pub fn challenge(&mut self, w: Vec<Ciphertext<Q, N>>, l: usize) -> Vec<PolyR<P, N>> {
+        self.w = w;
+
         // sample l monomials
         let mut rng = rand::thread_rng();
         let mut gamma = Vec::new();
@@ -169,30 +196,31 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
             coeffs[rand_index] = Zq::<P>::one();
             gamma.push(PolyR::from(coeffs));
         }
+        self.gamma = gamma.clone();
+
         gamma
     }
 
-    fn verify(&self, response: (Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>)) -> bool {
+    pub fn verify(&self, opening: (Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>)) -> bool {
         let two = PolyR::<Q, N>::from(Zq::<Q>::from(2));
-        let (v, z) = (response.0, response.1);
-        let (w, c, gamma) = (&self.w, &self.c, &self.gamma);
+        let (v, z) = (opening.0, opening.1);
+        let (w, c, gamma) = (&self.w, &self.c, &self.gamma.clone());
         let pk= &self.prover_pk;
-        let mut vfy = true;
 
         for i in 0..self.l {
-            let vi = Plaintext{ poly: v[i].clone(), modulo: P};
-            let ctxt = pk.encrypt(&vi, (two * z[i].0, two * z[i].1, two * z[i].2));
+            let vi = Plaintext{ poly: v[i].clone(), modulo: P };
+            let ctxt = pk.encrypt(&vi, (two * z[i].0.clone(), two * z[i].1.clone(), two * z[i].2.clone()));
             let left = (ctxt.c1, ctxt.c2);
-            let gamma_zq = convert_ring::<P, Q, N>(gamma[i]);
-            let right = (w[i].c1 + gamma_zq * c.c1, w[i].c2 + gamma_zq * c.c2);
+            let gamma_zq = convert_ring::<P, Q, N>(gamma[i].clone());
+            let right = (w[i].c1 + gamma_zq * c.c1.clone(), w[i].c2 + gamma_zq * c.c2.clone());
 
             if left != right {
-                vfy = false;
+                return false;
             }
 
             // TODO: check the second condition
         }
 
-        vfy
+        return true;
     }
 }

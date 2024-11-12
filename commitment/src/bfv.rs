@@ -125,6 +125,8 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
         let q = c.modulo as f64;
         let delta = p/q; 
 
+        // TODO: try to devide by q then multiply by p
+        // or the opposite
         let coeffs: Vec<Zq<P>> = raw
             .coeffs()
             .into_iter()
