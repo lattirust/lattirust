@@ -24,6 +24,7 @@ pub trait ConvertibleRing:
         + BitXor<Output = Self::UnsignedInt>
         + Sized;
     type SignedInt: Integer
+        + Signed
         + Into<BigInt>
         + DivAssign<Self::SignedInt>
         + DivAssign<i128>

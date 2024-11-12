@@ -1,10 +1,10 @@
 use ark_ff::{One, Zero};
 use ark_serialize::{SerializationError, Valid};
-use ark_std::ops::{Add, BitXor, Div, DivAssign, Mul, Rem, Sub};
+use ark_std::ops::{Add, BitXor, Div, DivAssign, Mul, Neg, Rem, Sub};
 use derive_more::{Add, AddAssign, Display, Mul, MulAssign, Product, Sub, SubAssign, Sum};
 use num_bigint::{BigInt, BigUint};
 use num_integer::Integer;
-use num_traits::Num;
+use num_traits::{sign::Signed, Num};
 
 // Work-around to allow us implementing From traits
 #[derive(
@@ -62,6 +62,35 @@ impl<T: Zero> Zero for SignedRepresentative<T> {
 impl<T: One> One for SignedRepresentative<T> {
     fn one() -> Self {
         SignedRepresentative(T::one())
+    }
+}
+
+impl<T: Signed> Signed for SignedRepresentative<T> {
+    fn abs(&self) -> Self {
+        SignedRepresentative(T::abs(&self.0))
+    }
+
+    fn abs_sub(&self, other: &Self) -> Self {
+        SignedRepresentative(T::abs_sub(&self.0, &other.0))
+    }
+
+    fn signum(&self) -> Self {
+        SignedRepresentative(T::signum(&self.0))
+    }
+
+    fn is_positive(&self) -> bool {
+        T::is_positive(&self.0)
+    }
+
+    fn is_negative(&self) -> bool {
+        T::is_negative(&self.0)
+    }
+}
+
+impl<T: Neg<Output = T>> Neg for SignedRepresentative<T> {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        SignedRepresentative(self.0.neg())
     }
 }
 
