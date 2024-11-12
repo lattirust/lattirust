@@ -13,7 +13,7 @@ impl<F: Zero + Clone> Transpose for Vec<Vec<F>> {
         let nrows = self.len();
         let ncols = self.iter().map(|d_i| d_i.len()).max().unwrap_or(0);
 
-        let mut res = vec![Vec::with_capacity(nrows); ncols];
+        let mut res: Vec<Vec<_>> = (0..ncols).map(|_| Vec::with_capacity(nrows)).collect();
 
         for row in self {
             // Copy existing values from original rows to new cols
