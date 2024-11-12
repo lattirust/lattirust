@@ -1,5 +1,4 @@
 use ark_std::{iter::Sum, ops::Mul, One, Zero};
-use num_bigint::BigInt;
 use num_traits::Signed;
 use rayon::prelude::*;
 
@@ -51,10 +50,8 @@ pub fn decompose_balanced<R: ConvertibleRing>(
     loop {
         let rem = curr.clone() % b; // rem = curr % b is in [-(b-1), (b-1)]
 
-        let rem_bigint: BigInt = rem.clone().into();
-
         // Ensure digit is in [-b/2, b/2]
-        if rem_bigint.abs() <= b_half_floor.into() {
+        if rem.abs() <= b_half_floor.into() {
             decomp_bal_signed.push(rem);
             curr /= b; // Rust integer division rounds towards zero
         } else {
