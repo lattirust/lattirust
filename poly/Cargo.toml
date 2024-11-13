@@ -11,10 +11,11 @@ lattirust-ring = { workspace = true }
 ark-ff = { workspace = true }
 ark-serialize = { workspace = true }
 ark-std = { workspace = true }
-rayon = { workspace = true }
 rand = { workspace = true }
 displaydoc = { workspace = true }
 thiserror = { workspace = true }
 
+rayon = { version = "1.10", optional = true }
+
 [features]
-parallel = []
+parallel = [ "rayon" ]

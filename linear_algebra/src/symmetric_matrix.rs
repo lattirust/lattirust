@@ -6,6 +6,7 @@ use ark_std::{
     ops::{Index, IndexMut},
     rand, UniformRand, Zero,
 };
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -103,6 +104,7 @@ impl<F: Clone> SymmetricMatrix<F> {
         )
     }
 
+    #[cfg(feature = "parallel")]
     pub fn from_par_fn<Func>(size: usize, func: Func) -> Self
     where
         F: Send + Sync,

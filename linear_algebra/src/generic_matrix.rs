@@ -12,6 +12,8 @@ use nalgebra::{
     Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar, Storage,
     StorageMut, ViewStorage,
 };
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::vector::{GenericRowVector, GenericVector};
@@ -119,6 +121,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
         self.0.row_iter().map(|r| r.into())
     }
 
+    #[cfg(feature = "parallel")]
     pub fn par_row_iter(
         &self,
     ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>>
@@ -130,12 +133,13 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 
     pub type ColumnViewStorage<'b> = ViewStorage<'b, T, R, Const<1>, S::RStride, S::CStride>;
-    pub fn column_ite(
+    pub fn column_iter(
         &self,
     ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> {
         self.0.column_iter().map(|c| c.into())
     }
 
+    #[cfg(feature = "parallel")]
     pub fn par_column_iter(
         &self,
     ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>>

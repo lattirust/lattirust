@@ -7,13 +7,14 @@
 //! various functions associated with it.
 
 use ark_serialize::CanonicalSerialize;
-use ark_std::{cmp::max, collections::HashMap, marker::PhantomData, ops::Add, sync::Arc};
 use ark_std::{
-    end_timer,
+    cfg_iter_mut, end_timer,
     rand::{Rng, RngCore},
     start_timer,
 };
+use ark_std::{cmp::max, collections::HashMap, marker::PhantomData, ops::Add, sync::Arc};
 use lattirust_ring::Ring;
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use super::{errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list};
@@ -422,7 +423,7 @@ fn build_eq_x_r_helper<R: Ring>(r: &[R], buf: &mut Vec<R>) -> Result<(), ArithEr
         // *buf = res;
 
         let mut res = vec![R::zero(); buf.len() << 1];
-        res.par_iter_mut().enumerate().for_each(|(i, val)| {
+        cfg_iter_mut!(res).enumerate().for_each(|(i, val)| {
             let bi = buf[i >> 1];
             let tmp = r[0] * bi;
             if (i & 1) == 0 {
