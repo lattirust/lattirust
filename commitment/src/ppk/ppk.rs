@@ -12,20 +12,17 @@ use lattirust_arithmetic::ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRi
 use rand::{CryptoRng, RngCore, Rng};
 use rand_distr::num_traits::zero;
 use rand_distr::Normal;
-use rand::distributions::{Distribution};
+use rand::distributions::Distribution;
 use ark_ff::{One, UniformRand, Zero};
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::rand;
 use lattirust_arithmetic::challenge_set::ternary;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use crate::bfv::{Ciphertext, Plaintext, PublicKey, SecretKey, rand_tuple, convert_ring};
-
-type PolyR<const M: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<M>, N>;
-type TuplePolyR<const Q: u64, const N: usize> = (PolyR<Q, N>, PolyR<Q, N>, PolyR<Q, N>);
+use crate::bfv::{ciphertext::Ciphertext, plaintext::Plaintext, secret_key::SecretKey, public_key::PublicKey, util::{convert_ring, get_gaussian, rand_tuple, PolyR, TuplePolyR}};
 
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
-    secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}
+    _secret_key: SecretKey<Q, P, N>, // polynomial w/ coefficients in {-1, 0, +1}
     public_key: PublicKey<Q, P, N>, // ring mod q
     message: Plaintext<P, N>, // ring mod p
     r: TuplePolyR<Q, N>,
@@ -49,11 +46,11 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
     // instantiation
     // TODO: cannot use verifier pk to encrypt, would leak m
     pub fn new(message: Plaintext<P, N>, l: usize) -> Self {
-        let secret_key =  SecretKey::new(); 
-        let public_key = secret_key.pk_gen();
+        let _secret_key =  SecretKey::new(); 
+        let public_key = _secret_key.pk_gen();
         
         Self {
-            secret_key, 
+            _secret_key, 
             public_key, 
             message,
             // TODO: create defaults

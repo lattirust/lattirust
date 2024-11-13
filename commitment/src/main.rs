@@ -1,14 +1,7 @@
 #[allow(dead_code)]
 
-use ark_ff::{One, UniformRand, Zero};
-use ark_std::rand::prelude::SliceRandom;
-use ark_std::rand;
-// use commitments::ppk::get_gaussian_vec;
-use lattirust_arithmetic::{challenge_set::{ternary, weighted_ternary::WeightedTernaryChallengeSet}, linear_algebra::{Matrix, Scalar, Vector}, ntt::ntt_modulus, ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRing, Zq}, traits::FromRandomBytes};
-use rand::{CryptoRng, RngCore, SeedableRng};
-use commitment::bfv::{Plaintext, SecretKey};
-use commitment::ppk::{Prover, Verifier};
-use rand_distr::num_traits::Pow;
+use lattirust_arithmetic::{ntt::ntt_modulus, ring::{Pow2CyclotomicPolyRing, Zq}};
+
 
 const N: usize = 128;
 const Q: u64 = ntt_modulus::<N>(16);
