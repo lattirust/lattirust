@@ -1,6 +1,8 @@
 use ark_std::{ops::Neg, rand, rand::prelude::SliceRandom, One, UniformRand, Zero};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::{generic_matrix::GenericMatrix, RowVector, Scalar, SymmetricMatrix, Vector};
@@ -77,6 +79,7 @@ impl<T: Scalar + UniformRand> Matrix<T> {
         Self::from_fn(m, n, |_, _| T::rand(rng))
     }
 
+    #[cfg(feature = "parallel")]
     pub fn par_rand(m: usize, n: usize) -> Self
     where
         T: Send + Sync,

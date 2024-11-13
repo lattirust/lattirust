@@ -1,5 +1,7 @@
-use ark_std::{iter::Sum, ops::Mul, One, Zero};
+use ark_std::{cfg_into_iter, cfg_iter, iter::Sum, ops::Mul, One, Zero};
 use num_traits::Signed;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 use crate::{PolyRing, Ring};
@@ -106,7 +108,7 @@ pub fn decompose_balanced_vec<D: Ring + Decompose>(
     b: u128,
     padding_size: Option<usize>,
 ) -> Vec<Vec<D>> {
-    v.par_iter()
+    cfg_iter!(v)
         .map(|v_i| v_i.decompose(b, padding_size))
         .collect()
 }
@@ -144,7 +146,7 @@ pub fn decompose_balanced_slice_polyring<R: PolyRing>(
 where
     R::BaseRing: Decompose,
 {
-    v.par_iter()
+    cfg_iter!(v)
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
         .collect()
 }
@@ -167,8 +169,7 @@ pub fn decompose_balanced_vec_polyring<R: PolyRing>(
 where
     R::BaseRing: Decompose,
 {
-    v.as_slice()
-        .par_iter()
+    cfg_iter!(v.as_slice())
         .map(|ring_elem| decompose_balanced_polyring(ring_elem, b, padding_size))
         .map(Vector::from)
         .collect()
@@ -189,8 +190,18 @@ pub fn decompose_matrix<F: ConvertibleRing>(
     decomposition_basis: u128,
     decomposition_length: usize,
 ) -> Matrix<F> {
+    let row_iter = {
+        #[cfg(not(feature = "parallel"))]
+        {
+            mat.row_iter()
+        }
+        #[cfg(feature = "parallel")]
+        {
+            mat.par_row_iter()
+        }
+    };
     Matrix::<F>::from_rows(
-        mat.par_row_iter()
+        row_iter
             .map(|s_i| {
                 RowVector::<F>::from(
                     s_i.map(|s_ij| {
@@ -229,11 +240,9 @@ where
     assert_eq!(nd % d, 0);
 
     let n = nd / d;
-    (0..n)
-        .into_par_iter()
+    cfg_into_iter!(0..n)
         .map(|i| {
             (0..=i)
-                .into_par_iter()
                 .map(|j| {
                     (0..nd)
                         .filter(|k| k / d == i)

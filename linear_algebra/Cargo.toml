@@ -13,7 +13,11 @@ delegate = { workspace = true }
 derive_more = { workspace = true }
 nalgebra = { workspace = true }
 nalgebra-sparse = { workspace = true }
-rayon = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
 num-integer = { workspace = true }
+
+rayon = { version = "1.10", optional = true }
+
+[features]
+parallel = [ "rayon", "nalgebra/rayon" ]

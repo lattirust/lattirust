@@ -14,7 +14,6 @@ ark-serialize = { workspace = true }
 ark-std = { workspace = true }
 delegate = { workspace = true }
 derive_more = { workspace = true }
-rayon = { workspace = true }
 rounded-div = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
@@ -23,3 +22,7 @@ num-bigint = { workspace = true }
 num-integer = { workspace = true }
 rand = { workspace = true }
 num-traits = "0.2"
+rayon = { version = "1.10", optional = true }
+
+[features]
+parallel = [ "rayon", "lattirust-linear-algebra/parallel" ]
