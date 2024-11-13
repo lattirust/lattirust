@@ -56,7 +56,7 @@ impl<R: Ring> DenseMultilinearExtension<R> {
         // build dense vector representing the sparse padded matrix
         let mut v: Vec<R> = vec![R::zero(); padded_matrix.nrows() * padded_matrix.ncols()];
 
-        for (col_i, row_i, val) in matrix.triplet_iter() {
+        for (col_i, row_i, val) in matrix.coeffs {
             v[(padded_matrix.ncols() * row_i) + col_i] = *val;
         }
 
