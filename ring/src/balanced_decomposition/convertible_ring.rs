@@ -4,10 +4,12 @@ use num_integer::Integer;
 use num_traits::sign::Signed;
 
 use crate::{
-    balanced_decomposition::{decompose_balanced, Decompose},
+    balanced_decomposition::Decompose,
     traits::{WithL2Norm, WithLinfNorm},
     Ring,
 };
+
+use super::decompose_balanced_in_place;
 
 pub trait ConvertibleRing:
     Ring
@@ -39,8 +41,8 @@ pub trait ConvertibleRing:
 }
 
 impl<R: ConvertibleRing> Decompose for R {
-    fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self> {
-        decompose_balanced(self, b, padding_size)
+    fn decompose_in_place(&self, b: u128, out: &mut [Self]) {
+        decompose_balanced_in_place(self, b, out);
     }
 }
 

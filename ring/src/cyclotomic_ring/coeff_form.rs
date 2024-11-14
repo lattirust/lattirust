@@ -16,11 +16,7 @@ use ark_std::{
 use derive_more::{From, Into};
 
 use super::ring_config::CyclotomicConfig;
-use crate::{
-    balanced_decomposition::{decompose_balanced_polyring, Decompose},
-    traits::FromRandomBytes,
-    PolyRing, Ring,
-};
+use crate::{balanced_decomposition::Decompose, traits::FromRandomBytes, PolyRing, Ring};
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the coefficient form.
 /// * `C` is the configuration of the cyclotomic ring.
@@ -543,8 +539,18 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Decompose
 where
     Fp<C::BaseFieldConfig, N>: Decompose,
 {
-    fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self> {
-        decompose_balanced_polyring(self, b, padding_size)
+    fn decompose_in_place(&self, b: u128, out: &mut [Self]) {
+        let mut buffer = vec![Fp::<C::BaseFieldConfig, N>::zero(); out.len()];
+
+        for (i, coeff) in self.0.iter().enumerate() {
+            coeff.decompose_in_place(b, &mut buffer);
+
+            out.iter_mut()
+                .zip(buffer.iter())
+                .for_each(|(out_elem, &decomposed_coeff)| {
+                    out_elem.0[i] = decomposed_coeff;
+                });
+        }
     }
 }
 

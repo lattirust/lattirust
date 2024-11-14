@@ -58,7 +58,7 @@ impl From<UnsignedRepresentative<BigUint>> for Fq {
 
 #[cfg(test)]
 mod test {
-    use ark_ff::MontFp;
+    use ark_ff::{MontFp, Zero};
 
     use crate::{balanced_decomposition::Decompose, cyclotomic_ring::models::stark_prime::Fq};
 
@@ -66,7 +66,7 @@ mod test {
     fn test_stark_prime_decomposition() {
         let x: Fq = MontFp!("253532532532352325");
 
-        let decomposition = x.decompose(1 << 16, None);
+        let decomposition = x.decompose(1 << 16, 16);
 
         assert_eq!(
             decomposition,
@@ -74,7 +74,19 @@ mod test {
                 -Fq::from(27323),
                 -Fq::from(17255),
                 -Fq::from(17793),
-                Fq::from(901)
+                Fq::from(901),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
+                Fq::zero(),
             ]
         )
     }

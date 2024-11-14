@@ -1,5 +1,5 @@
 use ark_std::{
-    cfg_into_iter, cfg_iter,
+    cfg_chunks, cfg_chunks_mut, cfg_into_iter, cfg_iter, cfg_iter_mut,
     iter::Sum,
     ops::{AddAssign, Mul, MulAssign},
     One, Zero,
@@ -19,8 +19,15 @@ pub mod convertible_ring;
 mod fq_convertible;
 pub(crate) mod representatives;
 
-pub trait Decompose: Sized {
-    fn decompose(&self, b: u128, padding_size: Option<usize>) -> Vec<Self>;
+pub trait Decompose: Sized + Zero + Copy {
+    fn decompose_in_place(&self, b: u128, out: &mut [Self]);
+    fn decompose(&self, b: u128, padding_size: usize) -> Vec<Self> {
+        let mut res = vec![Self::zero(); padding_size];
+
+        self.decompose_in_place(b, &mut res);
+
+        res
+    }
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -33,11 +40,7 @@ pub trait Decompose: Sized {
 /// # Output
 /// Returns `d`, the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
 /// $\texttt{v}\[i\] = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced<R: ConvertibleRing>(
-    v: &R,
-    b: u128,
-    padding_size: Option<usize>,
-) -> Vec<R> {
+pub fn decompose_balanced_in_place<R: ConvertibleRing>(v: &R, b: u128, out: &mut [R]) {
     assert!(
         !b.is_zero() && !b.is_one(),
         "cannot decompose in basis 0 or 1"
@@ -45,12 +48,8 @@ pub fn decompose_balanced<R: ConvertibleRing>(
     // TODO: not sure if this really necessary, but having b be even allow for more efficient divisions/remainders
     assert_eq!(b % 2, 0, "decomposition basis must be even");
 
-    let mut decomp_bal_signed = if let Some(padding_size) = padding_size {
-        Vec::<R::SignedInt>::with_capacity(padding_size)
-    } else {
-        Vec::<R::SignedInt>::new()
-    };
     let mut curr = Into::<R::SignedInt>::into(*v);
+    let mut current_i = 0;
     let b = b as i128;
     let b_half_floor = b.div_euclid(2);
     loop {
@@ -58,43 +57,71 @@ pub fn decompose_balanced<R: ConvertibleRing>(
 
         // Ensure digit is in [-b/2, b/2]
         if rem.abs() <= b_half_floor.into() {
-            decomp_bal_signed.push(rem);
+            out[current_i] = Into::<R>::into(rem);
             curr /= b; // Rust integer division rounds towards zero
         } else {
             // The next element in the decomposition is sign(rem) * (|rem| - b)
             if rem < 0.into() {
-                decomp_bal_signed.push(rem.clone() + b);
+                out[current_i] = Into::<R>::into(rem.clone() + b);
             } else {
-                decomp_bal_signed.push(rem.clone() - b);
+                out[current_i] = Into::<R>::into(rem.clone() - b);
             }
             let carry = rounded_div(rem, b); // Round toward nearest integer, not towards 0
             curr = (curr / b) + carry;
         }
+
+        current_i += 1;
 
         if curr.is_zero() {
             break;
         }
     }
 
-    if let Some(padding_size) = padding_size {
-        assert!(
-            decomp_bal_signed.len() <= padding_size,
-            "padding_size = {} must be at least decomp_bal.len() = {}",
-            padding_size,
-            decomp_bal_signed.len(),
-        );
-        decomp_bal_signed.resize(padding_size, 0.into());
-    } else {
-        // Strip trailing zeros
-        while decomp_bal_signed.last() == Some(&R::SignedInt::zero()) {
-            decomp_bal_signed.pop();
-        }
+    for out_tail_elem in out[current_i..].iter_mut() {
+        *out_tail_elem = R::zero();
     }
+}
 
-    decomp_bal_signed
-        .into_iter()
-        .map(|x| Into::<R>::into(x))
-        .collect::<Vec<R>>()
+pub fn decompose_balanced<R: ConvertibleRing>(v: &R, b: u128, padding_size: usize) -> Vec<R> {
+    let mut out = vec![R::zero(); padding_size];
+
+    decompose_balanced_in_place(v, b, &mut out);
+
+    out
+}
+
+pub fn gadget_decompose<R: Decompose + Sync + Send>(
+    v_s: &[R],
+    b: u128,
+    // Padding size is the maximum power of the gadget matrix
+    padding_size: usize,
+) -> Vec<R> {
+    let mut out = vec![R::zero(); padding_size * v_s.len()];
+
+    cfg_chunks_mut!(&mut out, padding_size)
+        .zip(cfg_iter!(v_s))
+        .for_each(|(chunk_mut, v)| v.decompose_in_place(b, chunk_mut));
+
+    out
+}
+
+pub fn gadget_recompose<A, B>(
+    v_s: &[A],
+    b: B,
+    // Padding size is the maximum power of the gadget matrix
+    padding_size: usize,
+) -> Vec<A>
+where
+    A: Zero + Copy + for<'a> MulAssign<&'a B> + for<'a> AddAssign<&'a A> + Sync + Send,
+    B: Copy + Sync + Send,
+{
+    let mut out = vec![A::zero(); v_s.len() / padding_size];
+
+    cfg_chunks!(v_s, padding_size)
+        .zip(cfg_iter_mut!(out))
+        .for_each(|(chunk, v)| *v = recompose(chunk, b));
+
+    out
 }
 
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
@@ -110,7 +137,7 @@ pub fn decompose_balanced<R: ConvertibleRing>(
 pub fn decompose_balanced_vec<D: Ring + Decompose>(
     v: &[D],
     b: u128,
-    padding_size: Option<usize>,
+    padding_size: usize,
 ) -> Vec<Vec<D>> {
     cfg_iter!(v)
         .map(|v_i| v_i.decompose(b, padding_size))
@@ -127,11 +154,7 @@ pub fn decompose_balanced_vec<D: Ring + Decompose>(
 /// # Output
 /// Returns `d` the decomposition in basis `b` as a Vec of size `decomp_size`, i.e.,
 /// for all $\texttt{v} = \sum_{j \in \[k\]} \texttt{b}^j \texttt{d}\[j\]$ and $|\texttt{d}\[j\]| \leq \left\lfloor\frac{\texttt{b}}{2}\right\rfloor$.
-pub fn decompose_balanced_polyring<R: PolyRing>(
-    v: &R,
-    b: u128,
-    padding_size: Option<usize>,
-) -> Vec<R>
+pub fn decompose_balanced_polyring<R: PolyRing>(v: &R, b: u128, padding_size: usize) -> Vec<R>
 where
     R::BaseRing: Decompose,
 {
@@ -145,7 +168,7 @@ where
 pub fn decompose_balanced_slice_polyring<R: PolyRing>(
     v: &[R],
     b: u128,
-    padding_size: Option<usize>,
+    padding_size: usize,
 ) -> Vec<Vec<R>>
 where
     R::BaseRing: Decompose,
@@ -168,7 +191,7 @@ where
 pub fn decompose_balanced_vec_polyring<R: PolyRing>(
     v: &Vector<R>,
     b: u128,
-    padding_size: Option<usize>,
+    padding_size: usize,
 ) -> Vec<Vector<R>>
 where
     R::BaseRing: Decompose,
@@ -209,7 +232,7 @@ pub fn decompose_matrix<F: ConvertibleRing>(
             .map(|s_i| {
                 RowVector::<F>::from(
                     s_i.map(|s_ij| {
-                        decompose_balanced(&s_ij, decomposition_basis, Some(decomposition_length))
+                        decompose_balanced(&s_ij, decomposition_basis, decomposition_length)
                     })
                     .as_slice()
                     .concat(),
@@ -290,7 +313,7 @@ mod tests {
         for b in BASIS_TEST_RANGE {
             let b_half = R::from(b / 2);
             for v in &vs {
-                let decomp = decompose_balanced(v, b, None);
+                let decomp = decompose_balanced(v, b, 32);
 
                 // Check that all entries are smaller than b/2
                 for v_i in &decomp {
@@ -304,10 +327,7 @@ mod tests {
     }
 
     fn get_test_vec() -> Vec<R> {
-        (0..(D as u64))
-            .step_by((Q / (D as u64)) as usize)
-            .map(R::from)
-            .collect()
+        (0..(D as u64)).map(R::from).collect()
     }
 
     #[test]
@@ -315,7 +335,7 @@ mod tests {
         let v = get_test_vec();
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
-            let decomp = decompose_balanced_vec(&v, b, None).transpose();
+            let decomp = decompose_balanced_vec(&v, b, 16).transpose();
 
             // Check that all entries are smaller than b/2 in absolute value
             for d_i in &decomp {
@@ -338,7 +358,7 @@ mod tests {
         let v: PolyNTT = PolyR::from(get_test_vec()).crt();
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
-            let decomp = decompose_balanced_polyring(&v, b, None);
+            let decomp = decompose_balanced_polyring(&v, b, 16);
 
             for d_i in &decomp {
                 for &d_ij in d_i.coeffs() {
@@ -349,6 +369,53 @@ mod tests {
 
             assert_eq!(v, recompose::<PolyNTT, u128>(&decomp, b));
         }
+    }
+
+    #[test]
+    fn test_gadget_decompose() {
+        use crate::cyclotomic_ring::models::goldilocks::{Fq, RqPoly};
+
+        let vec: Vec<RqPoly> = vec![
+            RqPoly::from((0..24).map(|_| Fq::from(15)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-15)).collect::<Vec<Fq>>()),
+        ];
+
+        let decomposed = gadget_decompose(&vec, 2, 4);
+        let expected = vec![
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+        ];
+
+        assert_eq!(decomposed, expected);
+    }
+
+    #[test]
+    fn test_gadget_recompose() {
+        use crate::cyclotomic_ring::models::goldilocks::{Fq, RqPoly};
+
+        let expected: Vec<RqPoly> = vec![
+            RqPoly::from((0..24).map(|_| Fq::from(15)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-15)).collect::<Vec<Fq>>()),
+        ];
+
+        let decomposed = vec![
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+            RqPoly::from((0..24).map(|_| Fq::from(-1)).collect::<Vec<Fq>>()),
+        ];
+
+        assert_eq!(gadget_recompose(&decomposed, 2u128, 4), expected);
     }
 
     // TODO: to work we need the unsigned order on the field.
