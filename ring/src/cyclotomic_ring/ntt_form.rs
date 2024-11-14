@@ -10,7 +10,7 @@ use ark_std::{
 };
 use derive_more::{From, Into};
 
-use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingGeneral};
+use super::ring_config::CyclotomicConfig;
 use crate::{traits::FromRandomBytes, PolyRing, Ring};
 
 /// A cyclotomic ring Fp[X]/(Phi_m(X)) in the CRT-form.
@@ -23,24 +23,6 @@ pub struct CyclotomicPolyRingNTTGeneral<C: CyclotomicConfig<N>, const N: usize, 
 );
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingNTTGeneral<C, N, D> {
-    /// Constructs a polynomial from a function specifying coefficients in non-NTT form.
-    fn from_coeffs_vec(coeffs: Vec<Fp<C::BaseFieldConfig, N>>) -> Self {
-        let mut coeffs = coeffs;
-
-        if coeffs.len() > D * C::CRT_FIELD_EXTENSION_DEGREE {
-            C::reduce_in_place(&mut coeffs);
-        } else {
-            coeffs.resize(D * C::CRT_FIELD_EXTENSION_DEGREE, Fp::zero());
-        }
-
-        let evaluations = C::crt(coeffs);
-        Self::from_array(
-            evaluations
-                .try_into()
-                .expect("the output of CRT has incorrect length"),
-        )
-    }
-
     fn from_fn<F>(f: F) -> Self
     where
         F: FnMut(usize) -> C::BaseCRTField,
@@ -48,7 +30,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingN
         Self::from_array(core::array::from_fn::<_, D, _>(f))
     }
 
-    fn from_array(ntt_coeffs: [C::BaseCRTField; D]) -> Self {
+    pub(crate) fn from_array(ntt_coeffs: [C::BaseCRTField; D]) -> Self {
         Self(ntt_coeffs)
     }
 }
@@ -323,15 +305,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<&'a m
             .iter_mut()
             .zip(rhs.0)
             .for_each(|(lhs, rhs)| *lhs *= rhs);
-    }
-}
-
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
-    From<CyclotomicPolyRingGeneral<C, N, { D * C::CRT_FIELD_EXTENSION_DEGREE }>>
-    for CyclotomicPolyRingNTTGeneral<C, N, D>
-{
-    fn from(value: CyclotomicPolyRingGeneral<C, N, { D * C::CRT_FIELD_EXTENSION_DEGREE }>) -> Self {
-        Self::from_coeffs_vec(value.into_coeffs())
     }
 }
 
@@ -615,8 +588,12 @@ mod tests {
     use ark_std::UniformRand;
     use rand::thread_rng;
 
+    use crate::cyclotomic_ring::CRT;
     use crate::{
-        cyclotomic_ring::models::pow2_debug::{Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT},
+        cyclotomic_ring::{
+            models::pow2_debug::{Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT},
+            ICRT,
+        },
         zn::z_q::FqConfig,
         PolyRing,
     };
@@ -645,74 +622,63 @@ mod tests {
         //
         // 1 << 14,
     ];
-    macro_rules! generate_ntt_form_match {
-        ($n:expr, $initial_coeffs:expr, $($size:expr),+) => {
-            match $n {
-                $(
-                    $size => {
-                        let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, $size> =
-                                Pow2CyclotomicPolyRingNTT::<FERMAT_Q, $size>::from(Pow2CyclotomicPolyRing::from($initial_coeffs.clone()));
-                        let intt_coeffs = Pow2CyclotomicPolyRing::<FERMAT_Q, $size>::from(ntt_form).into_coeffs();//
-                        assert_eq!($initial_coeffs, intt_coeffs);
-                    },
-                )+
-                _ => unreachable!("Unsupported N value: {}", $n),
-            }
-        };
+
+    fn test_ntt_form_for_size<const SIZE: usize>(
+        initial_coeffs: &[Fp<MontBackend<FermatFqConfig, 1>, 1>],
+    ) {
+        let poly = Pow2CyclotomicPolyRing::from_coeffs_vec(initial_coeffs.to_vec());
+        let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE> = poly.crt();
+        let intt_coeffs: Pow2CyclotomicPolyRing<FERMAT_Q, SIZE> = ntt_form.icrt();
+        assert_eq!(initial_coeffs, intt_coeffs.into_coeffs());
     }
 
     #[test]
     fn test_ntt_pow2() {
         let mut rng = thread_rng();
-        for N in FERMAT_NS {
-            let initial_coeffs = (0..N)
+        for &size in FERMAT_NS.iter() {
+            let initial_coeffs = (0..size)
                 .map(|_| Fp::<MontBackend<FermatFqConfig, 1>, 1>::rand(&mut rng))
                 .collect::<Vec<_>>();
-            generate_ntt_form_match!(
-                N,
-                initial_coeffs,
-                2,
-                4,
-                8,
-                16,
-                32,
-                64,
-                128,
-                256,
-                512,
-                1024,
-                2048,
-                4096,
-                8192,
-                16384
-            );
+            match size {
+                2 => test_ntt_form_for_size::<2>(&initial_coeffs),
+                4 => test_ntt_form_for_size::<4>(&initial_coeffs),
+                8 => test_ntt_form_for_size::<8>(&initial_coeffs),
+                16 => test_ntt_form_for_size::<16>(&initial_coeffs),
+                32 => test_ntt_form_for_size::<32>(&initial_coeffs),
+                64 => test_ntt_form_for_size::<64>(&initial_coeffs),
+                128 => test_ntt_form_for_size::<128>(&initial_coeffs),
+                256 => test_ntt_form_for_size::<256>(&initial_coeffs),
+                512 => test_ntt_form_for_size::<512>(&initial_coeffs),
+                1024 => test_ntt_form_for_size::<1024>(&initial_coeffs),
+                2048 => test_ntt_form_for_size::<2048>(&initial_coeffs),
+                4096 => test_ntt_form_for_size::<4096>(&initial_coeffs),
+                8192 => test_ntt_form_for_size::<8192>(&initial_coeffs),
+                _ => unreachable!("Unexpected size in FERMAT_NS"),
+            }
         }
     }
 
-    fn test_mul_ntt_pow2<const SIZE: usize>()
-    where
-        Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE>: From<Pow2CyclotomicPolyRing<FERMAT_Q, SIZE>>,
-        Pow2CyclotomicPolyRing<FERMAT_Q, SIZE>: From<Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE>>,
-    {
+    fn test_mul_ntt_pow2<const SIZE: usize>() {
         let mut rng = thread_rng();
 
-        let coeff_1 = Pow2CyclotomicPolyRing::rand(&mut rng);
-        let coeff_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, { SIZE }>::rand(&mut rng);
+        let coeff_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);
+        let coeff_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);
 
-        let ntt_form_1 = Pow2CyclotomicPolyRingNTT::from(coeff_1);
-        let ntt_form_2 = Pow2CyclotomicPolyRingNTT::from(coeff_2);
+        let ntt_form_1 = coeff_1.crt();
+        let ntt_form_2 = coeff_2.crt();
 
         let ntt_mul = ntt_form_1 * ntt_form_2;
         let coeffs_mul = coeff_1 * coeff_2;
         // ntt_mul.coeffs() performs INTT while coeffs_mul.coeffs() just returns the coefficients
-        assert_eq!(
-            Pow2CyclotomicPolyRing::from(ntt_mul).coeffs(),
-            coeffs_mul.coeffs()
-        );
+        assert_eq!(ntt_mul.icrt().into_coeffs(), coeffs_mul.coeffs());
     }
 
     #[test]
-    fn test_mul_ntt_pow2_hardcoded() {
+    fn test_mul_ntt_pow2_hardcoded()
+    // where
+    //     Pow2CyclotomicPolyRing<FERMAT_Q, 8>: CRT<Pow2Rp64Config<FERMAT_Q, 8>, 1, 8>,
+    //     Pow2CyclotomicPolyRingNTT<FERMAT_Q, 8>: ICRT<Pow2Rp64Config<FERMAT_Q, 8>, 1, 8>,
+    {
         let coeffs_1_vec_vec = [1, 2, 3, 4, 5, 6, 7, 8];
         let coeffs_1_vec = coeffs_1_vec_vec
             .into_iter()
@@ -726,29 +692,21 @@ mod tests {
             .collect::<Vec<_>>();
         let coeffs_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from(coeffs_2_vec);
 
-        let mut ntt_form_1 = Pow2CyclotomicPolyRingNTT::from(coeffs_1);
-        ntt_form_1 *= Pow2CyclotomicPolyRingNTT::from(coeffs_2);
+        let mut ntt_form_1: Pow2CyclotomicPolyRingNTT<FERMAT_Q, 8> = coeffs_1.crt();
+        ntt_form_1 *= coeffs_2.crt();
 
         coeffs_1 *= coeffs_2;
-        assert_eq!(
-            Pow2CyclotomicPolyRing::<FERMAT_Q, 8>::from(ntt_form_1).coeffs(),
-            coeffs_1.coeffs()
-        );
+        assert_eq!(ntt_form_1.icrt(), coeffs_1);
     }
     // TODO: test mutable mul, i.e., mul_assign
 
     #[test]
     fn test_mul_ntt_pow2_multiple_sizes() {
-        for size in [2, 4, 8, 16, 32] {
-            match size {
-                2 => test_mul_ntt_pow2::<2>(),
-                4 => test_mul_ntt_pow2::<4>(),
-                8 => test_mul_ntt_pow2::<8>(),
-                16 => test_mul_ntt_pow2::<16>(),
-                32 => test_mul_ntt_pow2::<32>(),
-                _ => unreachable!("Unsupported size"),
-            }
-        }
+        test_mul_ntt_pow2::<2>();
+        test_mul_ntt_pow2::<4>();
+        test_mul_ntt_pow2::<8>();
+        test_mul_ntt_pow2::<16>();
+        test_mul_ntt_pow2::<32>();
     }
 
     fn test_ntt_pow2_hardcoded<const SIZE: usize>(
@@ -766,7 +724,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE> =
-            Pow2CyclotomicPolyRingNTT::from_coeffs_vec(coeffs);
+            Pow2CyclotomicPolyRing::from_coeffs_vec(coeffs).crt();
 
         let expected = Pow2CyclotomicPolyRingNTT::from(expected_ntt);
         assert_eq!(ntt_form, expected);

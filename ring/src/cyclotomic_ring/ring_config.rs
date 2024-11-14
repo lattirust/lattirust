@@ -24,14 +24,14 @@ pub trait CyclotomicConfig<const N: usize>: Send + Sync + 'static + Sized {
 
     /// Computes the evaluations of the polynomial with
     /// coefficients `coefficients` on the primitive Dth roots of unity.
-    fn crt_in_place(coefficients: &mut Vec<Fp<Self::BaseFieldConfig, N>>);
+    fn crt_in_place(coefficients: &mut [Fp<Self::BaseFieldConfig, N>]);
 
     fn crt(coefficients: Vec<Fp<Self::BaseFieldConfig, N>>) -> Vec<Self::BaseCRTField>;
     fn icrt(evaluations: Vec<Self::BaseCRTField>) -> Vec<Fp<Self::BaseFieldConfig, N>>;
 
     /// Given primitive Dth root of unity evaluations of a polynomial
     /// computes its coefficient form.
-    fn icrt_in_place(evaluations: &mut Vec<Fp<Self::BaseFieldConfig, N>>);
+    fn icrt_in_place(evaluations: &mut [Fp<Self::BaseFieldConfig, N>]);
 }
 
 /// A configuration trait for fully splitting pow2 cyclotomic rings.
@@ -120,13 +120,25 @@ impl<C: RpConfig<N>, const N: usize> CyclotomicConfig<N> for C {
     }
 
     #[inline(always)]
-    fn crt_in_place(coefficients: &mut Vec<Fp<Self::BaseFieldConfig, N>>) {
-        <Self as RpConfig<N>>::crt_in_place(coefficients);
+    fn crt_in_place(coefficients: &mut [Fp<Self::BaseFieldConfig, N>]) {
+        let mut vec = coefficients.to_vec();
+
+        <Self as RpConfig<N>>::crt_in_place(&mut vec);
+
+        for (coeff_mut, vec_elem) in coefficients.iter_mut().zip(vec) {
+            *coeff_mut = vec_elem;
+        }
     }
 
     #[inline(always)]
-    fn icrt_in_place(evaluations: &mut Vec<Fp<Self::BaseFieldConfig, N>>) {
-        <Self as RpConfig<N>>::icrt_in_place(evaluations);
+    fn icrt_in_place(evaluations: &mut [Fp<Self::BaseFieldConfig, N>]) {
+        let mut vec = evaluations.to_vec();
+
+        <Self as RpConfig<N>>::icrt_in_place(&mut vec);
+
+        for (eval_mut, vec_elem) in evaluations.iter_mut().zip(vec) {
+            *eval_mut = vec_elem;
+        }
     }
 
     fn crt(mut coefficients: Vec<Fp<Self::BaseFieldConfig, N>>) -> Vec<Self::BaseCRTField> {

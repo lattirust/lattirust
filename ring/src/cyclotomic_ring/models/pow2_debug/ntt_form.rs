@@ -2,9 +2,9 @@ use ark_ff::Fp64;
 use ark_std::ops::Mul;
 use num_bigint::BigUint;
 
-use super::Pow2Rp64Config;
+use super::{Pow2CyclotomicPolyRing, Pow2Rp64Config};
 use crate::{
-    cyclotomic_ring::{CyclotomicPolyRingNTTGeneral, RpConfig},
+    cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingNTTGeneral, RpConfig, CRT, ICRT},
     traits::{WithL2Norm, WithLinfNorm},
     OverField, PolyRing,
 };
@@ -46,5 +46,59 @@ impl<const Q: u64, const PHI_D: usize> From<Fp64Pow2<Q, PHI_D>>
 {
     fn from(value: Fp64Pow2<Q, PHI_D>) -> Self {
         Self::from_scalar(value)
+    }
+}
+
+impl<const Q: u64, const PHI_D: usize> CRT for Pow2CyclotomicPolyRing<Q, PHI_D> {
+    type CRTForm = Pow2CyclotomicPolyRingNTT<Q, PHI_D>;
+
+    fn crt(mut self) -> Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
+        <Pow2Rp64Config<Q, PHI_D> as CyclotomicConfig<1>>::crt_in_place(&mut self.0);
+
+        Pow2CyclotomicPolyRingNTT::from_array(self.0)
+    }
+}
+
+impl<const Q: u64, const PHI_D: usize> ICRT for Pow2CyclotomicPolyRingNTT<Q, PHI_D> {
+    type ICRTForm = Pow2CyclotomicPolyRing<Q, PHI_D>;
+
+    fn icrt(mut self) -> Pow2CyclotomicPolyRing<Q, PHI_D> {
+        <Pow2Rp64Config<Q, PHI_D> as CyclotomicConfig<1>>::icrt_in_place(&mut self.0);
+
+        Pow2CyclotomicPolyRing::from_coeffs_vec(self.0.to_vec())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cyclotomic_ring::{crt::CRT, models::pow2_debug::Pow2CyclotomicPolyRing, ICRT};
+    use ark_std::UniformRand;
+    use rand::thread_rng;
+
+    const FERMAT_Q: u64 = 65537;
+
+    #[test]
+    fn test_crt_conversion() {
+        let mut rng = thread_rng();
+
+        // Test for a few different sizes
+        test_crt_size::<8>(&mut rng);
+        test_crt_size::<16>(&mut rng);
+        test_crt_size::<32>(&mut rng);
+    }
+
+    fn test_crt_size<const SIZE: usize>(rng: &mut impl rand::Rng) {
+        // Create random polynomial in coefficient form
+        let coeff_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(rng);
+
+        // Convert to NTT form using CRT trait
+        let ntt_form: Pow2CyclotomicPolyRingNTT<FERMAT_Q, SIZE> = coeff_1.crt();
+
+        // Convert back using ICRT trait
+        let recovered: Pow2CyclotomicPolyRing<FERMAT_Q, SIZE> = ntt_form.icrt();
+
+        // Verify round-trip conversion preserves the polynomial
+        assert_eq!(coeff_1, recovered);
     }
 }

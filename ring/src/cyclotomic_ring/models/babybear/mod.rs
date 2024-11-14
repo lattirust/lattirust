@@ -5,7 +5,10 @@ pub mod fq9;
 pub mod ntt;
 
 use crate::{
-    cyclotomic_ring::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral},
+    cyclotomic_ring::{
+        CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral, CRT, ICRT,
+    },
+    impl_crt_icrt_for_a_ring,
     traits::FromRandomBytes,
     Cyclotomic, OverField, PolyRing, Ring,
 };
@@ -116,7 +119,7 @@ impl CyclotomicConfig<1> for BabyBearRingConfig {
     }
 
     #[inline(always)]
-    fn crt_in_place(coefficients: &mut Vec<Fq>) {
+    fn crt_in_place(coefficients: &mut [Fq]) {
         ntt::babybear_crt_in_place(coefficients);
     }
 
@@ -131,7 +134,7 @@ impl CyclotomicConfig<1> for BabyBearRingConfig {
     }
 
     #[inline(always)]
-    fn icrt_in_place(evaluations: &mut Vec<Fq>) {
+    fn icrt_in_place(evaluations: &mut [Fq]) {
         ntt::babybear_icrt_in_place(evaluations)
     }
 }
@@ -166,6 +169,8 @@ impl Cyclotomic for RqPoly {
     }
 }
 
+impl_crt_icrt_for_a_ring!(RqNTT, RqPoly, BabyBearRingConfig);
+
 #[cfg(test)]
 mod tests {
     use ark_poly::{
@@ -176,7 +181,11 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{balanced_decomposition::Decompose, PolyRing};
+    use crate::{
+        balanced_decomposition::Decompose,
+        cyclotomic_ring::crt::{CRT, ICRT},
+        PolyRing,
+    };
 
     #[test]
     fn test_implements_decompose() {
@@ -191,14 +200,14 @@ mod tests {
     fn test_crt_one() {
         let one = RqPoly::ONE;
 
-        assert_eq!(RqNTT::from(one), RqNTT::ONE)
+        assert_eq!(one.crt(), RqNTT::ONE)
     }
 
     #[test]
     fn test_icrt_one() {
         let one = RqNTT::ONE;
 
-        assert_eq!(RqPoly::from(one), RqPoly::ONE)
+        assert_eq!(one.icrt(), RqPoly::ONE)
     }
 
     #[test]
@@ -244,14 +253,14 @@ mod tests {
         let coeff_1 = RqPoly::rand(&mut rng);
         let coeff_2 = RqPoly::rand(&mut rng);
 
-        let ntt_form_1 = RqNTT::from(coeff_1);
-        let ntt_form_2 = RqNTT::from(coeff_2);
+        let ntt_form_1: RqNTT = coeff_1.crt();
+        let ntt_form_2: RqNTT = coeff_2.crt();
 
         let ntt_mul = ntt_form_1 * ntt_form_2;
         let coeffs_mul = coeff_1 * coeff_2;
 
         // ntt_mul.coeffs() performs INTT while coeffs_mul.coeffs() just returns the coefficients
-        assert_eq!(RqPoly::from(ntt_mul).coeffs(), coeffs_mul.coeffs());
+        assert_eq!(ntt_mul.icrt(), coeffs_mul);
     }
 
     #[test]

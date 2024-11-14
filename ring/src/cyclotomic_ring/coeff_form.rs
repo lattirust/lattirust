@@ -15,7 +15,7 @@ use ark_std::{
 };
 use derive_more::{From, Into};
 
-use super::{ring_config::CyclotomicConfig, CyclotomicPolyRingNTTGeneral};
+use super::ring_config::CyclotomicConfig;
 use crate::{
     balanced_decomposition::{decompose_balanced_polyring, Decompose},
     traits::FromRandomBytes,
@@ -32,7 +32,7 @@ pub struct CyclotomicPolyRingGeneral<C: CyclotomicConfig<N>, const N: usize, con
 );
 
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingGeneral<C, N, D> {
-    fn from_coeffs_vec(mut coeffs: Vec<Fp<C::BaseFieldConfig, N>>) -> Self {
+    pub(super) fn from_coeffs_vec(mut coeffs: Vec<Fp<C::BaseFieldConfig, N>>) -> Self {
         C::reduce_in_place(&mut coeffs);
 
         Self(coeffs.try_into().expect("Wrong length"))
@@ -46,7 +46,7 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> CyclotomicPolyRingG
         Self::from_array(coeffs)
     }
 
-    fn from_array(coeffs: [Fp<C::BaseFieldConfig, N>; D]) -> Self {
+    pub(crate) fn from_array(coeffs: [Fp<C::BaseFieldConfig, N>; D]) -> Self {
         Self(coeffs)
     }
 
@@ -350,17 +350,6 @@ impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<&'a m
     }
 }
 
-impl<C: CyclotomicConfig<N>, const N: usize, const D: usize>
-    From<CyclotomicPolyRingNTTGeneral<C, N, D>>
-    for CyclotomicPolyRingGeneral<C, N, { D * C::CRT_FIELD_EXTENSION_DEGREE }>
-{
-    fn from(value: CyclotomicPolyRingNTTGeneral<C, N, D>) -> Self {
-        let coeffs: Vec<Fp<C::BaseFieldConfig, N>> = C::icrt(value.into_coeffs());
-
-        Self(coeffs.try_into().unwrap())
-    }
-}
-
 impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Mul<Fp<C::BaseFieldConfig, N>>
     for CyclotomicPolyRingGeneral<C, N, D>
 {
@@ -639,7 +628,10 @@ impl_add_mul_primitive_type!(bool);
 #[cfg(test)]
 mod tests {
     use crate::{
-        cyclotomic_ring::models::pow2_debug::{Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT},
+        cyclotomic_ring::{
+            models::pow2_debug::{Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT},
+            CRT, ICRT,
+        },
         Ring,
     };
 
@@ -647,20 +639,14 @@ mod tests {
     fn test_ntt_one() {
         let one = Pow2CyclotomicPolyRing::<131072, 1024>::ONE;
 
-        assert_eq!(
-            Pow2CyclotomicPolyRingNTT::from(one),
-            Pow2CyclotomicPolyRingNTT::<131072, 1024>::ONE
-        )
+        assert_eq!(one.crt(), Pow2CyclotomicPolyRingNTT::<131072, 1024>::ONE)
     }
 
     #[test]
     fn test_intt_one() {
         let one = Pow2CyclotomicPolyRingNTT::<131072, 1024>::ONE;
 
-        assert_eq!(
-            Pow2CyclotomicPolyRing::<131072, 1024>::from(one),
-            Pow2CyclotomicPolyRing::<131072, 1024>::ONE
-        )
+        assert_eq!(one.icrt(), Pow2CyclotomicPolyRing::<131072, 1024>::ONE)
     }
     #[test]
     #[allow(clippy::erasing_op)]

@@ -265,8 +265,8 @@ mod tests {
         Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT,
     };
     use crate::zn::z_q::Zq;
-    use crate::PolyRing;
     use crate::SignedRepresentative;
+    use crate::{cyclotomic_ring::CRT, PolyRing};
 
     use super::*;
 
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_decompose_balanced_polyring() {
-        let v = PolyNTT::from(PolyR::from(get_test_vec()));
+        let v: PolyNTT = PolyR::from(get_test_vec()).crt();
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
             let decomp = decompose_balanced_polyring(&v, b, None);
