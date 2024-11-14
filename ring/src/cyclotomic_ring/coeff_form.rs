@@ -571,6 +571,23 @@ macro_rules! impl_add_mul_primitive_type {
                 *self * rhs
             }
         }
+
+        impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> MulAssign<$primitive_type>
+            for CyclotomicPolyRingGeneral<C, N, D>
+        {
+            fn mul_assign(&mut self, rhs: $primitive_type) {
+                self.0.iter_mut().for_each(|lhs| *lhs *= Fp::from(rhs));
+            }
+        }
+
+        impl<'a, C: CyclotomicConfig<N>, const N: usize, const D: usize>
+            MulAssign<&'a $primitive_type> for CyclotomicPolyRingGeneral<C, N, D>
+        {
+            fn mul_assign(&mut self, rhs: &'a $primitive_type) {
+                self.0.iter_mut().for_each(|lhs| *lhs *= Fp::from(*rhs));
+            }
+        }
+
         impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Add<$primitive_type>
             for CyclotomicPolyRingGeneral<C, N, D>
         {
@@ -590,6 +607,14 @@ macro_rules! impl_add_mul_primitive_type {
 
             fn add(self, rhs: $primitive_type) -> Self::Output {
                 *self + rhs
+            }
+        }
+
+        impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> AddAssign<$primitive_type>
+            for CyclotomicPolyRingGeneral<C, N, D>
+        {
+            fn add_assign(&mut self, rhs: $primitive_type) {
+                self.0[0] += Fp::from(rhs);
             }
         }
 

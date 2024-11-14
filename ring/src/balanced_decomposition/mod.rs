@@ -1,4 +1,9 @@
-use ark_std::{cfg_into_iter, cfg_iter, iter::Sum, ops::Mul, One, Zero};
+use ark_std::{
+    cfg_into_iter, cfg_iter,
+    iter::Sum,
+    ops::{AddAssign, Mul, MulAssign},
+    One, Zero,
+};
 use num_traits::Signed;
 
 #[cfg(feature = "parallel")]
@@ -10,7 +15,6 @@ use lattirust_linear_algebra::{
     ops::{rounded_div, Transpose},
     Matrix, RowVector, SymmetricMatrix, Vector,
 };
-
 pub mod convertible_ring;
 mod fq_convertible;
 pub(crate) mod representatives;
@@ -218,14 +222,16 @@ pub fn decompose_matrix<F: ConvertibleRing>(
 
 pub fn recompose<A, B>(v: &[A], b: B) -> A
 where
-    A: Zero + Mul<B, Output = A> + Clone,
-    B: Ring,
+    A: Zero + for<'a> MulAssign<&'a B> + for<'a> AddAssign<&'a A>,
 {
-    v.iter()
-        .fold((A::zero(), B::one()), |(acc, power), v_i| {
-            (acc + v_i.clone() * power, power * b)
-        })
-        .0
+    let mut result = A::zero();
+
+    for v_i in v.iter().rev() {
+        result *= &b;
+        result += v_i;
+    }
+
+    result
 }
 
 /// Given a `n*d x n*d` symmetric matrix `mat` and a slice `\[1, b, ..., b^(d-1)\]` `powers_of_basis`, returns the `n x n` symmetric matrix corresponding to $G^T \textt{mat} G$, where $G = I_n \otimes (1, b, ..., b^(\textt{d}-1))$ is the gadget matrix of dimensions `n*d x n`.
@@ -341,7 +347,7 @@ mod tests {
                 }
             }
 
-            assert_eq!(v, recompose(&decomp, R::from(b)));
+            assert_eq!(v, recompose::<PolyNTT, u128>(&decomp, b));
         }
     }
 
