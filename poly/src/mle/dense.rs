@@ -51,13 +51,16 @@ impl<R: Ring> DenseMultilinearExtension<R> {
         let n_vars: usize = (log2(matrix.nrows()) + log2(matrix.ncols())) as usize; // n_vars = s + s'
 
         // Matrices might need to get padded before turned into an MLE
-        let padded_matrix = matrix.pad();
+        let padded_rows = matrix.n_rows.next_power_of_two();
+        let padded_cols = matrix.n_cols.next_power_of_two();
 
         // build dense vector representing the sparse padded matrix
-        let mut v: Vec<R> = vec![R::zero(); padded_matrix.nrows() * padded_matrix.ncols()];
+        let mut v: Vec<R> = vec![R::zero(); padded_rows * padded_cols];
 
-        for (col_i, row_i, val) in matrix.triplet_iter() {
-            v[(padded_matrix.ncols() * row_i) + col_i] = *val;
+        for (row_i, row) in matrix.coeffs.iter().enumerate() {
+            for (val, col_i) in row {
+                v[(padded_cols * row_i) + *col_i] = *val;
+            }
         }
 
         // convert the dense vector into a mle

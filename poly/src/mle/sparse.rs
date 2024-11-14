@@ -87,15 +87,19 @@ impl<R: Ring> SparseMultilinearExtension<R> {
 
     /// Returns the sparse MLE from the given matrix, without modifying the original matrix.
     pub fn from_matrix(m: &SparseMatrix<R>) -> Self {
-        let n_rows = m.nrows().next_power_of_two();
-        let n_cols = m.ncols().next_power_of_two();
+        let n_rows = m.n_rows.next_power_of_two();
+        let n_cols = m.n_cols.next_power_of_two();
         let n_vars: usize = (log2(n_rows * n_cols)) as usize; // n_vars = s + s'
 
         // build the sparse vec representing the sparse matrix
-        let mut v: Vec<(usize, R)> = Vec::with_capacity(m.nnz());
+        let total_elements: usize = m.coeffs.iter().map(|row| row.len()).sum();
+        let mut v: Vec<(usize, R)> = Vec::with_capacity(total_elements);
 
-        for (col, row, val) in m.triplet_iter().filter(|(_, _, val)| !val.is_zero()) {
-            v.push((row * n_cols + col, *val));
+        for (row_i, row) in m.coeffs.iter().enumerate() {
+            for (val, col_i) in row {
+                let index = row_i * n_cols + col_i;
+                v.push((index, *val));
+            }
         }
 
         // convert the sparse vector into a mle
@@ -417,11 +421,23 @@ mod tests {
     }
 
     fn matrix_cast<R: Ring>(m: &[Vec<usize>]) -> SparseMatrix<R> {
-        m.iter()
-            .map(|r| vec_cast::<R>(r))
-            .collect::<Vec<Vec<R>>>()
-            .as_slice()
-            .into()
+        let n_rows = m.len();
+        let n_cols = m[0].len();
+        let mut coeffs = Vec::with_capacity(n_rows);
+        for row in m.iter() {
+            let mut row_coeffs = Vec::with_capacity(n_cols);
+            for (col_i, &val) in row.iter().enumerate() {
+                if val != 0 {
+                    row_coeffs.push((R::from(val as u64), col_i));
+                }
+            }
+            coeffs.push(row_coeffs);
+        }
+        SparseMatrix {
+            n_rows,
+            n_cols,
+            coeffs,
+        }
     }
 
     fn get_test_z<R: Ring>(input: usize) -> Vec<R> {
@@ -444,6 +460,8 @@ mod tests {
             vec![2, 8, 17, 17],
             vec![420, 4, 2, 0],
         ]);
+
+        println!("Matrix: {:?}", A);
 
         let A_mle = SparseMultilinearExtension::from_matrix(&A);
         assert_eq!(A_mle.evaluations.len(), 15); // 15 non-zero elements
