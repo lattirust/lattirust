@@ -35,12 +35,6 @@ impl<'a, const Q: u64, const P: u64, const N: usize> BaseTranscript<'a, Q, P, N>
     }
 }
 
-// pub trait PPKIOPattern
-// where 
-//     Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern,
-// {}
-
-
 // TODO: check again
 // generate the IOPattern
 pub fn new_ppk_io(ctxt_size: usize, comm_size: usize, chall_size: usize, resp_size: usize) -> IOPattern {

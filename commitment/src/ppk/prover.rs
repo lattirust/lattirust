@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(unused_must_use)]
 
 use ark_serialize::CanonicalSerialize;
 use lattirust_arithmetic::{nimue::serialization::ToBytes, ring::Zq};
@@ -103,17 +104,11 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
             let v_i: PolyR<P, N> = u_i + gamma_i * m;
 
             let gamma_i: PolyR<Q, N> = convert_ring::<P, Q, N>(gamma_i);
-            // let z_i = TuplePolyR(
-            //     y_i.0.clone() + gamma_i.clone() * r.0.clone(), 
-            //     y_i.1.clone() + gamma_i.clone() * r.1.clone(),
-            //     y_i.2.clone() + gamma_i.clone() * r.2.clone()
-            // );
             let z_i = y_i + r.clone() * gamma_i;
 
             v.push(v_i);
             z.push(z_i);
         }
-
 
         (v, z)
     }
