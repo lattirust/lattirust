@@ -3,4 +3,4 @@ pub mod verifier;
 #[cfg(test)]
 pub mod test;
 mod util;
-mod shared;
+mod nizk;

@@ -1,11 +1,14 @@
 #![allow(non_snake_case)]
 
-use lattirust_arithmetic::{challenge_set::labrador_challenge_set::LabradorChallengeSet, ring::Zq};
+use lattirust_arithmetic::{challenge_set::labrador_challenge_set::LabradorChallengeSet, nimue::serialization::ToBytes, ring::Zq};
+use nimue::ByteChallenges;
 use rand::Rng;
 use ark_ff::{One, Zero};
 use ark_std::rand;
 use relations::{ajtai_cm::Witness, principal_relation::PrincipalRelation};
 use crate::bfv::{ciphertext::Ciphertext, plaintext::Plaintext, secret_key::SecretKey, public_key::PublicKey, util::{convert_ring, PolyR, TuplePolyR}};
+
+use super::nizk::new_ppk_io;
 
 pub struct Verifier<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
@@ -95,5 +98,15 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
         }
 
         return true;
+    }
+
+    pub fn nizk(&self, commitment: Vec<u8>, challenge_prover: Vec<u8>) -> bool {
+        let io = new_ppk_io(32, 32, 32, 32);
+        // instantiate a prover
+        let w = commitment.to_bytes().unwrap().clone();
+        let mut merlin = io.to_merlin(&w);
+        let challenge_verifier = merlin.challenge_bytes::<32>().unwrap();
+        
+        challenge_prover == challenge_verifier
     }
 }

@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
 
-use lattirust_arithmetic::ring::Zq;
+use ark_serialize::CanonicalSerialize;
+use lattirust_arithmetic::{nimue::serialization::ToBytes, ring::Zq};
 use ark_ff::{UniformRand, Zero};
 use ark_std::rand;
-use nimue::Arthur;
-use crate::bfv::{ciphertext::{self, Ciphertext}, plaintext::Plaintext, public_key::PublicKey, secret_key::SecretKey, util::{convert_ring, rand_tuple, PolyR, TuplePolyR}};
-
-use super::{shared::PPKIOPattern, util::PublicParameters};
+use nimue::{Arthur, ByteChallenges, ByteWriter};
+use crate::bfv::{ciphertext::{Ciphertext}, plaintext::Plaintext, public_key::PublicKey, secret_key::SecretKey, util::{convert_ring, rand_tuple, PolyR, TuplePolyR}};
+use super::nizk::new_ppk_io;
 
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
@@ -103,11 +103,12 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
             let v_i: PolyR<P, N> = u_i + gamma_i * m;
 
             let gamma_i: PolyR<Q, N> = convert_ring::<P, Q, N>(gamma_i);
-            let z_i = TuplePolyR(
-                y_i.0.clone() + gamma_i.clone() * r.0.clone(), 
-                y_i.1.clone() + gamma_i.clone() * r.1.clone(),
-                y_i.2.clone() + gamma_i.clone() * r.2.clone()
-            );
+            // let z_i = TuplePolyR(
+            //     y_i.0.clone() + gamma_i.clone() * r.0.clone(), 
+            //     y_i.1.clone() + gamma_i.clone() * r.1.clone(),
+            //     y_i.2.clone() + gamma_i.clone() * r.2.clone()
+            // );
+            let z_i = y_i + r.clone() * gamma_i;
 
             v.push(v_i);
             z.push(z_i);
@@ -117,31 +118,27 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         (v, z)
     }
 
-    // pub fn nizk(&self) {
-    //     let io = PPKIOPattern::<Q, P, N>::generate(1, 2, 3, 4);
+    pub fn nizk(&mut self) -> (Vec<u8>, Vec<u8>) {
+        let l = 6;
+        let io = new_ppk_io(32, 32, 32, 32);
     
-    //     // instantiate a prover
-    //     let mut arthur = io.to_arthur();
+        // instantiate a prover
+        let mut arthur = io.to_arthur();
     
-    //     // prepare all the ingredients
-    //     let l = 6;
+        // prepare all the ingredients
+        let ctxt = self.generate().to_bytes().unwrap();
+        let commitment = self.commit(l);
         
+        arthur.add_bytes(&ctxt);
+        for w_i in &commitment {
+            arthur.add_bytes(&w_i.to_bytes().unwrap());
+        }
+        
+        let mut challenge = [0u8; 32];
+        arthur.fill_challenge_bytes(&mut challenge).unwrap();
 
-    // }
+        let commitment_bytes = commitment.to_bytes().unwrap();
+        
+        (commitment_bytes, challenge.to_vec())
+    }
 }
-
-// pub fn prove_relation<'a, R: PolyRing> (
-//     arthur: &'a mut Arthur,
-//     pp: &PublicParameters<R>,
-//     witness: &Witness
-//     witness: &Witness<R>,
-// ) -> ProofResult<&'a [u8]>
-// where 
-//     PPKChallengeSet<R>: FromRandomBytes<R>,
-// {
-//     // let num_constraints = instance.quad_dot_prod_funcs.len();
-//     // let num_ct_constraints = instance.ct_quad_dot_prod_funcs.len();
-//     // let mut prover = Prover::new(message, l);
-    
-//     arthur.absorb_vector()
-// }

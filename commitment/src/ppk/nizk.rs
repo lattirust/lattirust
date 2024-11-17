@@ -35,17 +35,18 @@ impl<'a, const Q: u64, const P: u64, const N: usize> BaseTranscript<'a, Q, P, N>
     }
 }
 
-pub trait PPKIOPattern<const Q: u64, const P: u64, const N: usize>
-where 
-    Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern,
-{
-    // TODO: check again
-    // generate the IOPattern
-    fn generate(ctxt_size: usize, comm_size: usize, chall_size: usize, resp_size: usize) -> IOPattern {
-        IOPattern::<DefaultHash>::new("PPK_protocol")
-        .absorb(ctxt_size, "ciphertext") // c
-        .absorb(comm_size, "commitment") // w_i
-        .squeeze(chall_size, "challenge") // gamma_i
-        .absorb(resp_size, "response") // (v_i, z_i)
-    }
+// pub trait PPKIOPattern
+// where 
+//     Self: SerIOPattern + SqueezeFromRandomBytes + RatchetIOPattern,
+// {}
+
+
+// TODO: check again
+// generate the IOPattern
+pub fn new_ppk_io(ctxt_size: usize, comm_size: usize, chall_size: usize, resp_size: usize) -> IOPattern {
+    IOPattern::<DefaultHash>::new("PPK_protocol")
+    .absorb(ctxt_size, "ciphertext") // c
+    .absorb(comm_size, "commitment") // w_i
+    .squeeze(chall_size, "challenge") // gamma_i
+    .absorb(resp_size, "response") // (v_i, z_i)
 }
