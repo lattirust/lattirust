@@ -14,7 +14,7 @@ rand_distr = "0.4.3"
 ark-ff = "0.4.2"
 ark-serialize = { version = "0.4.2", features = ["derive"] }
 ark-std = "0.4.0"
-
+nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
 
 [build-dependencies]
 openfhe = { git = "https://github.com/jacomoj/openfhe-rs.git" }

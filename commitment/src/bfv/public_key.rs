@@ -3,6 +3,7 @@
 use lattirust_arithmetic::ring::{PolyRing, Pow2CyclotomicPolyRing, SignedRepresentative, Zq};
 use super::ciphertext::Ciphertext;
 use super::plaintext::Plaintext;
+use super::util::TuplePolyR;
 
 type PolyR<const M: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<M>, N>;
 // TODO: use the same rng everywhere
@@ -17,10 +18,10 @@ impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {
     pub fn encrypt(
         &self, 
         m: &Plaintext<P, N>, 
-        r:  (PolyR<Q, N>, PolyR<Q, N>, PolyR<Q, N>)
+        r:  TuplePolyR<Q, N>
         ) -> Ciphertext<Q, N> {
         let (pk1, pk2) = (self.poly1.clone(), self.poly2.clone());
-        let (r0, r1, r2) = r;
+        let TuplePolyR(r0, r1, r2) = r;
         
         let p = m.modulo;
         let q = self.modulo;

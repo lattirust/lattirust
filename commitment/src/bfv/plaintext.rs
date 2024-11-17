@@ -4,6 +4,9 @@ use ark_ff::{UniformRand, Zero};
 use ark_std::rand;
 
 use super::util::PolyR;
+#[derive(
+    Clone, Copy, Debug, Default
+)]
 
 pub struct Plaintext<const P: u64, const N: usize> {
     pub poly: PolyR<P, N>,

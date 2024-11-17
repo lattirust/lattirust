@@ -1,18 +1,15 @@
 #[allow(dead_code)]
 
-use lattirust_arithmetic::{ntt::ntt_modulus, ring::{Pow2CyclotomicPolyRing, Zq}};
-
-
-const N: usize = 128;
-const Q: u64 = ntt_modulus::<N>(16);
-const P: u64 = ntt_modulus::<N>(15);
-type Rq = Zq<Q>; 
-type PolyRq = Pow2CyclotomicPolyRing<Rq, N>;
-type Rp = Zq<P>; 
-type PolyRp = Pow2CyclotomicPolyRing<Rp, N>;
+// const N: usize = 128;
+// const Q: u64 = ntt_modulus::<N>(16);
+// const P: u64 = ntt_modulus::<N>(15);
+// type Rq = Zq<Q>; 
+// type PolyRq = Pow2CyclotomicPolyRing<Rq, N>;
+// type Rp = Zq<P>; 
+// type PolyRp = Pow2CyclotomicPolyRing<Rp, N>;
 
 fn main() {
-    let mut rng = rand::thread_rng();
+    // let mut rng = rand::thread_rng();
     // // let t = 12;         // Plaintext modulus
     // // let q = 65536;      // Ciphertext modulus
     // let std_dev = 1.0;  // Standard deviation for generating the error
