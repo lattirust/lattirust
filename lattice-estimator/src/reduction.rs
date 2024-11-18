@@ -1,169 +1,147 @@
 use num_traits::Float;
-use crate::errors::LatticeEstimatorError as EstError;
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::collections::HashMap;
 use std::f64::consts::{PI, E};
 
+const NB_BKZ_TOURS: usize = 8;
+
+//Enum of available cost estimates for lattice reduction
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Estimates{
+    BdglSieve,
+    QSieve,
+    BjgSieve,
+    AdpsSieve(bool),
+    ChaLoySieve,
+    CheNgueEnum,
+    AbfEnum(bool),
+    AblrEnum,
+    LotusEnum,
+    Kyber(bool),
+    Matzov(bool)
+}
+
 //Cost estimates for LLL (heuristic cost)
 fn lll_cost(lattice_dim: usize, bit_size: Option<usize>) -> f64 {
-
     match bit_size {
         None => f64::powi(lattice_dim as f64, 3),
         Some(bit_size) => f64::powi(lattice_dim as f64, 3) * f64::powi(bit_size as f64, 2)
     }
 }
 
-//parameter holder for BKZ_like reduction
-#[derive(Copy, Clone)]
-pub struct BKZ{
-    block_size: usize,
-    d: usize,
-    entry_bitsize: Option<usize>
-}
-
-impl BKZ {
-    pub fn new(block_size: usize, d: usize, entry_bitsize: Option<usize>) -> Self {
-        BKZ { block_size, d, entry_bitsize }
-    }
-}
-
-//Enum of available cost estimates for lattice reduction
-#[derive(Debug, Clone, Copy)]
-pub enum Estimates{
-    CheNgue12,
-    BDGL16,
-    LaaMosPol14,
-    ABFKSW20,
-    ABLR21,
-    ADPS16,
-    ChaLoy21,
-    Kyber(bool),
-    Matzov(bool)
-}
-
-pub enum EstimatesParams{
-    CheNgue12(BKZ),
-    BDGL16(BKZ),
-    LaaMosPol14(BKZ),
-    ABFKSW20(BKZ),
-    ABLR21(BKZ),
-    ADPS16(BKZ),
-    ChaLoy21(BKZ),
-    Kyber(BKZ, bool),
-    Matzov(BKZ, bool)
-}
-
-pub fn cost(reduction_type: EstimatesParams) -> Result<f64, EstError> {
-    match reduction_type {
-        EstimatesParams::CheNgue12(bkz) => chengue12_cost(bkz),
-        EstimatesParams::BDGL16(bkz) => bdgl16_cost(bkz),
-        EstimatesParams::LaaMosPol14(bkz) => laamospol14_cost(bkz),
-        EstimatesParams::ABFKSW20(bkz) => abfksw20_cost(bkz),
-        EstimatesParams::ABLR21(bkz) => ablr21_cost(bkz),
-        EstimatesParams::ADPS16(bkz) => adbs16_cost(bkz),
-        EstimatesParams::ChaLoy21(bkz) => chaloy21_cost(bkz),
-        EstimatesParams::Kyber(bkz, classical) => kyber_cost(bkz, classical),
-        EstimatesParams::Matzov(bkz, classical) => matzov_cost(bkz, classical)
-    }
-}
-
-fn chengue12_cost(bkz: BKZ)-> Result<f64, EstError> {
-    let svp_nb: usize;
-    if bkz.block_size < bkz.d {
-        svp_nb = 8 * bkz.d
+//Simple heuristic, cost should mostly be determined with a block_size under d
+fn bkz_tours(block_size: usize, d: usize) -> usize {
+    if block_size < d {
+        NB_BKZ_TOURS * d
     } else {
-        svp_nb = 1
+        1
     }
-    let cost: f64 = 0.270188776350190 as f64 * bkz.block_size as f64 * (bkz.block_size as f64).ln()
-                    - 1.0192050451318417 * bkz.block_size as f64 + 16.10253135200765   + (100.0 as f64).log2();
+}
 
-
+pub fn bkz_cost(est: Estimates, block_size: usize, d: usize, q: usize) -> f64 {
+    let svp_cost: f64 = match est {
+        Estimates::LotusEnum => lotus_enum(block_size),
+        Estimates::CheNgueEnum => chengue_enum(block_size),
+        Estimates::AbfEnum(classical) => abf_enum(block_size, classical),
+        Estimates::AblrEnum => ablr_enum(block_size),
+        Estimates::BdglSieve => bdgl_sieve(block_size),
+        Estimates::QSieve => q_sieve(block_size),
+        Estimates::AdpsSieve( classical) => adps_sieve(block_size, classical),
+        Estimates::BjgSieve => bjg_sieve(block_size),
+        Estimates::ChaLoySieve => chaloy_sieve(block_size),
+        Estimates::Kyber(classical) => return kyber_cost(block_size, d, q, classical),
+        Estimates::Matzov(classical) => return matzov_cost(block_size, d, q, classical)
+    };
     
-    let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-    let new_cost = lll_cost + (svp_nb as f64) * (2.0 as f64).powf(cost);
-    Ok(new_cost)
-}
-
-//This is only the classical cost estimate, the quantum would be 0.2650
-fn adbs16_cost(bkz: BKZ) -> Result<f64, EstError> {
-    Ok((2.0 as f64).powf(0.292 * bkz.block_size as f64))
-}
-
-fn chaloy21_cost(bkz: BKZ) -> Result<f64, EstError> {
-    Ok((2.0 as f64).powf(0.2570 * bkz.block_size as f64))
-}
-
-fn bdgl16_cost(bkz: BKZ) -> Result<f64, EstError> {
-    let tours: usize;
-    if bkz.block_size < bkz.d {
-        tours = 8 * bkz.d
+    if matches!(est, Estimates::Kyber(_)) || matches!(est, Estimates::Matzov(_)) {
+        return svp_cost;
     } else {
-        tours = 1
+        bkz_tours(block_size, d) as f64 * svp_cost + lll_cost(block_size, None)
+    }
+}
+
+//-------------------------------------------------------------------------
+//Sieving estimates
+//-------------------------------------------------------------------------
+fn bdgl_sieve(block_size: usize) -> f64 {
+    if block_size < 90 {
+        (2.0 as f64).powf(0.387 * block_size as f64 + 16.4)
+    } else {
+        (2.0 as f64).powf(0.292 * block_size as f64 + 16.4)
+    }
+}
+
+fn chaloy_sieve(block_size: usize) -> f64 {
+    (2.0 as f64).powf(0.257 * block_size as f64)
+}
+
+fn bjg_sieve(block_size: usize) -> f64 {
+    (2.0 as f64).powf(0.311 * block_size as f64)
+}
+
+fn adps_sieve(block_size: usize, classical: bool) -> f64 {
+    if classical {
+        (2.0 as f64).powf(0.292 * block_size as f64)
+    } else {
+        (2.0 as f64).powf(0.265 * block_size as f64)
+    }
+}
+
+fn q_sieve(block_size: usize) -> f64 {
+    (2.0 as f64).powf(0.265 * block_size as f64 + 16.4)
+}
+
+
+//-------------------------------------------------------------------------
+//Enumeration estimates
+//-------------------------------------------------------------------------
+fn chengue_enum(block_size: usize)-> f64 {
+    //log_2(100) corresponds to node processing time as in ACD+18
+    let cost: f64 = 0.270188776350190 as f64 * block_size as f64 * (block_size as f64).ln()
+                    - 1.0192050451318417 * block_size as f64 + 
+                    16.10253135200765   + 
+                    (100.0 as f64).log2();
+    (2.0 as f64).powf(cost)
+}
+
+fn abf_enum(block_size: usize, classical: bool) -> f64 {
+    if classical {
+        let power:f64;
+        if block_size <= 92 {
+            power = 0.1839 * block_size as f64 * (block_size as f64).log2() - 0.995 * block_size as f64 + 22.25;
+        } else {
+            power = 0.125 * block_size as f64 * (block_size as f64).log2() - 0.547 * block_size as f64 + 16.4;
+        }
+        (2.0 as f64).powf(power)
+    } else {
+        (2.0 as f64).powf(0.0625 * block_size as f64 * (block_size as f64).log2())
     }
     
-    let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-    if bkz.block_size < 90 {
-        let new_cost = lll_cost + (2.0 as f64).powf(0.387 * bkz.block_size as f64 + 16.4 + (tours as f64).log2());
-        Ok(new_cost)
-    } else {
-        let new_cost = lll_cost + (2.0 as f64).powf(0.292 * bkz.block_size as f64 + 16.4 + (tours as f64).log2());
-        Ok(new_cost)
-    }
 }
 
-//todo find the difference
-fn laamospol14_cost(bkz: BKZ) -> Result<f64, EstError> {
-    let tours: usize;
-    if bkz.block_size < bkz.d {
-        tours = 8 * bkz.d
+fn ablr_enum(block_size: usize) -> f64 {
+    let power: f64;
+    if block_size <= 97 {
+        power = 0.1839 * block_size as f64 * (block_size as f64).log2() - 1.077 * block_size as f64 + 35.12;
     } else {
-        tours = 1
+        power = 0.125 * block_size as f64 * (block_size as f64).log2() - 0.654 * block_size as f64 + 31.84;
     }
-    let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-    let new_cost = lll_cost + (2.0 as f64).powf(0.265 * bkz.block_size as f64 + 16.4 + (tours as f64).log2());
-    Ok(new_cost)
+    (2.0 as f64).powf(power)
 }
 
-fn abfksw20_cost(bkz: BKZ) -> Result<f64, EstError> {
-    let tours: usize;
-    if bkz.block_size < bkz.d {
-        tours = 8 * bkz.d
-    } else {
-        tours = 1
-    }
-    let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-    let power:f64;
-    if bkz.block_size <= 92 {
-        power = 0.1839 * bkz.block_size as f64 * (bkz.block_size as f64).log2() - 0.995 * bkz.block_size as f64 + 16.25 + (64.0 as f64).log2();
-    } else {
-        power = 0.125 * bkz.block_size as f64 * (bkz.block_size as f64).log2() - 0.547 * bkz.block_size as f64 + 10.4 + (64.0 as f64).log2();
-    }
-    Ok(tours as f64 * (2.0 as f64).powf(power) + lll_cost)
+fn lotus_enum(block_size: usize) -> f64 {
+    (2.0 as f64).powf(0.125 * block_size as f64 * (block_size as f64).log2() - 0.755 * block_size as f64 + 22.74)
 }
 
-fn ablr21_cost(bkz: BKZ) -> Result<f64, EstError> {
-    let tours: usize;
-    if bkz.block_size < bkz.d {
-        tours = 8 * bkz.d
-    } else {
-        tours = 1
-    }
-    let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-    let power:f64;
-    if bkz.block_size <= 97 {
-        power = 0.1839 * bkz.block_size as f64 * (bkz.block_size as f64).log2() - 1.077 * bkz.block_size as f64 + 29.12 + (64.0 as f64).log2();
-    } else {
-        power = 0.125 * bkz.block_size as f64 * (bkz.block_size as f64).log2() - 0.654 * bkz.block_size as f64 + 25.84 + (64.0 as f64).log2();
-    }
-    Ok(tours as f64 * (2.0 as f64).powf(power) + lll_cost)
-}
 
+//-------------------------------------------------------------------------
+// Improvements via Kyber and Matzov estimates
+//-------------------------------------------------------------------------
 fn reduce_dimension(block_size: usize) -> f64{
     f64::max(block_size as f64 * f64::ln(4.0 / 3.0) / (block_size as f64 / (2.0 * PI * E)).ln(), 0.0)
 }
 
-//classical vs quantum decoding
-fn kyber_cost(bkz: BKZ, classical: bool) -> Result<f64, EstError> {
+fn kyber_cost(block_size: usize, d: usize, _q: usize, classical: bool) -> f64 {
     let t: (f64, f64);
     if classical {
         t = (0.2988026130564745, 26.011121212891872);
@@ -171,18 +149,23 @@ fn kyber_cost(bkz: BKZ, classical: bool) -> Result<f64, EstError> {
         t = (0.26944796385592995, 28.97237346443934);
     }
 
-    if bkz.block_size < 20 {
-        return chengue12_cost(bkz);
+    if block_size < 20 {
+        return chengue_enum(block_size);
     } else {
-        let svp_calls: f64 = 5.46 * max(bkz.d - bkz.block_size , 1) as f64;
-        let beta = bkz.block_size as f64 - reduce_dimension(bkz.block_size);
-        let gates: f64 = 5.46 * (2.0 as f64).powf(t.0 * beta + t.1);
-        let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-        Ok(lll_cost + svp_calls * gates)
+        let svp_calls: f64;
+        if(d - block_size) > 1 {
+            svp_calls = 5.46 * (d - block_size) as f64;
+        } else {
+            svp_calls = 5.46;
+        }
+        let beta: f64 = block_size as f64 - reduce_dimension(block_size);
+        let gates: f64 = 5.46 * (2.0 as f64).powf(t.0 * (beta as f64) + t.1);
+        let lll_cost: f64 = lll_cost(d, None);
+        lll_cost + svp_calls * gates
     }
 }
 
-fn matzov_cost(bkz: BKZ, classical: bool) -> Result<f64, EstError> {
+fn matzov_cost(block_size: usize, d: usize, _q: usize, classical: bool) -> f64 {
     let t: (f64, f64);
     if classical {
         t = (0.29613500308205365, 20.387885985467914);
@@ -190,44 +173,50 @@ fn matzov_cost(bkz: BKZ, classical: bool) -> Result<f64, EstError> {
         t = (0.2663676536352464, 25.299541499216627);
     }
 
-    if bkz.block_size < 20 {
-        return chengue12_cost(bkz);
+    if block_size < 20 {
+        return chengue_enum(block_size);
     } else {
-        let svp_calls: f64 = 5.46 * max(bkz.d - bkz.block_size , 1) as f64;
-        let beta = bkz.block_size as f64 - reduce_dimension(bkz.block_size);
-        let gates: f64 = 5.46 * (2.0 as f64).powf(t.0 * beta + t.1);
-        let lll_cost: f64 = lll_cost(bkz.d, bkz.entry_bitsize);
-        Ok(lll_cost + svp_calls * gates)
+        let svp_calls: f64;
+        if(d - block_size) > 1 {
+            svp_calls = 5.46 * (d - block_size) as f64;
+        } else {
+            svp_calls = 5.46;
+        }
+        let beta: f64 = block_size as f64- reduce_dimension(block_size);
+        let gates: f64 = 5.46 * (2.0 as f64).powf(t.0 * (beta as f64) + t.1);
+        let lll_cost: f64 = lll_cost(d, None);
+        lll_cost + svp_calls * gates
     }
 }
 
-fn kyber_short_vectors(bkz: BKZ, nb_vec_out: Option<usize>, classical: bool) -> (f64, f64, usize, usize) {
+pub fn kyber_short_vectors(block_size: usize, d: usize, q: usize, nb_vec_out: Option<usize>, classical: bool) -> (f64, f64, usize, usize) {
 
-    let beta_: f64 = bkz.block_size as f64 - reduce_dimension(bkz.block_size).floor() as f64;
+    let beta_: f64 = block_size as f64 - reduce_dimension(block_size).floor() as f64;
 
     let nb_vec_out: usize = match nb_vec_out {
-        Some(1) => return (1.0, kyber_cost(bkz, classical).unwrap(), bkz.block_size, 1),
+        Some(1) => return (1.0, kyber_cost(block_size, d, q, classical), block_size, 1),
         Some(n) => n,
         None => return(1.1547,
-        kyber_cost(bkz, classical).unwrap(),
+        kyber_cost(block_size, d, q, classical),
         ((2.0_f64).powf(0.2075 * beta_)).floor() as usize,
         beta_ as usize,
         )
     };
   
-    let c = nb_vec_out as f64 / (2.0_f64).powf(0.2075 * beta_);
+    //see if there exists an alternative for ceil and floor (making it const does not allow them)
+    let c: f64 = nb_vec_out as f64 / (2.0_f64).powf(0.2075 * beta_);
     (
         1.1547,
-        c.ceil() * kyber_cost(bkz, classical).unwrap(),
+        c.ceil() * kyber_cost(block_size, d, q, classical),
         (c.ceil() * (2.0_f64).powf(0.2075 * beta_)).floor() as usize,
         beta_ as usize,
     )
 }
 
 //As a convention let's use usize_max as a flag for the cost being impossible to compute
-pub fn matzov_short_vectors(bkz: BKZ, nb_vec_out: Option<usize>, classical: bool) -> (f64, f64, usize, usize) {
+pub fn matzov_short_vectors(block_size: usize, d: usize, q: usize, nb_vec_out: Option<usize>, classical: bool) -> (f64, f64, usize, usize) {
     
-    let _beta: usize = bkz.block_size - reduce_dimension(bkz.block_size).floor() as usize;
+    let _beta: usize = block_size - reduce_dimension(block_size).floor() as usize;
 
     let t: (f64, f64);
     if classical {
@@ -237,17 +226,17 @@ pub fn matzov_short_vectors(bkz: BKZ, nb_vec_out: Option<usize>, classical: bool
     }
 
     let sieve_dim: usize;
-    if bkz.block_size < bkz.d {
-        sieve_dim = min(bkz.d, (_beta as f64 + ((bkz.d - bkz.block_size) as f64 * 5.46 as f64).log2() / t.0).floor() as usize);
+    if block_size < d {
+        sieve_dim = min(d, (_beta as f64 + ((d - block_size) as f64 * 5.46 as f64).log2() / t.0).floor() as usize);
     } else {
         sieve_dim = _beta;
     }
 
-    let scaling_fact_rho: f64 = (4.0/3.0).sqrt() * bkz_delta(sieve_dim).powf(sieve_dim as f64 - 1.0) * bkz_delta(bkz.block_size).powf(1.0 - sieve_dim as f64);
+    let scaling_fact_rho: f64 = (4.0/3.0).sqrt() * bkz_delta(sieve_dim).powf(sieve_dim as f64 - 1.0) * bkz_delta(block_size).powf(1.0 - sieve_dim as f64);
     
     let new_nb_vec_out: usize = match nb_vec_out {
         None => ((2.0).powf(0.2075 *  sieve_dim as f64)).floor() as usize,
-        Some(1) => return (1.0, kyber_cost(bkz, true).unwrap(), bkz.block_size, 1), 
+        Some(1) => return (1.0, kyber_cost(block_size, d, q, true), block_size, 1), 
         Some(_) => nb_vec_out.unwrap()
     };
 
@@ -257,7 +246,7 @@ pub fn matzov_short_vectors(bkz: BKZ, nb_vec_out: Option<usize>, classical: bool
     if c > (2.0).powf(10000.0 as f64) {
         return (scaling_fact_rho, f64::INFINITY, usize::MAX, sieve_dim);
     } else {
-        let final_cost = c.ceil() * (matzov_cost(bkz, classical).unwrap() + sieve_cost);
+        let final_cost = c.ceil() * (matzov_cost(block_size, d, q, classical) + sieve_cost);
         return (
             scaling_fact_rho,
             final_cost,
@@ -266,6 +255,8 @@ pub fn matzov_short_vectors(bkz: BKZ, nb_vec_out: Option<usize>, classical: bool
     }
 }
 
+
+//BKZ delta, find which delta we would get from a given block size
 pub fn bkz_delta(block_size: usize) -> f64 {
 
     let small_approximations = [
@@ -347,45 +338,39 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_chengue12_cost() {
-        let bkz: BKZ = BKZ::new(500, 1024, None);
-        let cost = chengue12_cost(bkz).unwrap().log2();
+    fn test_chengue_enum_cost() {
+        let cost = bkz_cost(Estimates::CheNgueEnum, 500, 1024, 0).log2();
         assert_eq!(cost.round(), 366.0);
     }
 
     #[test]
     fn test_abfskw20_cost() {
-        let bkz: BKZ = BKZ::new(500, 1024, None);
-        let cost = abfksw20_cost(bkz).unwrap().log2();
+        let cost: f64 = bkz_cost(Estimates::AbfEnum(true), 500, 1024, 0).log2();
         assert_eq!(cost.round(), 316.0);
     }
 
     #[test]
     fn test_ablr21_cost() {
-        let bkz: BKZ = BKZ::new(500, 1024, None);
-        let cost = ablr21_cost(bkz).unwrap().log2();
+        let cost: f64 = bkz_cost(Estimates::AblrEnum, 500, 1024, 0).log2();
         assert_eq!(cost.round(), 278.0);
     }
 
     #[test]
     fn test_adps16_cost() {
-        let bkz: BKZ = BKZ::new(500, 1024, None);
-        let cost = adbs16_cost(bkz).unwrap().log2();
+        let cost: f64 = bkz_cost(Estimates::AdpsSieve(false), 500, 1024, 0).log2();
         assert_eq!(cost.round(), 146.0);
     }
 
     #[test]
     fn test_kyber_cost() {
-        let bkz: BKZ = BKZ::new(500, 1024, None);
-        let cost = kyber_cost(bkz, true).unwrap().log2();
+        let cost: f64 = bkz_cost(Estimates::Kyber(true), 500, 1024, 0).log2();
         assert_eq!(cost.round(), 177.0);
     }
 
     
     #[test]
     fn test_kyber_short_vectors(){
-        let bkz: BKZ = BKZ::new(100, 500, None);
-        let sv = kyber_short_vectors(bkz, None, true);
+        let sv: (f64, f64, usize, usize) = kyber_short_vectors(100, 500, 0,None, true);
         assert_almost_eq!(sv.1, 2.736747612813679e19, 1e-2);
         assert_almost_eq!(sv.0, 1.1547, 1e-2);
         assert_eq!(sv.2, 176584);
@@ -394,8 +379,7 @@ mod test {
 
     #[test]
     fn test_kyber_short_vectors_2(){
-        let bkz: BKZ = BKZ::new(100, 500, None);
-        let sv: (f64, f64, usize, usize) = kyber_short_vectors(bkz, Some(1000), true);
+        let sv: (f64, f64, usize, usize) = kyber_short_vectors(100, 500, 0, Some(1000), true);
         assert_almost_eq!(sv.1, 2.736747612813679e19, 1e-2);
         assert_almost_eq!(sv.0, 1.1547, 1e-2);
         assert_eq!(sv.2, 176584);
@@ -404,8 +388,7 @@ mod test {
 
     #[test]
     fn test_matzov_short_vectors() {
-        let bkz: BKZ = BKZ::new(100, 500, None);
-        let sv = matzov_short_vectors(bkz, None, true);
+        let sv = matzov_short_vectors(100, 500, 0, None, true);
         assert_almost_eq!(sv.1, 9.33915764560094e17, 1e3);
         assert_almost_eq!(sv.0, 1.04228014727497, 1e-2);
         assert_eq!(sv.2, 36150192);
