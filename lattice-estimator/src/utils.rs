@@ -1,6 +1,7 @@
+use core::f64;
 use std::cmp::Ordering;
 
-use statrs::function;
+const LOG_PRECISION: usize = 100;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct CostParameters {
@@ -139,10 +140,98 @@ pub fn amplify_via_trials(target_p: f64, success_p: f64) -> f64 {
     }
 }
 
+//Taylor series of ln(1+x)
+pub const fn taylor(y:f64, terms: usize) -> f64 {
+    let mut result = 0.0;
+        let mut term = y; // Start with the first term, which is just y
+        for n in 1..=terms {
+            if n % 2 == 1 {
+                result += term / n as f64;
+            } else {
+                result -= term / n as f64;
+            }
+            term *= y; // Move to the next power of y
+        }
+    result
+}
+
+pub const fn ln_estimate(x: f64) -> f64 {
+    if x <= 0.0 {
+        panic!("ln is not defined for non-positive values.");
+    }
+        
+    // Factor out powers of 2
+    let mut n = 0;
+    let mut reduced_x = x;
+    while reduced_x > 2.0 {
+        reduced_x /= 2.0;
+        n += 1;
+    }
+    while reduced_x < 1.0 {
+        reduced_x *= 2.0;
+        n -= 1;
+    }
+    
+    // Use the Taylor series on the "reduced" value
+    let y = reduced_x - 1.0;
+    let ln_approx = taylor(y, LOG_PRECISION);
+    
+    // Approximate ln(x) = n * ln(2) + ln(reduced_x)
+    ln_approx + (n as f64) * f64::consts::LN_2
+}
+
+pub const fn log2_estimate(x: f64) -> f64 {
+    ln_estimate(x) / f64::consts::LN_2
+}
+
 
 mod tests {
     use super::*;
-    use std::cmp::Ordering;
+    const EPSILON: f64 = 0.01;
+    
+    #[test]
+    fn test_approximate_ln() {
+
+        let test_cases = [
+            (1.0, 0.0),              // ln(1) = 0
+            (2.0, 0.693147),         // ln(2) ≈ 0.693147
+            (10.0, 2.302585),        // ln(10) ≈ 2.302585
+            (50.0, 3.912023),        // ln(50) ≈ 3.912023
+            (0.5, -0.693147),        // ln(0.5) ≈ -0.693147
+        ];
+
+        for &(x, expected) in test_cases.iter() {
+            let result = ln_estimate(x);
+            assert!(
+                (result - expected).abs() < EPSILON,
+                "approximate_ln({}) ≈ {}, expected {}",
+                x, result, expected
+            );
+        }
+    }
+
+    // Test cases for approximate_log2 function
+    #[test]
+    fn test_approximate_log2() {
+
+        let test_cases = [
+            (1.0, 0.0),             // log2(1) = 0
+            (2.0, 1.0),             // log2(2) = 1
+            (8.0, 3.0),             // log2(8) = 3
+            (10.0, 3.321928),       // log2(10) ≈ 3.321928
+            (50.0, 5.643856),       // log2(50) ≈ 5.643856
+            (0.5, -1.0),            // log2(0.5) = -1
+        ];
+
+        for &(x, expected) in test_cases.iter() {
+            let result = log2_estimate(x);
+            assert!(
+                (result - expected).abs() < EPSILON,
+                "approximate_log2({}) ≈ {}, expected {}",
+                x, result, expected
+            );
+        }
+    }
 
     #[test]
     fn test_increasing_function() {
@@ -196,6 +285,6 @@ mod tests {
     fn test_amplify_zero_success_probability() {
         // When success probability is 0, expect infinite trials (usize::MAX)
         let trials = amplify_via_trials(0.95, 0.0);
-        assert_eq!(trials, f64::MAX);
+        assert_eq!(trials, f64::INFINITY);
     }
 }

@@ -1,18 +1,17 @@
 use core::{f64, panic};
-use std::cmp::max;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
 use num_bigint::BigUint;
-use num_traits::{ToPrimitive, Zero};
+use num_traits::ToPrimitive;
 
 use crate::utils::CostParameters;
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
 use crate::sage_util::sagemath_eval;
-use crate::reduction::{matzov_short_vectors, EstimatesParams, BKZ};
+use crate::reduction::matzov_short_vectors;
 use crate::reduction::Estimates;
 use crate::{reduction, utils};
 use statrs::distribution::{ContinuousCDF, Normal};
@@ -88,9 +87,9 @@ impl SIS {
 
         // Step 1: Simulate Gram-Schmidt vector lengths using reduction simulator
         let gs_vectors_sizes =  reduction::gsa_simulator(dim, dim - self.h, q as usize, block_size, None);
-        let bkz: BKZ = reduction::BKZ::new(block_size, dim, None);
-        let sampling_cost: (f64, f64, usize, usize) = matzov_short_vectors(bkz, Some(dim), classical);
-        let bkz_cost: f64 = self.estimate(estimate_type, block_size);
+
+        let sampling_cost: (f64, f64, usize, usize) = matzov_short_vectors(block_size, dim, q as usize, Some(dim), classical);
+        let bkz_cost: f64 = reduction::bkz_cost(estimate_type, block_size, dim, q as usize);
         
         let mut log_proba: f64;
         if (self.w as f64).sqrt() * self.length_bound <= q {
@@ -192,7 +191,7 @@ impl SIS {
                     
                     //Actual reduction
                     if delta >= 1.0 && block_size <= w_opt.round() as usize {
-                        return self.estimate(estimate_type, block_size);
+                        return reduction::bkz_cost(estimate_type, block_size, self.h, q as usize).log2();
                     }
                     else {
                         panic!("The reduction is not doable with the given parameters");
@@ -228,28 +227,6 @@ impl SIS {
                     return final_cost;
                 }
             }
-        }
-    }
-
-    fn estimate(&self, estimate_type: Estimates, block_size: usize) -> f64 {
-        //Some(q.to_bits() as usize) //TODO see if it is better not to use the bitsize or not
-        let q: f64 = self.q.to_f64().unwrap();
-        let estimate_params: EstimatesParams = match estimate_type {
-            Estimates::CheNgue12=> EstimatesParams::CheNgue12(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::BDGL16=> EstimatesParams::BDGL16(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::LaaMosPol14=> EstimatesParams::LaaMosPol14(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::ABFKSW20=> EstimatesParams::ABFKSW20(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::ABLR21=> EstimatesParams::ABLR21(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::ADPS16=> EstimatesParams::ADPS16(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::ChaLoy21=> EstimatesParams::ChaLoy21(reduction::BKZ::new(block_size, self.h, None)),
-            Estimates::Kyber(classical)=> EstimatesParams::Kyber(reduction::BKZ::new(block_size, self.h, None), classical),
-            Estimates::Matzov(classical)=> EstimatesParams::Matzov(reduction::BKZ::new(block_size, self.h, None), classical),
-        };
-
-        
-        match reduction::cost(estimate_params) {
-            Ok(cost) => cost.log2(),
-            Err(e) => panic!("Error in estimating the cost: {}", e),
         }
     }
 
@@ -364,25 +341,25 @@ mod test {
     fn test_cost_models_l2() {
         let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
         
-        let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgue12);
+        let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgueEnum);
         println!("Cost CheNgue12: {falcon512_unf} -> lambda: {cost_chengue12}");
 
-        let cost_bdgl16: f64 = falcon512_unf.security_level_internal(Estimates::BDGL16);
+        let cost_bdgl16: f64 = falcon512_unf.security_level_internal(Estimates::BdglSieve);
         println!("Cost BDGL16: {falcon512_unf} -> lambda: {cost_bdgl16}");
 
-        let cost_laamospol14: f64 = falcon512_unf.security_level_internal(Estimates::LaaMosPol14);
+        let cost_laamospol14: f64 = falcon512_unf.security_level_internal(Estimates::QSieve);
         println!("Cost LaaMosPol14: {falcon512_unf} -> lambda: {cost_laamospol14}");
 
-        let cost_abfksw20: f64 = falcon512_unf.security_level_internal(Estimates::ABFKSW20);
+        let cost_abfksw20: f64 = falcon512_unf.security_level_internal(Estimates::AbfEnum(true));
         println!("Cost ABFKSW20: {falcon512_unf} -> lambda: {cost_abfksw20}");
 
-        let cost_ablr21: f64 = falcon512_unf.security_level_internal(Estimates::ABLR21);
+        let cost_ablr21: f64 = falcon512_unf.security_level_internal(Estimates::AblrEnum);
         println!("Cost ABLR21: {falcon512_unf} -> lambda: {cost_ablr21}");
 
-        let cost_adps16: f64 = falcon512_unf.security_level_internal(Estimates::ADPS16);
+        let cost_adps16: f64 = falcon512_unf.security_level_internal(Estimates::AdpsSieve(true));
         println!("Cost ADPS16: {falcon512_unf} -> lambda: {cost_adps16}");
 
-        let cost_chaloy21: f64 = falcon512_unf.security_level_internal(Estimates::ChaLoy21);
+        let cost_chaloy21: f64 = falcon512_unf.security_level_internal(Estimates::ChaLoySieve);
         println!("Cost ChaLoy21: {falcon512_unf} -> lambda: {cost_chaloy21}");
 
         let cost_kyber: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true));
@@ -398,7 +375,7 @@ mod test {
         assert!(lambda >= 128.);
         println!("External {dilithium2_msis_wk_unf} -> lambda: {lambda}");
 
-        let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::ABFKSW20);
+        let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::AbfEnum(true));
         println!("Internal Linf {dilithium2_msis_wk_unf} -> lambda: {cost_internal}");
     }
 
@@ -409,7 +386,6 @@ mod test {
         let sis = falcon512_unf.with_h(h_opt);
         println!("{} ", h_opt);
         let lambda = sis.security_level();
-        //assert!(lambda >= 128.0);
         println!(
             "{falcon512_unf} -> lambda: {}",
             falcon512_unf.security_level()

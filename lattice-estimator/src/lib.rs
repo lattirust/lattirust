@@ -1,5 +1,12 @@
 #![feature(try_trait_v2)]
 #![feature(int_roundings)]
+#![feature(const_fn_floating_point_arithmetic)]
+#![feature(effects)]
+#![feature(const_trait_impl)]
+#![feature(const_for)]
+#![feature(const_mut_refs)]
+#![feature(const_option)]
+
 
 pub mod errors;
 pub mod msis;
