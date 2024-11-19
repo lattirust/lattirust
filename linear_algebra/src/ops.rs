@@ -1,5 +1,6 @@
 use ark_std::{
     ops::{Add, BitXor, Div, Sub},
+    vec::*,
     Zero,
 };
 use num_integer::Integer;

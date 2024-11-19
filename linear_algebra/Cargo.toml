@@ -12,7 +12,6 @@ ark-std = { workspace = true }
 delegate = { workspace = true }
 derive_more = { workspace = true }
 nalgebra = { workspace = true }
-nalgebra-sparse = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
 num-integer = { workspace = true }
@@ -20,4 +19,7 @@ num-integer = { workspace = true }
 rayon = { version = "1.10", optional = true }
 
 [features]
-parallel = [ "rayon", "nalgebra/rayon" ]
+default = [ "std" ]
+std = [ "ark-std/std", "rand/std", "nalgebra/std", "nalgebra/serde-serialize" ]
+parallel = [ "std", "rayon", "nalgebra/rayon" ]
+no-std-serialize = [ "nalgebra/serde-serialize-no-std" ]

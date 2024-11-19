@@ -7,22 +7,28 @@ edition = "2021"
 
 [dependencies]
 lattirust-linear-algebra = { workspace = true }
+ark-crypto-primitives = { version = "0.4", default-features = false, features = [
+    "sponge",
+] }
 ark-ff = { workspace = true }
-ark-crypto-primitives = { workspace = true }
 ark-poly = { workspace = true }
 ark-serialize = { workspace = true }
 ark-std = { workspace = true }
 delegate = { workspace = true }
 derive_more = { workspace = true }
-rounded-div = { workspace = true }
 serde = { workspace = true }
 serde_with = { workspace = true }
 zeroize = { workspace = true }
 num-bigint = { workspace = true }
 num-integer = { workspace = true }
 rand = { workspace = true }
-num-traits = "0.2"
+num-traits = { version = "0.2", default-features = false }
 rayon = { version = "1.10", optional = true }
 
 [features]
-parallel = [ "rayon", "lattirust-linear-algebra/parallel" ]
+default = [ "std" ]
+std = [ "lattirust-linear-algebra/std" ]
+parallel = [ "std", "rayon", "lattirust-linear-algebra/parallel" ]
+
+[dev-dependencies]
+rand_chacha = { version = "0.3.1", default-features = false }

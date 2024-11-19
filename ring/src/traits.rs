@@ -1,3 +1,4 @@
+use ark_std::vec::*;
 use lattirust_linear_algebra::{Matrix, Vector};
 use num_bigint::BigUint;
 

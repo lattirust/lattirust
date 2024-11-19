@@ -13,16 +13,23 @@ impl ConvertibleRing for Fq {
     type SignedInt = SignedRepresentative<BigInt>;
 }
 
+#[cfg(feature = "std")]
 static MOD: ark_std::sync::OnceLock<BigInt> = ark_std::sync::OnceLock::new();
 
 impl From<SignedRepresentative<BigInt>> for Fq {
     fn from(value: SignedRepresentative<BigInt>) -> Self {
+        #[cfg(feature = "std")]
         let q: &BigInt = MOD.get_or_init(|| {
             UnsignedRepresentative::from(BigUint::from(Fq::MODULUS))
                 .0
                 .to_bigint()
                 .unwrap()
         });
+        #[cfg(not(feature = "std"))]
+        let q: &BigInt = &UnsignedRepresentative::from(BigUint::from(Fq::MODULUS))
+            .0
+            .to_bigint()
+            .unwrap();
 
         let r = value.0.rem_euclid(q);
 

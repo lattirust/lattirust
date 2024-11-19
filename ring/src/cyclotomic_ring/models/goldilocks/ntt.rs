@@ -2,6 +2,7 @@
 //! A CRT implementation for the ring Fq[X]/(X^24-X^12+1).
 //!
 use ark_ff::BigInt;
+use ark_std::vec::*;
 
 use super::{Fq, Fq3};
 
@@ -430,7 +431,8 @@ fn nonresidue_to_nonresidue_to_23(c: &mut [Fq]) {
 mod tests {
     use ark_ff::{Field, MontFp, UniformRand};
     use ark_std::{One, Zero};
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use super::*;
     use crate::cyclotomic_ring::models::goldilocks::Fq3;
@@ -457,7 +459,7 @@ mod tests {
 
     macro_rules! test_inverses {
         ($($isomorphism:expr, $inverse:expr),+) => {
-            let mut rng = thread_rng();
+            let mut rng = ChaCha8Rng::seed_from_u64(0);
             $({
                 let x = Fq3::rand(&mut rng);
                 let mut x_prime: Vec<Fq> = vec![x.c0, x.c1, x.c2];
@@ -538,7 +540,7 @@ mod tests {
 
     #[test]
     fn test_normalize_denormalize() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut x: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
 
         let expected = x.clone();
@@ -776,7 +778,7 @@ mod tests {
     }
 
     fn test_crt_icrt() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let coefficients: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
 
         let mut input = coefficients.clone();
@@ -796,7 +798,7 @@ mod tests {
 
     #[test]
     fn test_crt_non_inplace() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut coefficients: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
 
         let non_in_place = serial_goldilock_crt(coefficients.clone());
@@ -817,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_icrt_non_inplace() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut evaluations: Vec<Fq> = (0..24).map(|_| Fq::rand(&mut rng)).collect();
 
         let mut non_in_place: Vec<Fq3> = vec![Fq3::ZERO; N];

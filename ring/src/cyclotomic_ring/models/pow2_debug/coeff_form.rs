@@ -1,4 +1,5 @@
 use ark_ff::Field;
+use ark_std::vec::*;
 use num_bigint::BigUint;
 
 use super::Pow2Rp64Config;

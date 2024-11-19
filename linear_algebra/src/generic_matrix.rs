@@ -1,4 +1,5 @@
 use ark_std::{
+    convert::Into,
     iter::Sum,
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     One, Zero,

@@ -1,7 +1,10 @@
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::io::{Read, Write};
+use ark_std::{
+    io::{Read, Write},
+    vec::*,
+};
 use nalgebra::{
     allocator::Allocator, Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar,
     VecStorage,

@@ -6,19 +6,28 @@
 //! This module defines our main mathematical object `VirtualPolynomial`; and
 //! various functions associated with it.
 
+use super::{
+    errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list, RefCounter,
+};
+use crate::mle::DenseMultilinearExtension;
 use ark_serialize::CanonicalSerialize;
 use ark_std::{
     cfg_iter_mut, end_timer,
     rand::{Rng, RngCore},
     start_timer,
+    string::ToString,
+    vec::*,
 };
-use ark_std::{cmp::max, collections::HashMap, marker::PhantomData, ops::Add, sync::Arc};
+use ark_std::{cmp::max, marker::PhantomData, ops::Add};
+
+#[cfg(feature = "std")]
+use ark_std::collections::HashMap;
+#[cfg(not(feature = "std"))]
+use hashbrown::HashMap;
+
 use lattirust_ring::Ring;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-
-use super::{errors::ArithErrors, multilinear_polynomial::random_zero_mle_list, random_mle_list};
-use crate::mle::DenseMultilinearExtension;
 
 #[rustfmt::skip]
 /// A virtual polynomial is a sum of products of multilinear polynomials;
@@ -55,7 +64,7 @@ pub struct VirtualPolynomial<R: Ring> {
     pub products: Vec<(R, Vec<usize>)>,
     /// Stores multilinear extensions in which product multiplicand can refer
     /// to.
-    pub flattened_ml_extensions: Vec<Arc<DenseMultilinearExtension<R>>>,
+    pub flattened_ml_extensions: Vec<RefCounter<DenseMultilinearExtension<R>>>,
     /// Pointers to the above poly extensions
     raw_pointers_lookup_table: HashMap<*const DenseMultilinearExtension<R>, usize>,
 }
@@ -78,7 +87,7 @@ impl<R: Ring> Add for &VirtualPolynomial<R> {
         let start = start_timer!(|| "virtual poly add");
         let mut res = self.clone();
         for products in other.products.iter() {
-            let cur: Vec<Arc<DenseMultilinearExtension<R>>> = products
+            let cur: Vec<RefCounter<DenseMultilinearExtension<R>>> = products
                 .1
                 .iter()
                 .map(|&x| other.flattened_ml_extensions[x].clone())
@@ -109,8 +118,8 @@ impl<R: Ring> VirtualPolynomial<R> {
     }
 
     /// Creates an new virtual polynomial from a MLE and its coefficient.
-    pub fn new_from_mle(mle: &Arc<DenseMultilinearExtension<R>>, coefficient: R) -> Self {
-        let mle_ptr: *const DenseMultilinearExtension<R> = Arc::as_ptr(mle);
+    pub fn new_from_mle(mle: &RefCounter<DenseMultilinearExtension<R>>, coefficient: R) -> Self {
+        let mle_ptr: *const DenseMultilinearExtension<R> = RefCounter::as_ptr(mle);
         let mut hm = HashMap::new();
         hm.insert(mle_ptr, 0);
 
@@ -136,10 +145,11 @@ impl<R: Ring> VirtualPolynomial<R> {
     /// `coefficient`.
     pub fn add_mle_list(
         &mut self,
-        mle_list: impl IntoIterator<Item = Arc<DenseMultilinearExtension<R>>>,
+        mle_list: impl IntoIterator<Item = RefCounter<DenseMultilinearExtension<R>>>,
         coefficient: R,
     ) -> Result<(), ArithErrors> {
-        let mle_list: Vec<Arc<DenseMultilinearExtension<R>>> = mle_list.into_iter().collect();
+        let mle_list: Vec<RefCounter<DenseMultilinearExtension<R>>> =
+            mle_list.into_iter().collect();
         let mut indexed_product = Vec::with_capacity(mle_list.len());
 
         if mle_list.is_empty() {
@@ -158,7 +168,7 @@ impl<R: Ring> VirtualPolynomial<R> {
                 )));
             }
 
-            let mle_ptr: *const DenseMultilinearExtension<R> = Arc::as_ptr(&mle);
+            let mle_ptr: *const DenseMultilinearExtension<R> = RefCounter::as_ptr(&mle);
             if let Some(index) = self.raw_pointers_lookup_table.get(&mle_ptr) {
                 indexed_product.push(*index);
             } else {
@@ -179,7 +189,7 @@ impl<R: Ring> VirtualPolynomial<R> {
     /// Returns an error if the MLE has a different `num_vars` from self.
     pub fn mul_by_mle(
         &mut self,
-        mle: Arc<DenseMultilinearExtension<R>>,
+        mle: RefCounter<DenseMultilinearExtension<R>>,
         coefficient: R,
     ) -> Result<(), ArithErrors> {
         let start = start_timer!(|| "mul by mle");
@@ -191,7 +201,7 @@ impl<R: Ring> VirtualPolynomial<R> {
             )));
         }
 
-        let mle_ptr: *const DenseMultilinearExtension<R> = Arc::as_ptr(&mle);
+        let mle_ptr: *const DenseMultilinearExtension<R> = RefCounter::as_ptr(&mle);
 
         // check if this mle already exists in the virtual polynomial
         let mle_index = match self.raw_pointers_lookup_table.get(&mle_ptr) {
@@ -320,6 +330,7 @@ impl<R: Ring> VirtualPolynomial<R> {
     }
 
     /// Print out the evaluation map for testing. Panic if the num_vars > 5.
+    #[cfg(feature = "std")]
     pub fn print_evals(&self) {
         if self.aux_info.num_variables > 5 {
             panic!("this function is used for testing only. cannot print more than 5 num_vars");
@@ -366,11 +377,13 @@ pub fn eq_eval<R: Ring>(x: &[R], y: &[R]) -> Result<R, ArithErrors> {
 ///      eq(x,y) = \prod_i=1^num_var (x_i * y_i + (1-x_i)*(1-y_i))
 /// over r, which is
 ///      eq(x,y) = \prod_i=1^num_var (x_i * r_i + (1-x_i)*(1-r_i))
-pub fn build_eq_x_r<R: Ring>(r: &[R]) -> Result<Arc<DenseMultilinearExtension<R>>, ArithErrors> {
+pub fn build_eq_x_r<R: Ring>(
+    r: &[R],
+) -> Result<RefCounter<DenseMultilinearExtension<R>>, ArithErrors> {
     let evals = build_eq_x_r_vec(r)?;
     let mle = DenseMultilinearExtension::from_evaluations_vec(r.len(), evals);
 
-    Ok(Arc::new(mle))
+    Ok(RefCounter::new(mle))
 }
 /// This function build the eq(x, r) polynomial for any given r, and output the
 /// evaluation of eq(x, r) in its vector form.
@@ -439,6 +452,7 @@ fn build_eq_x_r_helper<R: Ring>(r: &[R], buf: &mut Vec<R>) -> Result<(), ArithEr
 }
 
 /// Decompose an integer into a binary vector in little endian.
+#[cfg(feature = "std")]
 pub fn bit_decompose(input: u64, num_var: usize) -> Vec<bool> {
     let mut res = Vec::with_capacity(num_var);
     let mut i = input;

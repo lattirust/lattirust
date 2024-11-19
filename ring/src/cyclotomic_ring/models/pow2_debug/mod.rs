@@ -4,6 +4,7 @@ mod ntt_form;
 
 use ark_ff::{BigInt, Field, Fp, FpConfig, MontBackend, Zero};
 use ark_poly::Radix2EvaluationDomain;
+use ark_std::vec::*;
 
 use crate::{
     cyclotomic_ring::RpConfig,

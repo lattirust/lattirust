@@ -1,5 +1,5 @@
 use ark_ff::{Field, Fp3, Fp3Config, MontBackend, MontFp};
-use ark_std::{mem::swap, ops::Mul};
+use ark_std::{mem::swap, ops::Mul, vec::*};
 
 use crate::{
     cyclotomic_ring::{
@@ -166,7 +166,8 @@ mod test {
         DenseUVPolynomial,
     };
     use ark_std::UniformRand;
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use super::*;
     use crate::{
@@ -215,7 +216,7 @@ mod test {
 
     #[test]
     fn test_reduce() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut coeffs: Vec<Fq> = (0..(2 * ntt::D)).map(|_| Fq::rand(&mut rng)).collect();
 
         let poly = DensePolynomial::from_coefficients_slice(&coeffs);
@@ -238,7 +239,7 @@ mod test {
 
     #[test]
     fn test_mul_crt() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         let coeff_1 = RqPoly::rand(&mut rng);
         let coeff_2 = RqPoly::rand(&mut rng);
@@ -255,7 +256,7 @@ mod test {
 
     #[test]
     fn test_cyclotomic() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         let mut a = RqPoly::rand(&mut rng);
         let initial_a = a;

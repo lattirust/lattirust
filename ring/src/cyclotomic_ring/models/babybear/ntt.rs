@@ -2,6 +2,7 @@
 //! A CRT implementation for the ring Fq[X]/(X^72 - X^36 + 1).
 //!
 use ark_ff::BigInt;
+use ark_std::vec::*;
 
 use super::{fq9::fq_vec_to_fq9_vec, Fq, Fq9};
 use crate::cyclotomic_ring::models::babybear::fq9::fq9_vec_to_fq_vec;
@@ -586,7 +587,8 @@ mod tests {
         univariate::{DenseOrSparsePolynomial, DensePolynomial, SparsePolynomial},
         DenseUVPolynomial,
     };
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     #[test]
     fn test_babybear_roots_of_unity() {
@@ -610,7 +612,7 @@ mod tests {
 
     macro_rules! test_inverses {
         ($($isomorphism:expr, $inverse:expr),+) => {
-            let mut rng = thread_rng();
+            let mut rng = ChaCha8Rng::seed_from_u64(0);
             $({
                 let x = Fq9::rand(&mut rng);
                 let mut x_prime = fq9_vec_to_fq_vec(vec![x]);
@@ -702,7 +704,7 @@ mod tests {
     }
 
     fn test_fq9_multiplication() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let f1 = Fq9::rand(&mut rng);
         let f2 = Fq9::rand(&mut rng);
         let f_mul = f1 * f2;
@@ -738,7 +740,7 @@ mod tests {
 
     #[test]
     fn test_normalize_denormalize() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut x: Vec<Fq> = (0..72).map(|_| Fq::rand(&mut rng)).collect();
 
         let expected = x.clone();
@@ -750,7 +752,7 @@ mod tests {
     }
 
     fn test_babybear_crt() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let mut test_poly = (0..D).map(|_| Fq::rand(&mut rng)).collect::<Vec<_>>();
 
         let poly = DensePolynomial::from_coefficients_slice(&test_poly);
@@ -1007,7 +1009,7 @@ mod tests {
     }
 
     fn test_crt_icrt() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let coefficients: Vec<Fq> = (0..72).map(|_| Fq::rand(&mut rng)).collect();
 
         let mut input = coefficients.clone();
@@ -1018,7 +1020,7 @@ mod tests {
         assert_eq!(coefficients, input);
     }
     fn test_crt_icrt_not_in_place() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         let coefficients: Vec<Fq> = (0..72).map(|_| Fq::rand(&mut rng)).collect();
 
         let input = coefficients.clone();

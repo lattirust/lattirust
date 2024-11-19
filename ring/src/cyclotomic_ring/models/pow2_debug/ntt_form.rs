@@ -74,13 +74,14 @@ mod tests {
     use super::*;
     use crate::cyclotomic_ring::{crt::CRT, models::pow2_debug::Pow2CyclotomicPolyRing, ICRT};
     use ark_std::UniformRand;
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     const FERMAT_Q: u64 = 65537;
 
     #[test]
     fn test_crt_conversion() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         // Test for a few different sizes
         test_crt_size::<8>(&mut rng);

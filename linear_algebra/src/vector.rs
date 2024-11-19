@@ -1,4 +1,4 @@
-use ark_std::{rand, UniformRand, Zero};
+use ark_std::{rand, vec::*, UniformRand, Zero};
 use delegate::delegate;
 use nalgebra::{
     self, allocator::Allocator, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage,

@@ -3,7 +3,7 @@
 
 // Adapted for rings by Nethermind
 
-use ark_std::log2;
+use ark_std::{log2, vec::*};
 use lattirust_ring::Ring;
 
 /// Decompose an integer into a binary vector in little endian.

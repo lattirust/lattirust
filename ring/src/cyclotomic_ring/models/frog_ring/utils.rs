@@ -1,4 +1,5 @@
 use super::{Fq, Fq4};
+use ark_std::vec::*;
 
 pub(super) fn fq_vec_to_fq4_vec(mut vec: Vec<Fq>) -> Vec<Fq4> {
     vec.shrink_to_fit();

@@ -1,5 +1,6 @@
 use ark_ff::{Field, Fp, FpConfig};
 use ark_poly::EvaluationDomain;
+use ark_std::vec::*;
 
 use crate::Ring;
 

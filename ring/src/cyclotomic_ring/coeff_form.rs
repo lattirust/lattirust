@@ -11,6 +11,7 @@ use ark_std::{
     iter::{Iterator, Product, Sum},
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     rand::Rng,
+    vec::*,
     One, UniformRand, Zero,
 };
 use derive_more::{From, Into};

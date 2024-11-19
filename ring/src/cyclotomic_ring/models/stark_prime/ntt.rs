@@ -2,6 +2,7 @@
 //! A CRT implementation for the ring Fq[X]/(X^16 + 1), where q is the Starknet prime.
 //!
 use ark_ff::MontFp;
+use ark_std::vec::*;
 
 use super::Fq;
 
@@ -344,7 +345,8 @@ fn serial_stark_prime_icrt_in_place(evaluations: &mut [Fq]) {
 mod tests {
     use ark_ff::{Field, MontFp, UniformRand};
     use ark_std::Zero;
-    use rand::thread_rng;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use super::*;
 
@@ -539,7 +541,8 @@ mod tests {
     }
 
     fn test_crt_icrt() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
+
         let coefficients: Vec<Fq> = (0..16).map(|_| Fq::rand(&mut rng)).collect();
 
         let mut input = coefficients.clone();

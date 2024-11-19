@@ -3,11 +3,11 @@
 
 // Adapted for rings by Nethermind
 
-use ark_std::{end_timer, rand::RngCore, start_timer, sync::Arc};
+use ark_std::{end_timer, rand::RngCore, start_timer, string::ToString, vec::*};
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
-use super::{util::get_batched_nv, ArithErrors};
+use super::{util::get_batched_nv, ArithErrors, RefCounter};
 pub use crate::mle::DenseMultilinearExtension;
 use crate::mle::MultilinearExtension;
 use lattirust_ring::Ring;
@@ -20,7 +20,7 @@ pub fn random_mle_list<R: Ring, Rn: RngCore>(
     nv: usize,
     degree: usize,
     rng: &mut Rn,
-) -> (Vec<Arc<DenseMultilinearExtension<R>>>, R) {
+) -> (Vec<RefCounter<DenseMultilinearExtension<R>>>, R) {
     let start = start_timer!(|| "sample random mle list");
     let mut multiplicands = Vec::with_capacity(degree);
     for _ in 0..degree {
@@ -41,7 +41,7 @@ pub fn random_mle_list<R: Ring, Rn: RngCore>(
 
     let list = multiplicands
         .into_iter()
-        .map(|x| Arc::new(DenseMultilinearExtension::from_evaluations_vec(nv, x)))
+        .map(|x| RefCounter::new(DenseMultilinearExtension::from_evaluations_vec(nv, x)))
         .collect();
 
     end_timer!(start);
@@ -53,7 +53,7 @@ pub fn random_zero_mle_list<R: Ring, Rn: RngCore>(
     nv: usize,
     degree: usize,
     rng: &mut Rn,
-) -> Vec<Arc<DenseMultilinearExtension<R>>> {
+) -> Vec<RefCounter<DenseMultilinearExtension<R>>> {
     let start = start_timer!(|| "sample random zero mle list");
 
     let mut multiplicands = Vec::with_capacity(degree);
@@ -69,7 +69,7 @@ pub fn random_zero_mle_list<R: Ring, Rn: RngCore>(
 
     let list = multiplicands
         .into_iter()
-        .map(|x| Arc::new(DenseMultilinearExtension::from_evaluations_vec(nv, x)))
+        .map(|x| RefCounter::new(DenseMultilinearExtension::from_evaluations_vec(nv, x)))
         .collect();
 
     end_timer!(start);
@@ -85,14 +85,14 @@ pub fn identity_permutation<R: Ring>(num_vars: usize, num_chunks: usize) -> Vec<
 pub fn identity_permutation_mles<R: Ring>(
     num_vars: usize,
     num_chunks: usize,
-) -> Vec<Arc<DenseMultilinearExtension<R>>> {
+) -> Vec<RefCounter<DenseMultilinearExtension<R>>> {
     let mut res = vec![];
     for i in 0..num_chunks {
         let shift = (i * (1 << num_vars)) as u64;
         let s_id_vec = (shift..shift + (1u64 << num_vars)).map(R::from).collect();
-        res.push(Arc::new(DenseMultilinearExtension::from_evaluations_vec(
-            num_vars, s_id_vec,
-        )));
+        res.push(RefCounter::new(
+            DenseMultilinearExtension::from_evaluations_vec(num_vars, s_id_vec),
+        ));
     }
     res
 }
@@ -117,15 +117,17 @@ pub fn random_permutation_mles<R: Ring, Rn: RngCore>(
     num_vars: usize,
     num_chunks: usize,
     rng: &mut Rn,
-) -> Vec<Arc<DenseMultilinearExtension<R>>> {
+) -> Vec<RefCounter<DenseMultilinearExtension<R>>> {
     let s_perm_vec = random_permutation(num_vars, num_chunks, rng);
     let mut res = vec![];
     let n = 1 << num_vars;
     for i in 0..num_chunks {
-        res.push(Arc::new(DenseMultilinearExtension::from_evaluations_vec(
-            num_vars,
-            s_perm_vec[i * n..i * n + n].to_vec(),
-        )));
+        res.push(RefCounter::new(
+            DenseMultilinearExtension::from_evaluations_vec(
+                num_vars,
+                s_perm_vec[i * n..i * n + n].to_vec(),
+            ),
+        ));
     }
     res
 }
@@ -200,8 +202,8 @@ fn fix_variables_no_par<R: Ring>(
 /// merge a set of polynomials. Returns an error if the
 /// polynomials do not share a same number of nvs.
 pub fn merge_polynomials<R: Ring>(
-    polynomials: &[Arc<DenseMultilinearExtension<R>>],
-) -> Result<Arc<DenseMultilinearExtension<R>>, ArithErrors> {
+    polynomials: &[RefCounter<DenseMultilinearExtension<R>>],
+) -> Result<RefCounter<DenseMultilinearExtension<R>>, ArithErrors> {
     let nv = polynomials[0].num_vars();
     for poly in polynomials.iter() {
         if nv != poly.num_vars() {
@@ -217,9 +219,9 @@ pub fn merge_polynomials<R: Ring>(
         scalars.extend_from_slice(poly.to_evaluations().as_slice());
     }
     scalars.extend_from_slice(vec![R::zero(); (1 << merged_nv) - scalars.len()].as_ref());
-    Ok(Arc::new(DenseMultilinearExtension::from_evaluations_vec(
-        merged_nv, scalars,
-    )))
+    Ok(RefCounter::new(
+        DenseMultilinearExtension::from_evaluations_vec(merged_nv, scalars),
+    ))
 }
 
 pub fn fix_last_variables_no_par<R: Ring>(

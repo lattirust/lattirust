@@ -3,6 +3,7 @@
 //! to cheaply cast them into vectors of corresponding base field coefficients and its "inverse" `promote_from_coeffs`.
 //!
 use crate::PolyRing;
+use ark_std::vec::*;
 
 use super::{CyclotomicConfig, CyclotomicPolyRingGeneral, CyclotomicPolyRingNTTGeneral};
 
@@ -45,7 +46,9 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> Flatten
 #[cfg(test)]
 mod tests {
     use ark_ff::{One, UniformRand};
-    use rand::thread_rng;
+    use ark_std::vec::*;
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use crate::cyclotomic_ring::{
         flatten::Flatten,
@@ -126,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_flatten_promote_coeff() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         let orig: Vec<RqPoly> = (0..3).map(|_| RqPoly::rand(&mut rng)).collect();
         let flattened = RqPoly::flatten_to_coeffs(orig.clone());

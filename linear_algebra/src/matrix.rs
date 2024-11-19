@@ -1,4 +1,7 @@
-use ark_std::{ops::Neg, rand, rand::prelude::SliceRandom, One, UniformRand, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::{
+    convert::Into, ops::Neg, rand, rand::prelude::SliceRandom, vec::*, One, UniformRand, Zero,
+};
 use delegate::delegate;
 use nalgebra::{self, ComplexField, Dyn, VecStorage};
 
@@ -74,7 +77,7 @@ where
     }
 }
 
-impl<T: Scalar + UniformRand> Matrix<T> {
+impl<T: CanonicalSerialize + CanonicalDeserialize + Scalar + UniformRand> Matrix<T> {
     pub fn rand<Rng: rand::Rng + ?Sized>(m: usize, n: usize, rng: &mut Rng) -> Self {
         Self::from_fn(m, n, |_, _| T::rand(rng))
     }

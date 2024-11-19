@@ -6,6 +6,7 @@ use ark_std::{
     fmt::Debug,
     hash::Hash,
     ops::{Add, AddAssign, Index, Neg, SubAssign},
+    vec::*,
     Zero,
 };
 use rand::Rng;

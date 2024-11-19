@@ -1,6 +1,6 @@
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::Field;
-use ark_std::ops::Mul;
+use ark_std::{ops::Mul, vec::*};
 
 use crate::{cyclotomic_ring::Flatten, traits::FromRandomBytes, Ring};
 

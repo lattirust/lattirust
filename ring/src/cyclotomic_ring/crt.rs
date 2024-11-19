@@ -1,4 +1,4 @@
-use ark_std::{ptr, slice};
+use ark_std::{ptr, slice, vec::*};
 
 /// Enables Chinese Remainder Transform (CRT) conversion from coefficient representation to NTT representation.
 pub trait CRT: Sized {

@@ -4,15 +4,16 @@ use ark_serialize::{
 use ark_std::{
     io::{Read, Write},
     ops::{Index, IndexMut},
-    rand, UniformRand, Zero,
+    rand,
+    vec::*,
+    UniformRand, Zero,
 };
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use crate::{Matrix, Scalar};
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Hash)]
 pub struct SymmetricMatrix<F: Clone>(Vec<Vec<F>>);
 
 impl<F: Clone> From<Vec<Vec<F>>> for SymmetricMatrix<F> {

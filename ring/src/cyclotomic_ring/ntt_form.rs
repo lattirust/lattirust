@@ -6,6 +6,7 @@ use ark_std::{
     iter::{Product, Sum},
     ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign},
     rand::Rng,
+    vec::*,
     One, UniformRand, Zero,
 };
 use derive_more::{From, Into};
@@ -653,8 +654,9 @@ impl<C: CyclotomicConfig<N>, const N: usize, const D: usize> From<Vec<C::BaseCRT
 #[cfg(test)]
 mod tests {
     use ark_ff::{Fp, MontBackend};
-    use ark_std::UniformRand;
-    use rand::thread_rng;
+    use ark_std::{vec::*, UniformRand};
+    use rand::SeedableRng;
+    use rand_chacha::ChaCha8Rng;
 
     use crate::cyclotomic_ring::CRT;
     use crate::{
@@ -702,7 +704,7 @@ mod tests {
 
     #[test]
     fn test_ntt_pow2() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
         for &size in FERMAT_NS.iter() {
             let initial_coeffs = (0..size)
                 .map(|_| Fp::<MontBackend<FermatFqConfig, 1>, 1>::rand(&mut rng))
@@ -727,7 +729,7 @@ mod tests {
     }
 
     fn test_mul_ntt_pow2<const SIZE: usize>() {
-        let mut rng = thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(0);
 
         let coeff_1 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);
         let coeff_2 = Pow2CyclotomicPolyRing::<FERMAT_Q, SIZE>::rand(&mut rng);

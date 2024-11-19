@@ -1,6 +1,10 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 #![feature(trait_alias)]
 #![allow(incomplete_features)]
 #![feature(inherent_associated_types)]
+
+#[macro_use]
+extern crate ark_std;
 
 mod generic_matrix;
 mod matrix;

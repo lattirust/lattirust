@@ -2,6 +2,7 @@ use ark_std::{
     cfg_chunks, cfg_chunks_mut, cfg_into_iter, cfg_iter, cfg_iter_mut,
     iter::Sum,
     ops::{AddAssign, Mul, MulAssign},
+    vec::*,
     One, Zero,
 };
 use num_traits::Signed;

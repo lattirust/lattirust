@@ -1,8 +1,10 @@
 use ark_ff::Zero;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
+    borrow::ToOwned,
     cfg_iter, log2,
     ops::{Add, AddAssign, Index, Mul, Neg, Sub, SubAssign},
+    vec::*,
 };
 use lattirust_linear_algebra::SparseMatrix;
 #[cfg(feature = "parallel")]
@@ -162,7 +164,7 @@ impl<R: Ring> Add for DenseMultilinearExtension<R> {
         &self + &other
     }
 }
-impl<'a, 'b, R: Ring> Add<&'a DenseMultilinearExtension<R>> for &'b DenseMultilinearExtension<R> {
+impl<'a, R: Ring> Add<&'a DenseMultilinearExtension<R>> for &DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
     fn add(self, rhs: &'a DenseMultilinearExtension<R>) -> Self::Output {
@@ -223,7 +225,7 @@ impl<R: Ring> Sub for DenseMultilinearExtension<R> {
         &self - &other
     }
 }
-impl<'a, 'b, R: Ring> Sub<&'a DenseMultilinearExtension<R>> for &'b DenseMultilinearExtension<R> {
+impl<'a, R: Ring> Sub<&'a DenseMultilinearExtension<R>> for &DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
     #[allow(clippy::suspicious_arithmetic_impl)]
