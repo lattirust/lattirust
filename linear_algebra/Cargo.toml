@@ -1,7 +1,9 @@
 [package]
 name = "lattirust-linear-algebra"
-version = "0.0.1-alpha"
-edition = "2021"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

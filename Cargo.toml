@@ -6,6 +6,12 @@ members = [
 ]
 resolver = "2"
 
+[workspace.package]
+authors = [ "Christian Knabenhans", "Nethermind" ]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+version = "0.0.1-alpha"
+
 [workspace.dependencies]
 lattirust-ring = { path = "./ring", default-features = false }
 lattirust-poly = { path = "./poly", default-features = false }
