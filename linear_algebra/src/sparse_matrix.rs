@@ -70,6 +70,18 @@ impl<
     pub fn ncols(&self) -> usize {
         self.n_cols
     }
+
+    pub fn pad_rows(&mut self, new_size: usize) {
+        if new_size > self.nrows() {
+            self.n_rows = new_size;
+        }
+    }
+
+    pub fn pad_cols(&mut self, new_size: usize) {
+        if new_size > self.ncols() {
+            self.n_cols = new_size;
+        }
+    }
 }
 
 pub fn dense_matrix_to_sparse<
