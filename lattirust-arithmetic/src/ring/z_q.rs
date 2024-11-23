@@ -26,26 +26,11 @@ use zeroize::Zeroize;
 
 use crate::balanced_decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
-use crate::ring::{NttRing, Ring};
 use crate::ring::ntt::Ntt;
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::z_q_signed_representative::ZqSignedRepresentative;
+use crate::ring::{NttRing, Ring};
 use crate::traits::{FromRandomBytes, Modulus, WithLinfNorm};
-
-/// Return x^k mod Q
-const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
-    let mut res: u128 = 1;
-    let mut x: u128 = x as u128;
-    let mut k: u128 = k as u128;
-    while k > 0 {
-        if k % 2 == 1 {
-            res = (res * x) % (Q as u128);
-        }
-        x = (x * x) % (Q as u128);
-        k /= 2;
-    }
-    res as u64
-}
 
 /// Returns an array containing the prime factors of `n`.
 /// The length of the array is fixed to 64, with remaining slots filled with 0s.
@@ -68,6 +53,7 @@ pub const fn prime_factors(mut n: u64) -> [u64; 64] {
     factors
 }
 
+/*
 const fn generator<const Q: u64>() -> u64 {
     assert!(const_primes::is_prime(Q));
 
@@ -106,15 +92,7 @@ const fn generator<const Q: u64>() -> u64 {
     }
     panic!("No generator found");
 }
-
-const fn is_primitive_root_of_unity<const Q: u64>(x: u64, N: u64) -> bool {
-    let exp = (Q - 1) / N as u64;
-    let n_half = N as u64 / 2;
-    // Ideally, this would be a randomized algorithm, randomness in const functions is hard, so we iterate through all integers mod Q instead.
-    let g = const_pow_mod::<Q>(x, exp);
-    let g_2 = const_pow_mod::<Q>(g, n_half);
-    return g_2 != 1;
-}
+*/
 
 pub struct FqConfig<const Q: u64> {}
 
@@ -145,12 +123,11 @@ pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
 
 pub const fn fq_zero<const Q: u64>() -> Fq<Q> {
     MontBackend::<FqConfig<Q>, 1>::ZERO
-} 
-
+}
 
 pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
     const MODULI: [u64; L];
-    type Limbs: Sync + Send + Sized + Clone + Copy + Debug + Hash + PartialEq + Eq + Zeroize; // [dyn Fq<_>; L];
+    type Limbs: Sync + Send + Sized + Clone + Copy + Debug + Hash + PartialEq + Eq + Zeroize;
 
     const ZERO: Zq<Self, L>;
     const ONE: Zq<Self, L>;
@@ -179,12 +156,10 @@ pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
     /// Compute a^{-1} if `a` is not zero.
     fn inverse(a: &Zq<Self, L>) -> Option<Zq<Self, L>>;
 
-    /// Construct a field element from an integer in the range `0..(Self::MODULUS - 1)`. Returns `None` if the integer is outside
-    /// this range.
+    /// Construct a field element from an integer in the range `0..(Self::MODULUS - 1)`. Returns `None` if the integer is outside this range.
     fn from_bigint(other: BigInt<L>) -> Option<Zq<Self, L>>;
 
-    /// Convert a field element to an integer in the range `0..(Self::MODULUS -
-    /// 1)`.
+    /// Convert a field element to an integer in the range `0..(Self::MODULUS - 1)`.
     fn into_bigint(other: Zq<Self, L>) -> BigInt<L>;
 
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Zq<Self, L>;
@@ -236,8 +211,7 @@ impl<C: ZqConfig<L>, const L: usize> Ring for Zq<C, L> {
     const ONE: Self = C::ONE;
 
     fn inverse(&self) -> Option<Self> {
-        // Field::inverse(&self)
-        todo!()
+        C::inverse(self)
     }
 }
 
