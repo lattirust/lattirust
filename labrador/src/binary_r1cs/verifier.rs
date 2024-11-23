@@ -85,8 +85,10 @@ where
     //TODO: add crs and statement to transcript
     let (index_pr, instance_pr) =
         verify_reduction_binaryr1cs_labradorpr(arthur, pp, index, instance)?;
+    
+    debug_assert_eq!(index_pr, pp.core_crs);
 
     arthur.ratchet()?;
 
-    verify_principal_relation(arthur, &instance_pr, &pp.core_crs)
+    verify_principal_relation(arthur, &index_pr, &instance_pr)
 }

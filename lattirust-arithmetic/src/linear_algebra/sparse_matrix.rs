@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::ops::{AddAssign, Mul};
+use std::ops::AddAssign;
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};
@@ -9,9 +9,9 @@ use nalgebra_sparse::CooMatrix;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-use crate::linear_algebra::{Matrix, Vector};
 use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::Scalar;
+use crate::linear_algebra::{Matrix, Vector};
 
 #[derive(Clone, Debug, PartialEq, From, Into, Mul, MulAssign, Index, IndexMut)]
 pub struct SparseMatrix<R>(nalgebra_sparse::CscMatrix<R>); // We typically have more rows than columns, hence CSC.

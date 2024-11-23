@@ -10,7 +10,6 @@ use lattirust_arithmetic::balanced_decomposition::{
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
-use lattirust_arithmetic::linear_algebra::Scalar;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
@@ -38,15 +37,15 @@ where
         debug_assert_eq!(witness_2.ncols(), pp.inner_security_parameter);
 
         // Compute cross inner products witness_2^T * witness_1 (over the integers)
-        let witness_2_int = witness_2.map(|x| Into::<F::SignedRepresentative>::into(x));
-        let witness_1_int = witness_1.map(|x| Into::<F::SignedRepresentative>::into(x));
+        // let _witness_1_int = witness_1.map(|x| Into::<F::SignedRepresentative>::into(x));
+        // let _witness_2_int = witness_2.map(|x| Into::<F::SignedRepresentative>::into(x));
         // TODO: we could do the multiplication over the integers, but we're not doing it right now because we typically work over Z_2^64 anyway, and getting all the type bounds is a bit cumbersome at the moment.
         // let cross_terms = &witness_2_int.transpose() * &witness_1_int;
         let cross_terms = &witness_2.transpose() * &witness_1;
         merlin.absorb_matrix_ser::<F>(&cross_terms)?;
         merlin.ratchet()?;
 
-        let mut witness = witness_1;
+        let mut witness = witness_1.clone();
         witness.extend(witness_2.column_iter());
 
         Ok(witness)
@@ -104,7 +103,7 @@ where
         merlin.ratchet()?;
 
         // Compute inner products over the integers
-        let decomp_witness_int = &to_integers(&decomp_witness);
+        let _decomp_witness_int = &to_integers(&decomp_witness);
         let inner_products_decomp: SymmetricMatrix<F> = inner_products_mat(&decomp_witness); // TODO: work over the integers
         debug_assert_eq!(
             inner_products_decomp.size(),

@@ -8,7 +8,6 @@ use lattirust_arithmetic::balanced_decomposition::{
 use lattirust_arithmetic::challenge_set::ternary::{
     mul_f_trit, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit,
 };
-use lattirust_arithmetic::linear_algebra::Scalar;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
@@ -94,7 +93,7 @@ where for<'a> &'a F: Mul<&'a F, Output = F>,
         let inner_products_recomp: SymmetricMatrix<F> =
             recompose_left_right_symmetric_matrix(
                 &inner_products_decomp,
-                pp.powers_of_basis_int().as_slice(),
+                pp.powers_of_basis().as_slice(),
             );
 
         check_eq!(

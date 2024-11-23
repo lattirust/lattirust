@@ -7,4 +7,3 @@ edition = "2021"
 
 [dependencies]
 lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
-ark-ff = "0.4.2"

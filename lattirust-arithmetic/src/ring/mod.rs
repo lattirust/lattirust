@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::iter::{Product, Sum};
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{BitIteratorBE, BitIteratorLE, Field};
+use ark_ff::{AdditiveGroup, BitIteratorBE, BitIteratorLE, Field};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
@@ -28,12 +28,12 @@ mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring_ntt;
 pub mod representatives;
+pub mod util;
 mod z_2;
 mod z_2_128;
 mod z_2_64;
 mod z_q;
 pub(crate) mod z_q_signed_representative;
-pub mod util;
 
 pub trait Ring:
 'static
@@ -156,9 +156,9 @@ pub trait Ring:
 
 impl<T> Ring for T
 where
-    T: Field + Modulus + FromRandomBytes<T> + WithLinfNorm + WithL2Norm,
+    T: Field + AdditiveGroup + Modulus + FromRandomBytes<T> + WithLinfNorm + WithL2Norm,
 {
-    const ZERO: Self = <Self as Field>::ZERO;
+    const ZERO: Self = <Self as AdditiveGroup>::ZERO;
     const ONE: Self = <Self as Field>::ONE;
 
     fn inverse(&self) -> Option<Self> {

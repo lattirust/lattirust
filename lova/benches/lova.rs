@@ -12,7 +12,7 @@ use lova::util::{
     PublicParameters,
 };
 use lova::verifier::Verifier;
-use relations::traits::Relation;
+use relations::Relation;
 
 type F = Z2_64;
 const SECURITY_PARAMETER: usize = 128;

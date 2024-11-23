@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use ark_std::iterable::Iterable;
 use log::debug;
 use nimue::{Arthur, ProofError, ProofResult};
 use num_bigint::BigUint;
@@ -325,8 +326,8 @@ where
 
 pub fn verify_principal_relation<R: PolyRing>(
     arthur: &mut Arthur,
+    index: &Index<R>,
     instance: &Instance<R>,
-    crs: &Index<R>,
 ) -> Result<(), ProofError>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
@@ -341,7 +342,7 @@ where
 
     let mut transcript: BaseTranscript<R>;
     let mut instance = instance.to_owned();
-    let mut crs = crs.to_owned();
+    let mut crs = index.to_owned();
     loop {
         transcript = verify_core(&crs, &instance, arthur)?;
         let recurse = crs.next_crs.is_some();

@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::io::{Read, Write};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::iter::{Product};
+use std::ops::{Mul, MulAssign, Neg};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,

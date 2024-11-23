@@ -3,8 +3,9 @@ use std::collections::VecDeque;
 use num_traits::Zero;
 use rayon::prelude::*;
 
-use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
-use crate::linear_algebra::generic_matrix::{ClosedAdd, ClosedMul};
+use crate::linear_algebra::{
+    ClosedAddAssign, ClosedMulAssign, Matrix, Scalar, SymmetricMatrix, Vector,
+};
 use crate::ring::PolyRing;
 
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
@@ -64,7 +65,7 @@ pub fn inner_products<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
 
 /// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$, where $s \in R^{m \times, n}$
 /// This is equivalent to the lower triangular part of the symmetric matrix $s^T \cdot s$.
-pub fn inner_products_mat<R: Scalar + ClosedAdd + ClosedMul + Zero + Sync + Send>(
+pub fn inner_products_mat<R: Scalar + ClosedAddAssign + ClosedMulAssign + Zero + Sync + Send>(
     s: &Matrix<R>,
 ) -> SymmetricMatrix<R> {
     let ranges = lower_triang_indices(s.ncols());

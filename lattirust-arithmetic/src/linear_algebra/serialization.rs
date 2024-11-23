@@ -3,8 +3,8 @@ use std::io::{Read, Write};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use nalgebra::allocator::Allocator;
 use nalgebra::{Const, DefaultAllocator, Dim, Dyn, IsContiguous, RawStorage, Scalar, VecStorage};
+use nalgebra::allocator::Allocator;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
@@ -87,7 +87,7 @@ where
 impl<T: Scalar> CanonicalDeserialize for Matrix<T>
 where
     T: CanonicalDeserialize + Send,
-    DefaultAllocator: Allocator<T, Dyn, Dyn>,
+    DefaultAllocator: Allocator<Dyn, Dyn>,
 {
     fn deserialize_with_mode<Re: Read>(
         mut reader: Re,
@@ -111,7 +111,7 @@ impl<T: Scalar, R: Dim, S: RawStorage<T, R, Const<1>> + IsContiguous + Sync> Can
     for GenericVector<T, R, S>
 where
     T: CanonicalDeserialize + Send,
-    DefaultAllocator: Allocator<T, Dyn, Const<1>>,
+    DefaultAllocator: Allocator<Dyn, Const<1>>,
     Self: TryFrom<Vec<T>>,
 {
     fn deserialize_with_mode<Re: Read>(

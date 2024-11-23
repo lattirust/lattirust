@@ -60,9 +60,9 @@ impl<T, S> GenericVector<T, Dyn, S>
 where
     T: Scalar,
     S: RawStorage<T, Dyn, Const<1>>,
-    DefaultAllocator: Allocator<T, Dyn, Const<1>>,
+    DefaultAllocator: Allocator<Dyn, Const<1>>,
 {
-    pub type VectorBuffer = <DefaultAllocator as Allocator<T, Dyn, Const<1>>>::Buffer;
+    pub type VectorBuffer = <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>;
     pub fn from_fn<F: FnMut(usize, usize) -> T>(
         n: usize,
         f: F,

@@ -10,17 +10,17 @@ lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmeti
 lattice-estimator = { version = "0.0.1-alpha", path = "../lattice-estimator" }
 lattirust-util = { version = "0.0.1-alpha", path = "../lattirust-util" }
 relations = { version = "0.0.1-alpha", path = "../relations" }
-ark-ff = "0.4.2"
-ark-std = "0.4.0"
-ark-r1cs-std = "0.4.0"
-ark-relations = "0.4.0"
-log = "0.4.21"
+ark-ff = "0.5.0"
+ark-std = "0.5.0"
+ark-r1cs-std = "0.5.0"
+ark-relations = "0.5.1"
+log = "0.4.22"
 nimue = "0.1.0"
-num-bigint = "0.4.4"
-num-traits = "0.2.18"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
 pretty_env_logger = "0.5.0"
 rayon = "1.10.0"
-serde = "1.0.197"
+serde = "1.0.215"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-indicatif = "0.17.8"
+indicatif = "0.17.9"

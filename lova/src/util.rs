@@ -1,13 +1,12 @@
 use std::marker::PhantomData;
 
-use ark_std::{One, UniformRand};
 use ark_std::rand::thread_rng;
+use ark_std::UniformRand;
 use derive_more::Display;
 use log::{debug, info};
 use nimue::{DuplexHash, IOPattern};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
-use num_traits::real::Real;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -17,16 +16,19 @@ use lattirust_arithmetic::balanced_decomposition::{
     balanced_decomposition_max_length, DecompositionFriendlySignedRepresentative,
 };
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
+use lattirust_arithmetic::ring;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::ring::Ring;
 use lattirust_arithmetic::traits::WithL2Norm;
 use relations::Relation;
+
+use crate::util::OptimizationMode::OptimizeForSize;
 
 const COMPLETENESS_ERROR: usize = 128;
 
@@ -312,28 +314,7 @@ impl<F: Ring> PublicParameters<F> {
 
 impl<F: Ring + WithSignedRepresentative> PublicParameters<F> {
     pub fn powers_of_basis(&self) -> Vec<F> {
-        self.powers_of_basis_int()
-            .into_iter()
-            .map(|x| Into::<F>::into(x))
-            .collect()
-    }
-
-    pub fn powers_of_basis_int(&self) -> Vec<F> {
-        let mut pows = Vec::<F>::with_capacity(self.decomposition_length);
-        pows.push(F::one());
-        let basis = F::try_from(self.decomposition_basis).unwrap();
-        assert!(
-            F::modulus()
-                .to_f64()
-                .unwrap()
-                .log(self.decomposition_basis as f64)
-                > (self.decomposition_length - 1) as f64,
-            "ring must be large enough to support basis^i for i = 0..decomposition_length"
-        );
-        for i in 1..self.decomposition_length {
-            pows.push(pows[i - 1].clone() * basis.clone());
-        }
-        pows
+        ring::util::powers_of_basis(F::try_from(self.decomposition_basis).unwrap(), self.decomposition_length)
     }
 }
 
@@ -404,13 +385,28 @@ where
     fn generate_satisfied_instance(
         size: &Self::Size,
     ) -> (Self::Index, Self::Instance, Self::Witness) {
-        todo!()
+        let index = PublicParameters::<F>::new(*size, OptimizeForSize, 128, 64);
+        let witness_1 = rand_matrix_with_bounded_column_norms(
+            index.witness_len(),
+            index.inner_security_parameter,
+            index.norm_bound as i128,
+        );
+        let instance_1 = Instance::new(&index, &witness_1);
+        (index, instance_1, witness_1)
     }
 
     fn generate_unsatisfied_instance(
         size: &Self::Size,
     ) -> (Self::Index, Self::Instance, Self::Witness) {
-        todo!()
+        let index = PublicParameters::<F>::new(*size, OptimizeForSize, 128, 64);
+        let mut witness_1 = rand_matrix_with_bounded_column_norms(
+            index.witness_len(),
+            index.inner_security_parameter,
+            index.norm_bound as i128,
+        );
+        witness_1[(0, 0)] += F::try_from(index.norm_bound.ceil() as u128).unwrap();
+        let instance_1 = Instance::new(&index, &witness_1);
+        (index, instance_1, witness_1)
     }
 }
 

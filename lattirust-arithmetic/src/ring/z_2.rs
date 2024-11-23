@@ -8,7 +8,9 @@ use std::ops::{
 };
 use std::str::FromStr;
 
-use ark_ff::{BigInt, FftField, Field, LegendreSymbol, PrimeField, SqrtPrecomputation};
+use ark_ff::{
+    AdditiveGroup, BigInt, FftField, Field, LegendreSymbol, PrimeField, SqrtPrecomputation,
+};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
     CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
@@ -30,7 +32,10 @@ use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
 #[repr(transparent)]
 pub struct Z2(pub(crate) bool);
 
-impl Z2 {}
+impl Z2 {
+    const ZERO: Self = Self(false);
+    const ONE: Self = Self(true);
+}
 
 impl Zero for Z2 {
     fn zero() -> Self {
@@ -120,19 +125,9 @@ impl Modulus for Z2 {
     }
 }
 
-macro_rules! try_from_primitive_type {
-    ($t:ty) => {
-        // impl TryFrom<$t> for Z2 {
-        //     type Error = String;
-        //     fn try_from(x: $t) -> Result<Self, Self::Error> {
-        //         match x {
-        //             0 => Ok(Self::ZERO),
-        //             1 => Ok(Self::ONE),
-        //             _ => Err(format!("Invalid value for Z2: {}", x).into()),
-        //         }
-        //     }
-        // }
-
+macro_rules! from_primitive_type {
+    ($($t:ty),*) => {
+        $(
         // This is not a good implementation of From, since we're panicking on invalid values, but we need to implement From for u8, ..., u64 to implement Field :(
         impl From<$t> for Z2 {
             fn from(x: $t) -> Self {
@@ -145,15 +140,23 @@ macro_rules! try_from_primitive_type {
                 }
             }
         }
+        )*
     };
 }
-try_from_primitive_type!(u8);
-try_from_primitive_type!(u16);
-try_from_primitive_type!(u32);
-try_from_primitive_type!(u64);
-try_from_primitive_type!(u128);
-try_from_primitive_type!(BigUint);
-try_from_primitive_type!(BigInt::<1>);
+from_primitive_type!(
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    BigUint,
+    BigInt::<1>
+);
 
 impl CanonicalSerialize for Z2 {
     #[inline]
@@ -349,8 +352,8 @@ impl FromStr for Z2 {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "0" => Ok(<Self as Field>::ZERO),
-            "1" => Ok(<Self as Field>::ONE),
+            "0" => Ok(Self::ZERO),
+            "1" => Ok(Self::ONE),
             _ => Err(format!("Invalid value for Z2: {}", s)),
         }
     }
@@ -372,43 +375,35 @@ impl Into<BigInt<1>> for Z2 {
     }
 }
 
+impl AdditiveGroup for Z2 {
+    type Scalar = Self;
+    const ZERO: Self = Self(false);
+}
+
 impl Field for Z2 {
     type BasePrimeField = Self;
-    type BasePrimeFieldIter = iter::Once<Self::BasePrimeField>;
     const SQRT_PRECOMP: Option<SqrtPrecomputation<Self>> = None;
-    const ZERO: Self = Self(false);
     const ONE: Self = Self(true);
 
     fn extension_degree() -> u64 {
         1
     }
 
-    fn to_base_prime_field_elements(&self) -> Self::BasePrimeFieldIter {
+    fn to_base_prime_field_elements(&self) -> impl Iterator<Item = Self::BasePrimeField> {
         iter::once(*self)
     }
 
-    fn from_base_prime_field_elems(elems: &[Self::BasePrimeField]) -> Option<Self> {
-        if elems.len() != (Self::extension_degree() as usize) {
+    fn from_base_prime_field_elems(elems: impl IntoIterator<Item = Self::BasePrimeField>,) -> Option<Self> {
+        let mut elems = elems.into_iter();
+        let elem = elems.next()?;
+        if elems.next().is_some() {
             return None;
         }
-        Some(elems[0])
+        Some(elem)
     }
 
     fn from_base_prime_field(elem: Self::BasePrimeField) -> Self {
         elem
-    }
-
-    fn double(&self) -> Self {
-        todo!()
-    }
-
-    fn double_in_place(&mut self) -> &mut Self {
-        self.0 = false;
-        self
-    }
-
-    fn neg_in_place(&mut self) -> &mut Self {
-        self
     }
 
     fn from_random_bytes_with_flags<F: Flags>(bytes: &[u8]) -> Option<(Self, F)> {
@@ -447,11 +442,15 @@ impl Field for Z2 {
     }
 
     fn frobenius_map_in_place(&mut self, _power: usize) {}
+
+    fn mul_by_base_prime_field(&self, elem: &Self::BasePrimeField) -> Self {
+        *self * elem
+    }
 }
 
 impl PrimeField for Z2 {
     type BigInt = BigInt<1>;
-    const MODULUS: Self::BigInt = BigInt!("2");
+    const MODULUS: Self::BigInt = BigInt::<1>([1]);
     const MODULUS_MINUS_ONE_DIV_TWO: Self::BigInt = BigInt::zero();
     const MODULUS_BIT_SIZE: u32 = 1;
     const TRACE: Self::BigInt = BigInt::one();
@@ -459,8 +458,8 @@ impl PrimeField for Z2 {
 
     fn from_bigint(repr: Self::BigInt) -> Option<Self> {
         match repr.0[0] {
-            0 => Some(<Self as Field>::ZERO),
-            1 => Some(<Self as Field>::ZERO),
+            0 => Some(Self::ZERO),
+            1 => Some(Self::ZERO),
             _ => None,
         }
     }
@@ -471,7 +470,7 @@ impl PrimeField for Z2 {
 }
 
 impl FftField for Z2 {
-    const GENERATOR: Self = <Self as Field>::ONE;
+    const GENERATOR: Self = Self::ONE;
     const TWO_ADICITY: u32 = 0;
-    const TWO_ADIC_ROOT_OF_UNITY: Self = <Self as Field>::ONE;
+    const TWO_ADIC_ROOT_OF_UNITY: Self = Self::ONE;
 }

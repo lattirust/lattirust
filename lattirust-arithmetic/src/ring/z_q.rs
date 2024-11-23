@@ -10,7 +10,8 @@ use std::iter::Iterator;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_ff::{
-    BigInt, BigInteger, FftField, Field, Fp, Fp64, FpConfig, MontBackend, MontConfig, PrimeField,
+    AdditiveGroup, BigInt, BigInteger, FftField, Field, Fp, Fp64, FpConfig, MontBackend,
+    MontConfig, PrimeField,
 };
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -690,7 +691,7 @@ macro_rules! zq_config_impl {
             impl<$(const [< Q $i >]: u64,)*> ZqConfig<$L> for [< Zq $L ConfigImpl >]<$([< Q $i >],)*> {
                 const MODULI: [u64; $L] = [$([< Q $i >],)*];
                 type Limbs = ($(Fq<[< Q $i >]>,)*);
-                const ZERO: Zq<Self, $L> = Zq(($(<Fq::<[< Q $i >]> as Field>::ZERO,)*));
+                const ZERO: Zq<Self, $L> = Zq(($(<Fq::<[< Q $i >]> as AdditiveGroup>::ZERO,)*));
                 const ONE: Zq<Self, $L> = Zq(($(<Fq::<[< Q $i >]> as Field>::ONE,)*));
 
                 fn add_assign(a: &mut Zq<Self, $L>, b: &Zq<Self, $L>) {

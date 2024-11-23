@@ -1,5 +1,3 @@
-use ark_ff::Field;
-
 use lattirust_arithmetic::ring::Ring;
 
 pub struct BooleanHypercube<F: Ring> {

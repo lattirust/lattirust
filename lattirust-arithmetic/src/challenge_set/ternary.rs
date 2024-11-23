@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
-use nalgebra::{ClosedAdd, ClosedSub, Scalar};
+use nalgebra::Scalar;
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
@@ -151,7 +151,7 @@ pub fn mul_trit_transpose_sym_trit<F>(
     c: &Matrix<Trit>,
 ) -> SymmetricMatrix<F>
 where
-    F: Clone + Zero + PartialEq + Debug + Send + Sync + ClosedAdd + ClosedSub + 'static,
+    F: Clone + Zero + PartialEq + Debug + Send + Sync + Ring + 'static,
 {
     assert_eq!(a.size(), c.nrows());
 

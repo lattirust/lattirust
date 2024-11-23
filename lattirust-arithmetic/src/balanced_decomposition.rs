@@ -1,14 +1,15 @@
 use std::iter::Sum;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
-use nalgebra::{ClosedAdd, ClosedMul, Scalar};
+use nalgebra::Scalar;
 use num_bigint::BigUint;
 use num_traits::{One, Signed, ToPrimitive, Zero};
 use rayon::prelude::*;
 use rounded_div::RoundedDiv;
 
-use crate::linear_algebra::{Matrix, SymmetricMatrix};
-use crate::linear_algebra::{RowVector, Vector};
+use crate::linear_algebra::{
+    ClosedAddAssign, ClosedMulAssign, Matrix, RowVector, SymmetricMatrix, Vector,
+};
 use crate::ring::{PolyRing, Ring};
 use crate::ring::representatives::WithSignedRepresentative;
 
@@ -272,7 +273,7 @@ where
 }
 
 /// Given a `m x n*k` matrix `mat` decomposed in basis b and a slice \[1, b, ..., b^(k-1)] `powers_of_basis`, returns the `m x n` recomposed matrix.
-pub fn recompose_matrix<F: Scalar + ClosedAdd + ClosedMul + Zero + Send + Sync>(
+pub fn recompose_matrix<F: Scalar + ClosedAddAssign + ClosedMulAssign + Zero + Send + Sync>(
     mat: &Matrix<F>,
     powers_of_basis: &[F],
 ) -> Matrix<F> {
@@ -330,6 +331,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use ark_std::iterable::Iterable;
     use ark_std::test_rng;
 
     use crate::ring;
@@ -427,7 +429,8 @@ mod tests {
                 get_test_vec()
                     .into_iter()
                     .map(|v| v + R::try_from(i as u64).unwrap())
-                    .collect::<Vec<_>>().as_slice(),
+                    .collect::<Vec<_>>()
+                    .as_slice(),
             )
         });
         for b in BASIS_TEST_RANGE {

@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 nimue = "0.1.0"
-log = "0.4.21"
+log = "0.4.22"

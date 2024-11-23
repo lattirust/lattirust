@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::Hash;
 use std::io::{Read, Write};
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::iter::Product;
+use std::ops::{Mul, MulAssign, Neg};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -57,8 +57,8 @@ macro_rules! impl_from_primitive_type {
     ($primitive_type: ty) => {
         impl<BaseRing: Ring, const N: usize> From<$primitive_type>
             for Pow2CyclotomicPolyRing<BaseRing, N>
-                where BaseRing: From<$primitive_type>
-
+        where
+            BaseRing: From<$primitive_type>,
         {
             fn from(value: $primitive_type) -> Self {
                 Self::from_scalar(BaseRing::from(value))
