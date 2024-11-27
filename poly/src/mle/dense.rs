@@ -3,7 +3,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
     borrow::ToOwned,
     cfg_iter, log2,
-    ops::{Add, AddAssign, Index, Mul, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Index, Mul, MulAssign, Neg, Sub, SubAssign},
     vec::*,
 };
 use lattirust_linear_algebra::SparseMatrix;
@@ -253,6 +253,12 @@ impl<R: Ring> Mul<R> for DenseMultilinearExtension<R> {
         self.evaluations.iter_mut().for_each(|x| *x *= rhs);
 
         self
+    }
+}
+
+impl<R: Ring> MulAssign<R> for DenseMultilinearExtension<R> {
+    fn mul_assign(&mut self, rhs: R) {
+        self.evaluations.iter_mut().for_each(|x| *x *= rhs);
     }
 }
 
