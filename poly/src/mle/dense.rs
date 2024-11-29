@@ -145,6 +145,7 @@ impl<R: Ring> MultilinearExtension<R> for DenseMultilinearExtension<R> {
         self.evaluations.to_vec()
     }
 }
+
 impl<R: Ring> Zero for DenseMultilinearExtension<R> {
     fn zero() -> Self {
         Self {
@@ -157,6 +158,7 @@ impl<R: Ring> Zero for DenseMultilinearExtension<R> {
         self.num_vars == 0 && self.evaluations[0].is_zero()
     }
 }
+
 impl<R: Ring> Add for DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
@@ -164,6 +166,7 @@ impl<R: Ring> Add for DenseMultilinearExtension<R> {
         &self + &other
     }
 }
+
 impl<'a, R: Ring> Add<&'a DenseMultilinearExtension<R>> for &DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
@@ -171,53 +174,78 @@ impl<'a, R: Ring> Add<&'a DenseMultilinearExtension<R>> for &DenseMultilinearExt
         if rhs.is_zero() {
             return self.clone();
         }
+
         if self.is_zero() {
             return rhs.clone();
         }
+
         assert_eq!(
             self.num_vars, rhs.num_vars,
             "trying to add two dense MLEs with different numbers of variables"
         );
+
         let result: Vec<R> = cfg_iter!(self.evaluations)
             .zip(cfg_iter!(rhs.evaluations))
-            .map(|(a, b)| *a + *b)
+            .map(|(a, b)| *a + b)
             .collect();
 
         Self::Output::from_evaluations_vec(self.num_vars, result)
     }
 }
+
 impl<R: Ring> AddAssign for DenseMultilinearExtension<R> {
     fn add_assign(&mut self, rhs: DenseMultilinearExtension<R>) {
-        *self = &*self + &rhs;
+        self.add_assign(&rhs);
     }
 }
+
 impl<'a, R: Ring> AddAssign<&'a DenseMultilinearExtension<R>> for DenseMultilinearExtension<R> {
     fn add_assign(&mut self, rhs: &'a DenseMultilinearExtension<R>) {
-        *self = &*self + rhs;
+        if rhs.is_zero() {
+            return;
+        }
+
+        assert_eq!(
+            self.num_vars, rhs.num_vars,
+            "trying to add two dense MLEs with different numbers of variables"
+        );
+
+        cfg_iter_mut!(self.evaluations)
+            .zip(cfg_iter!(rhs.evaluations))
+            .for_each(|(a, b)| a.add_assign(b));
     }
 }
+
 impl<R: Ring> AddAssign<(R, &DenseMultilinearExtension<R>)> for DenseMultilinearExtension<R>
 where
     R: Copy + ark_std::ops::AddAssign,
 {
     fn add_assign(&mut self, (r, other): (R, &DenseMultilinearExtension<R>)) {
-        let other = Self {
-            num_vars: other.num_vars,
-            evaluations: cfg_iter!(other.evaluations).map(|x| r + x).collect(),
-        };
-        *self = &*self + &other;
+        if other.is_zero() {
+            return;
+        }
+
+        assert_eq!(
+            self.num_vars, other.num_vars,
+            "trying to add two dense MLEs with different numbers of variables"
+        );
+
+        cfg_iter_mut!(self.evaluations)
+            .zip(cfg_iter!(other.evaluations))
+            .for_each(|(a, b)| a.add_assign(r * b));
     }
 }
+
 impl<R: Ring> Neg for DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
-    fn neg(self) -> Self {
-        Self::Output {
-            num_vars: self.num_vars,
-            evaluations: cfg_iter!(self.evaluations).map(|x| -*x).collect(),
-        }
+    fn neg(mut self) -> Self {
+        cfg_iter_mut!(self.evaluations).for_each(|a| *a = a.neg());
+
+        self
     }
 }
+
 impl<R: Ring> Sub for DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
@@ -225,24 +253,53 @@ impl<R: Ring> Sub for DenseMultilinearExtension<R> {
         &self - &other
     }
 }
+
 impl<'a, R: Ring> Sub<&'a DenseMultilinearExtension<R>> for &DenseMultilinearExtension<R> {
     type Output = DenseMultilinearExtension<R>;
 
-    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &'a DenseMultilinearExtension<R>) -> Self::Output {
-        self + &rhs.clone().neg()
+        if rhs.is_zero() {
+            return self.clone();
+        }
+
+        if self.is_zero() {
+            return rhs.clone();
+        }
+
+        assert_eq!(
+            self.num_vars, rhs.num_vars,
+            "trying to subtract two dense MLEs with different numbers of variables"
+        );
+
+        let result: Vec<R> = cfg_iter!(self.evaluations)
+            .zip(cfg_iter!(rhs.evaluations))
+            .map(|(a, b)| *a - b)
+            .collect();
+
+        Self::Output::from_evaluations_vec(self.num_vars, result)
     }
 }
 
 impl<R: Ring> SubAssign for DenseMultilinearExtension<R> {
     fn sub_assign(&mut self, other: DenseMultilinearExtension<R>) {
-        *self = &*self - &other;
+        self.sub_assign(&other);
     }
 }
 
 impl<'a, R: Ring> SubAssign<&'a DenseMultilinearExtension<R>> for DenseMultilinearExtension<R> {
     fn sub_assign(&mut self, rhs: &'a DenseMultilinearExtension<R>) {
-        *self = &*self - rhs;
+        if rhs.is_zero() {
+            return;
+        }
+
+        assert_eq!(
+            self.num_vars, rhs.num_vars,
+            "trying to subtract two dense MLEs with different numbers of variables"
+        );
+
+        cfg_iter_mut!(self.evaluations)
+            .zip(cfg_iter!(rhs.evaluations))
+            .for_each(|(a, b)| a.sub_assign(b));
     }
 }
 
