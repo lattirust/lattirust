@@ -164,16 +164,15 @@ impl SIS {
     }
 
 
-    pub fn security_level_internal(&self, estimate_type: Estimates) -> f64 {
+    pub fn security_level_internal(&self, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> {
         let q = self.q.to_f64().unwrap();
         
 
-        //Check for trivial case and impossible case
-        //0.1 is arbitrary see if it can be changed
-        if self.length_bound < (self.w as f64 * q.log2()).sqrt() || q < self.length_bound * (self.h as f64).powf(0.1) {
-            panic!("The length bound is too small for the given parameters, no short vector is expected to be found.");
+        //TODO actually,length bound might be safe for small parameters, see what is optimal
+        if self.length_bound < (self.w as f64).sqrt() * q / 2.0 {
+            Err(LatticeEstimatorError::InvalidParameter { param_name: self.length_bound.to_string(), reason: ("The length bound is too small for the given parameters, no short vector is expected to be found.").to_string() })
         } else if self.length_bound >= q {
-            panic!("The solution is trivial for the given parameters. Please set the norm < q");
+            Err(LatticeEstimatorError::InvalidParameter { param_name: self.length_bound.to_string(), reason: ("Solution is trivial for beta >= q").to_string() })
         } else {
 
             match self.norm {
@@ -191,10 +190,14 @@ impl SIS {
                     
                     //Actual reduction
                     if delta >= 1.0 && block_size <= w_opt.round() as usize {
-                        return reduction::bkz_cost(estimate_type, block_size, self.h, q as usize).log2();
+                        return Ok(reduction::bkz_cost(estimate_type, block_size, self.h, q as usize).log2());
                     }
                     else {
-                        panic!("The reduction is not doable with the given parameters");
+                        if delta >= 1.0 {
+                            return Err(LatticeEstimatorError::InvalidParameter { param_name: block_size.to_string(), reason: ("The reduction is not possible with the given parameters, because the optimal BKZ_block_size > w").to_string() })
+                        } else {
+                            return Err(LatticeEstimatorError::InvalidParameter { param_name: delta.to_string(), reason: ("The reduction is not possible with the given parameters, because delta < 1").to_string() })
+                        }
                     }
                 }
                 
@@ -224,7 +227,7 @@ impl SIS {
                     let final_cost = best_cost.rop;
 
                     // Return the security level corresponding to the minimal found cost
-                    return final_cost;
+                    return Ok(final_cost);
                 }
             }
         }
@@ -311,9 +314,9 @@ impl SIS {
             .map(|n| self.with_h(n).with_length_bound(length_bound(n)))
             .find(|sis| sis.security_level() >= lambda as f64)
             .map(|sis| sis.h)
-            .ok_or(LatticeEstimatorError::from(
-                "no suitable h found".to_string(),
-            ))
+            .ok_or_else(|| LatticeEstimatorError::ConfigurationError {
+                message: "no suitable h found".to_string(),
+            })
     }
 
 }
@@ -333,7 +336,7 @@ mod test {
         assert!(lambda >= 128.);
         println!("External : {falcon512_unf} -> lambda: {lambda}");
 
-        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true));
+        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true)).unwrap();
         println!("Internal : {falcon512_unf} -> lambda: {cost_internal}");
     }
 
@@ -341,28 +344,28 @@ mod test {
     fn test_cost_models_l2() {
         let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
         
-        let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgueEnum);
+        let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgueEnum).unwrap();
         println!("Cost CheNgue12: {falcon512_unf} -> lambda: {cost_chengue12}");
 
-        let cost_bdgl16: f64 = falcon512_unf.security_level_internal(Estimates::BdglSieve);
+        let cost_bdgl16: f64 = falcon512_unf.security_level_internal(Estimates::BdglSieve).unwrap();
         println!("Cost BDGL16: {falcon512_unf} -> lambda: {cost_bdgl16}");
 
-        let cost_laamospol14: f64 = falcon512_unf.security_level_internal(Estimates::QSieve);
+        let cost_laamospol14: f64 = falcon512_unf.security_level_internal(Estimates::QSieve).unwrap();
         println!("Cost LaaMosPol14: {falcon512_unf} -> lambda: {cost_laamospol14}");
 
-        let cost_abfksw20: f64 = falcon512_unf.security_level_internal(Estimates::AbfEnum(true));
+        let cost_abfksw20: f64 = falcon512_unf.security_level_internal(Estimates::AbfEnum(true)).unwrap();
         println!("Cost ABFKSW20: {falcon512_unf} -> lambda: {cost_abfksw20}");
 
-        let cost_ablr21: f64 = falcon512_unf.security_level_internal(Estimates::AblrEnum);
+        let cost_ablr21: f64 = falcon512_unf.security_level_internal(Estimates::AblrEnum).unwrap();
         println!("Cost ABLR21: {falcon512_unf} -> lambda: {cost_ablr21}");
 
-        let cost_adps16: f64 = falcon512_unf.security_level_internal(Estimates::AdpsSieve(true));
+        let cost_adps16: f64 = falcon512_unf.security_level_internal(Estimates::AdpsSieve(true)).unwrap();
         println!("Cost ADPS16: {falcon512_unf} -> lambda: {cost_adps16}");
 
-        let cost_chaloy21: f64 = falcon512_unf.security_level_internal(Estimates::ChaLoySieve);
+        let cost_chaloy21: f64 = falcon512_unf.security_level_internal(Estimates::ChaLoySieve).unwrap();
         println!("Cost ChaLoy21: {falcon512_unf} -> lambda: {cost_chaloy21}");
 
-        let cost_kyber: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true));
+        let cost_kyber: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true)).unwrap();
         println!("Cost Kyber: {falcon512_unf} -> lambda: {cost_kyber}");
     }
 
@@ -375,7 +378,7 @@ mod test {
         assert!(lambda >= 128.);
         println!("External {dilithium2_msis_wk_unf} -> lambda: {lambda}");
 
-        let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::AbfEnum(true));
+        let cost_internal: f64 = dilithium2_msis_wk_unf.security_level_internal(Estimates::AbfEnum(true)).unwrap();
         println!("Internal Linf {dilithium2_msis_wk_unf} -> lambda: {cost_internal}");
     }
 

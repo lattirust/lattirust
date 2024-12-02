@@ -3,14 +3,11 @@ use std::fmt::{Debug, Display};
 
 use num_bigint::BigUint;
 
+use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
 use crate::sis::SIS;
 use crate::reduction::Estimates;
 
-pub mod lattice_estimator;
-pub mod security_estimates;
-
-/// MSIS parameters for instances $A \in R\_q^{\texttt{h}\times\texttt{w}}$ where $R\_q = \mathbb{Z}\_\texttt{q}\[X\]/(X^\texttt{d}+1)$ such that $A s = 0$ for some $s \in R\_\texttt{q}^\texttt{w}$ with ${\lVert s \rVert\}_\texttt{norm} \leq \texttt{length\\_bound}$.
 pub struct MSIS {
     pub h: usize,
     pub d: usize,
@@ -63,23 +60,23 @@ impl MSIS {
         }
     }
 
+
+    //should it be dxd or w*h
     pub fn to_sis(&self) -> SIS {
         SIS::new(
             self.h * self.d,
             self.q.clone(),
             self.length_bound,
-            self.w * self.d,
+            self.w * self.h,
             self.norm,
         )
     }
 
-    /// Return $\lambda$ such that `MSIS\[h, w, d, q, length_bound\]` is $2^\lambda$-hard (for a given norm).
-    /// We estimate the security by reducing to `SIS\[h\*d, w\*d, q, length_bound\]` and calling the SIS security estimator.
     pub fn security_level(&self) -> f64 {
         self.to_sis().security_level()
     }
 
-    pub fn security_level_internal(&self, estimate_type: Estimates) -> f64 {
+    pub fn security_level_internal(&self, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> {
         self.to_sis().security_level_internal(estimate_type)
     }
 

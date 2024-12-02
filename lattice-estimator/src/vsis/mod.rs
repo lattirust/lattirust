@@ -8,15 +8,16 @@ use crate::norms::Norm;
 use crate::sis::SIS;
 use crate::reduction::Estimates;
 
-pub struct RSIS {
+pub struct VSIS {
     h: usize,
+    d: usize,
     q: BigUint,
     length_bound: f64,
     w: usize,
     norm: Norm,
 }
 
-impl Display for RSIS {
+impl Display for VSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -26,7 +27,7 @@ impl Display for RSIS {
     }
 }
 
-impl Debug for RSIS {
+impl Debug for VSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -36,10 +37,11 @@ impl Debug for RSIS {
     }
 }
 
-impl RSIS {
+impl VSIS {
     pub fn with_h(&self, h: usize) -> Self {
-        RSIS {
+        VSIS {
             h,
+            d: self.d,
             w: self.w,
             q: self.q.clone(),
             length_bound: self.length_bound,
@@ -48,11 +50,23 @@ impl RSIS {
     }
 
     pub fn with_length_bound(&self, length_bound: f64) -> Self {
-        RSIS {
+        VSIS {
             h: self.h,
+            d: self.d,
             w: self.w,
             q: self.q.clone(),
             length_bound,
+            norm: self.norm,
+        }
+    }
+
+    pub fn with_d(&self, d: usize) -> Self {
+        VSIS {
+            h: self.h,
+            d,
+            w: self.w,
+            q: self.q.clone(),
+            length_bound: self.length_bound,
             norm: self.norm,
         }
     }
@@ -72,11 +86,6 @@ impl RSIS {
     }
 
     pub fn security_level_internal(&self, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> {
-
-        if (self.h & (self.h - 1)) != 0
-        {
-            return Err(LatticeEstimatorError::InvalidParameter { param_name : self.h.to_string() , reason : "h is usually chosen to be a power of 2 for the ring to be cyclotomic".to_string() });
-        }
         self.to_sis().security_level_internal(estimate_type)
     }
 
@@ -98,11 +107,11 @@ mod test{
 
     //TODO find applicable tests
 
-
     #[test]
     fn test_rsis_security_level_l2() {
-        let test_l2: RSIS = RSIS {
+        let test_l2: VSIS = VSIS {
             h: 50,
+            d: 50,
             q: Q.into(),
             length_bound: SQRT_Q,
             w: 512,

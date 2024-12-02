@@ -402,7 +402,7 @@ mod test {
         assert!(lambda >= 128.);
         println!("External : {falcon512_unf} -> lambda: {lambda}");
 
-        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Matzov(true));
+        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Matzov(true)).unwrap();
         println!("Internal : {falcon512_unf} -> lambda: {cost_internal}");
     }
 
