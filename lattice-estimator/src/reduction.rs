@@ -2,6 +2,7 @@ use num_traits::Float;
 use std::cmp::min;
 use std::collections::HashMap;
 use std::f64::consts::{PI, E};
+use crate::my_constants;
 
 const NB_BKZ_TOURS: usize = 8;
 
@@ -305,7 +306,13 @@ pub fn bkz_delta(block_size: usize) -> f64 {
 
 }
 
-//approx is the Kannan factor for the GSA simulator
+
+
+//-------------------------------------------------------------------------
+// Simulators
+//-------------------------------------------------------------------------
+
+//If approx is None, we have an homogenuous case
 pub fn gsa_simulator(d: usize, n: usize, q: usize, block_size: usize, approx: Option<f64>) -> Vec<f64> {
     let log_volume: f64 = match approx {
         None => (q as f64).log2() * (d - n) as f64 + (1.0_f64).log2() * n as f64,
@@ -315,18 +322,70 @@ pub fn gsa_simulator(d: usize, n: usize, q: usize, block_size: usize, approx: Op
     let delta = bkz_delta(block_size);
     let mut r_log: Vec<f64> = Vec::with_capacity(d);
 
-    // First loop to calculate `next` values and store them in `r_log`
     for i in 0..d {
         let next: f64 = (d as isize - 1 - 2 * i as isize) as f64 * delta.log2() + log_volume / d as f64;
         r_log.push(next);
     }
 
-    // Second loop to apply the power transformation
     for i in 0..d {
         r_log[i] = (2.0_f64).powf(2.0 * r_log[i]);
     }
 
     r_log
+}
+
+
+pub fn zgsa_simulator(d: usize, n: usize, q: usize, block_size: usize, mut approx: Option<f64>) -> Vec<f64> {
+    let mut l: usize = 0;
+    let log_volume: f64 = match approx {
+        None => {
+            l = d - n;
+            (q as f64).log2() * (d - n) as f64 + (1.0_f64).log2() * n as f64
+        }
+        Some(approx_val) => {
+            l = d - n - 1;
+            (q as f64).log2() * (d - n - 1) as f64 + (1.0_f64).log2() * n as f64 + approx_val.log2()
+        }
+    };
+
+    let mut l_log: Vec<f64> = vec![log_volume; l];
+    let slope: f64 = match block_size {
+        ..=60 => *my_constants::SMALL_SLOPE_T8.get(&(block_size as u32)).unwrap(),
+        61..=70 => {
+            let r: f64 = (70.0 - block_size as f64) / 10.0;
+            r * *my_constants::SMALL_SLOPE_T8.get(&60).unwrap() + (1.0 - r) * 2.0 * bkz_delta(70).log2()
+        }
+        _ => 2.0 * bkz_delta(70).log2(),
+    };
+
+    let mut diff: f64 = slope / 2.0;
+    
+    let max_diff: f64 = ((q as f64).log2() - (1.0_f64).log2()) / 2.0;
+
+    for i in 0..l {
+        if diff > max_diff {
+            break;
+        }
+
+        let low = l.checked_sub(i + 1).unwrap_or(0); // Safely handle underflow
+        let high = l + i;
+
+        if low < l_log.len() {
+            l_log[low] = ((q as f64).log2() + (1.0_f64).log2()) / 2.0 + diff;
+        }
+        if high < l_log.len() {
+            l_log[high] = ((q as f64).log2() + (1.0_f64).log2()) / 2.0 - diff;
+        }
+
+        diff += slope;
+    }
+
+    l_log.sort_by(|a, b| b.partial_cmp(a).unwrap());
+
+    l_log
+        .into_iter()
+        .map(|l| (2.0 * l).exp())
+        .collect::<Vec<f64>>()
 }
 
 
@@ -418,6 +477,23 @@ mod test {
         for i in 0..vec.len() {
             sum += vec[i].ln();
         }
+        assert_almost_eq!(sum, 1296.18522764710, 1e-2);
+    }
+
+    #[test]
+    fn test_zgsa_sim(){
+        let n = 128;
+        let d = 213;
+        let q = 2048;
+        let beta = 40;
+
+        let vec: Vec<f64> = zgsa_simulator(d, n, q, beta, None);
+        let mut sum = 0.0;
+        for i in 0..vec.len() {
+            sum += vec[i].ln();
+        }
+        print!("{}", vec.len());
+        //TODO check the difference
         assert_almost_eq!(sum, 1296.18522764710, 1e-2);
     }
 }
