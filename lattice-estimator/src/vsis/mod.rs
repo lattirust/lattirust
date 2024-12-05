@@ -21,8 +21,8 @@ impl Display for VSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "vSIS[h={}, w={}, q={}, length_bound={}, norm={}]",
-            self.h, self.w, self.q, self.length_bound, self.norm
+            "vSIS[h={}, d={}, w={}, q={}, length_bound={}, norm={}]",
+            self.h, self.d, self.w, self.q, self.length_bound, self.norm
         )
     }
 }
@@ -31,8 +31,8 @@ impl Debug for VSIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "vSIS[h={}, w={}, q={}, length_bound={}, norm={}]",
-            self.h, self.w, self.q, self.length_bound, self.norm
+            "vSIS[h={}, d={}, w={}, q={}, length_bound={}, norm={}]",
+            self.h, self.d, self.w, self.q, self.length_bound, self.norm
         )
     }
 }
@@ -76,7 +76,7 @@ impl VSIS {
             self.h,
             self.q.clone(),
             self.length_bound,
-            self.w * self.h,
+            (self.w + 1)  + (self.h * self.d),
             self.norm,
         )
     }
