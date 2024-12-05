@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use lattirust_arithmetic::ring::{PolyRing, Pow2CyclotomicPolyRing, SignedRepresentative, Zq};
 use super::ciphertext::Ciphertext;
 use super::plaintext::Plaintext;
@@ -8,10 +9,21 @@ use super::util::TuplePolyR;
 type PolyR<const M: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<M>, N>;
 // TODO: use the same rng everywhere
 
+#[derive(Clone, Copy, Debug, CanonicalDeserialize, CanonicalSerialize)]
 pub struct PublicKey<const Q: u64, const P: u64, const N: usize> {
     pub poly1: PolyR<Q, N>, 
     pub poly2: PolyR<Q, N>,
     pub modulo: u64,
+}
+
+impl<const Q: u64, const P: u64, const N: usize> Default for PublicKey<Q, P, N> {
+    fn default() -> Self {
+        Self {
+            poly1: PolyR::<Q, N>::default(),
+            poly2: PolyR::<Q, N>::default(),
+            modulo: Q,
+        }
+    }
 }
 
 impl<const Q: u64, const P: u64, const N: usize> PublicKey<Q, P, N> {

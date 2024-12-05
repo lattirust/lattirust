@@ -1,14 +1,15 @@
 #![allow(non_snake_case)]
 
-use lattirust_arithmetic::{challenge_set::labrador_challenge_set::LabradorChallengeSet, nimue::serialization::ToBytes, ring::Zq};
-use nimue::ByteChallenges;
+use ark_serialize::CanonicalSerialize;
+use lattirust_arithmetic::{challenge_set::{labrador_challenge_set::LabradorChallengeSet, ppk_challenge_set::PPKChallengeSet}, linear_algebra::Vector, nimue::{arthur::SerArthur, merlin::SerMerlin, serialization::{FromBytes, ToBytes}, traits::ChallengeFromRandomBytes}, ring::Zq, traits::FromRandomBytes};
+use nimue::{ByteChallenges, BytePublic, ByteReader, IOPattern, IOPatternError, Merlin};
 use rand::Rng;
 use ark_ff::{One, Zero};
 use ark_std::rand;
 use relations::{ajtai_cm::Witness, principal_relation::PrincipalRelation};
 use crate::bfv::{ciphertext::Ciphertext, plaintext::Plaintext, secret_key::SecretKey, public_key::PublicKey, util::{convert_ring, PolyR, TuplePolyR}};
 
-use super::nizk::new_ppk_io;
+use super::{nizk::new_ppk_io, util::PublicParameters};
 
 pub struct Verifier<const Q: u64, const P: u64, const N: usize> {
     // params: ParamsBFV,
@@ -39,20 +40,20 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
     }
     
     // instantiation with no prover_pk and l, 
-    // pub fn new() -> Self {
-    //     let secret_key =  SecretKey::new(); 
-    //     let public_key = secret_key.pk_gen();
+    pub fn new_null() -> Self {
+        let _secret_key =  SecretKey::new(); 
+        let _public_key = _secret_key.pk_gen();
 
-    //     Self {
-    //         secret_key, 
-    //         public_key, 
-    //         prover_pk,
-    //         l, 
-    //         c: Ciphertext::default(),
-    //         w: Vec::default(),
-    //         gamma: Vec::default(),
-    //     }
-    // }
+        Self {
+            _secret_key, 
+            _public_key, 
+            prover_pk: PublicKey::default(),
+            l: usize::default(), 
+            c: Ciphertext::default(),
+            w: Vec::default(),
+            gamma: Vec::default(),
+        }
+    }
 
     pub fn end_genenerate(&mut self, c: Ciphertext<Q, N>) {
         assert_ne!(self.l, 0); // not sure if it's necessary
@@ -100,13 +101,32 @@ impl<const Q: u64, const P: u64, const N: usize> Verifier<Q, P, N> {
         return true;
     }
 
-    pub fn nizk(&self, commitment: Vec<u8>, challenge_prover: Vec<u8>) -> bool {
-        let io = new_ppk_io(32, 32, 32, 32);
-        // instantiate a prover
-        let w = commitment.to_bytes().unwrap().clone();
-        let mut merlin = io.to_merlin(&w);
-        let challenge_verifier = merlin.challenge_bytes::<32>().unwrap();
+    pub fn nizk_verify(&mut self, merlin: &mut Merlin, l: usize) -> Result<bool, IOPatternError> { 
+        // TODO: need to use create function like `public_parameters`?
+        let pp = merlin.next_like(&PublicParameters::<Q, P, N>::default()).unwrap();
+        println!("pp: {pp:?}");
+        merlin.ratchet()?;
+
+        let ctxt = merlin.next_like(&Ciphertext::<Q, N>::zero()).unwrap();
+        merlin.ratchet()?;
         
-        challenge_prover == challenge_verifier
+        let w = merlin.next_vec::<Ciphertext::<Q, N>>(l).unwrap();
+        let gamma = merlin.challenge_vec::<PolyR<P, N>, PPKChallengeSet<PolyR<P, N>>>(l).unwrap();
+        
+        let opening = merlin.next_like(&(vec![PolyR::<P, N>::zero(); l], vec![TuplePolyR::<Q, N>::zero(); l])).unwrap();
+
+        // prepare all the ingredients for the verify        
+        self.prover_pk = pp.pk;
+        self.l = l;
+        self.c = ctxt;
+        self.w = w;
+        self.gamma = gamma;
+
+        Ok(self.verify(opening))
+    }
+
+    pub fn test_nizk(&mut self, merlin: &mut Merlin) -> Result<bool, IOPatternError> { 
+        let poly = merlin.next_like_canonical_serializable::<PolyR::<Q, N>>(&PolyR::<Q, N>::zero()).unwrap();
+        Ok(true)
     }
 }

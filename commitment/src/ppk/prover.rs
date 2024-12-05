@@ -1,12 +1,14 @@
 #![allow(non_snake_case)]
 #![allow(unused_must_use)]
 
+use std::ptr::read;
+
 use ark_serialize::CanonicalSerialize;
-use lattirust_arithmetic::{nimue::serialization::ToBytes, ring::Zq};
+use lattirust_arithmetic::{challenge_set::{self, ppk_challenge_set::PPKChallengeSet}, nimue::{arthur::SerArthur, serialization::ToBytes, traits::ChallengeFromRandomBytes}, ring::Zq};
 use ark_ff::{UniformRand, Zero};
 use ark_std::rand;
-use nimue::{Arthur, ByteChallenges, ByteWriter};
-use crate::bfv::{ciphertext::{Ciphertext}, plaintext::Plaintext, public_key::PublicKey, secret_key::SecretKey, util::{convert_ring, rand_tuple, PolyR, TuplePolyR}};
+use nimue::{Arthur, ByteChallenges, ByteWriter, IOPattern};
+use crate::{bfv::{ciphertext::Ciphertext, plaintext::Plaintext, public_key::PublicKey, secret_key::SecretKey, util::{convert_ring, rand_tuple, PolyR, TuplePolyR}}, ppk::util::PublicParameters};
 use super::nizk::new_ppk_io;
 
 pub struct Prover<const Q: u64, const P: u64, const N: usize> {
@@ -22,7 +24,6 @@ pub struct Prover<const Q: u64, const P: u64, const N: usize> {
 
 impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
     // instantiation
-    // TODO: cannot use verifier pk to encrypt, would leak m
     pub fn new(message: Plaintext<P, N>, l: usize) -> Self {
         let _secret_key =  SecretKey::new(); 
         let public_key = _secret_key.pk_gen();
@@ -38,12 +39,20 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         }
     }
 
-    // TODO: move PublicKey out and derive clone
     pub fn return_pk(&self) -> PublicKey<Q, P, N> {
         PublicKey {
             poly1: self.public_key.poly1.clone(),
             poly2: self.public_key.poly2.clone(),
             modulo: Q,
+        }
+    }
+
+    pub fn public_parameters(&self) -> PublicParameters<Q, P, N> {
+        PublicParameters {
+            pk: self.public_key.clone(),
+            q: Q,
+            p: P,
+            n: N,
         }
     }
 
@@ -113,27 +122,51 @@ impl<const Q: u64, const P: u64, const N: usize> Prover<Q, P, N> {
         (v, z)
     }
 
-    pub fn nizk(&mut self) -> (Vec<u8>, Vec<u8>) {
+    pub fn nizk_prove(&mut self, arthur: &mut Arthur) -> Vec<u8> {
         let l = 6;
-        let io = new_ppk_io(32, 32, 32, 32);
-    
-        // instantiate a prover
-        let mut arthur = io.to_arthur();
-    
-        // prepare all the ingredients
-        let ctxt = self.generate().to_bytes().unwrap();
-        let commitment = self.commit(l);
-        
-        arthur.add_bytes(&ctxt);
-        for w_i in &commitment {
-            arthur.add_bytes(&w_i.to_bytes().unwrap());
-        }
-        
-        let mut challenge = [0u8; 32];
-        arthur.fill_challenge_bytes(&mut challenge).unwrap();
+        let pp = PublicParameters { 
+            pk: self.public_key,
+            q: Q,
+            p: P,
+            n: N,
+        };
+        arthur
+            .absorb_serializable(&pp)
+            .expect("error in absorbing the public parameters");
+        arthur.ratchet();
 
-        let commitment_bytes = commitment.to_bytes().unwrap();
+        let ctxt = self.generate();
+        arthur
+            .absorb_serializable(&ctxt.clone())
+            .expect("error in absorbing the ciphertext");
+        debug_assert_eq!(Ciphertext::<Q, N>::zero().to_bytes().unwrap().len(), ctxt.clone().to_bytes().unwrap().len());
+        arthur.ratchet().unwrap();
+
+        let commitment = self.commit(l);
+        debug_assert_eq!(vec![Ciphertext::<Q, N>::zero(); l].to_bytes().unwrap().len(), commitment.to_bytes().unwrap().len());
+
+        arthur
+            .absorb_serializable(&commitment.clone())
+            .expect("error in absorbing the commitment");
         
-        (commitment_bytes, challenge.to_vec())
+        // get the challenge
+        let challenge: Vec<PolyR<P, N>> = arthur.challenge_vec::<PolyR<P, N>, PPKChallengeSet<PolyR<P, N>>>(l).unwrap();
+        debug_assert_eq!(vec![PolyR::<P, N>::zero(); l].to_bytes().unwrap().len(), challenge.to_bytes().unwrap().len());
+
+        let opening = self.reveal(challenge);
+        debug_assert_eq!((vec![PolyR::<P, N>::zero(); l], vec![TuplePolyR::<Q, N>::zero(); l]).to_bytes().unwrap().len(), opening.to_bytes().unwrap().len());
+        arthur
+            .absorb_serializable(&opening.clone())
+            .expect("error in absorbing the opening");
+
+        let transcript = arthur.transcript().to_vec();
+        transcript
+    }
+
+    pub fn test_nizk(&mut self, arthur: &mut Arthur) -> Vec<u8> {
+        let ctxt = PolyR::<Q, N>::default();
+        arthur.absorb_canonical_serializable::<PolyR::<Q, N>>(&ctxt);
+        // arthur.absorb_serializable(&ctxt);
+        arthur.transcript().to_vec()
     }
 }

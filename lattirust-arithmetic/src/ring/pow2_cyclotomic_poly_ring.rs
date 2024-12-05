@@ -14,6 +14,7 @@ use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
+use crate::nimue::serialization::FromBytes;
 use crate::ring::Ring;
 use crate::ring::{ConvertibleRing, PolyRing};
 use crate::traits::{
@@ -186,6 +187,15 @@ impl<BaseRing: ConvertibleRing, const N: usize> FromRandomBytes<Self>
 //
 //     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
 //         Self::Inner::from_bytes(bytes).map(Self)
+//     }
+// }
+
+// impl<BaseRing: ConvertibleRing, const N: usize> FromBytes for Pow2CyclotomicPolyRing<BaseRing, N> {
+//     // type FromBytesError = <SVector<BaseRing, N> as FromBytes>::FromBytesError;
+//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
+//         // Self::Inner::from_bytes(bytes).map(Self)
+//         let coeffs = BaseRing::from_bytes(bytes).unwrap();
+//         Ok(Pow2CyclotomicPolyRing::from(coeffs)).map_err(Self::FromBytesError)
 //     }
 // }
 

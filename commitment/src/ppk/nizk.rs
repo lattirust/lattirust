@@ -1,10 +1,17 @@
 #![allow(non_snake_case)]
 
+use ark_ff::{UniformRand, Zero};
+use lattirust_arithmetic::challenge_set::ppk_challenge_set::PPKChallengeSet;
 use lattirust_arithmetic::nimue::iopattern::{SerIOPattern, SqueezeFromRandomBytes, RatchetIOPattern};
+use lattirust_arithmetic::nimue::arthur::SerArthur;
+use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::traits::FromRandomBytes;
 use nimue::{DefaultHash, IOPattern};
 
 use crate::bfv::util::{PolyR, TuplePolyR};
 use crate::bfv::{ciphertext, Ciphertext};
+
+use super::util::PublicParameters;
 
 pub struct PPKRelation<const Q: u64, const P: u64, const N: usize> {
     m: PolyR<P, N>,
@@ -35,12 +42,27 @@ impl<'a, const Q: u64, const P: u64, const N: usize> BaseTranscript<'a, Q, P, N>
     }
 }
 
+
 // TODO: check again
 // generate the IOPattern
-pub fn new_ppk_io(ctxt_size: usize, comm_size: usize, chall_size: usize, resp_size: usize) -> IOPattern {
+pub fn new_ppk_io<const Q: u64, const P: u64, const N: usize>(l: usize) -> IOPattern {
     IOPattern::<DefaultHash>::new("PPK_protocol")
-    .absorb(ctxt_size, "ciphertext") // c
-    .absorb(comm_size, "commitment") // w_i
-    .squeeze(chall_size, "challenge") // gamma_i
-    .absorb(resp_size, "response") // (v_i, z_i)
+    // public parameters
+    .absorb_serializable_like(&PublicParameters::<Q, P, N>::default(), "pp")
+    .ratchet()
+    // ciphertext
+    .absorb_canonical_serializable_like(&Ciphertext::<Q, N>::zero(), "ciphertext") // c: Ciphertext<Q, N>
+    .ratchet()
+    // commitment
+    .absorb_serializable_like(&vec![Ciphertext::<Q, N>::zero(); l], "commitment") // w_i: Vec<Ciphertext<Q, N>>
+    // challenge
+    .squeeze(PPKChallengeSet::<PolyR<Q, N>>::byte_size() * l , "challenge") // gamma_i
+    // opening
+    .absorb_serializable_like(&(vec![PolyR::<P, N>::zero(); l], vec![TuplePolyR::<Q, N>::zero(); l]), "opening") // (v_i, z_i): Vec<PolyR<P, N>>, Vec<TuplePolyR<Q, N>>
+}
+
+pub fn test_io<const Q: u64, const P: u64, const N: usize>() -> IOPattern {
+    IOPattern::<DefaultHash>::new("test")
+    .absorb_canonical_serializable_like::<PolyR::<Q, N>>(&PolyR::<Q, N>::default(), "test")
+    // .absorb_canonical_serializable_like(&Ciphertext::<Q, N>::default(), "test2")
 }
