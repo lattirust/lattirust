@@ -1,8 +1,9 @@
-use core::{f64, panic};
+use core::f64;
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::num::ParseFloatError;
 use std::str::FromStr;
+use rand::Rng;
 
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
@@ -32,7 +33,7 @@ impl Display for SIS {
             self.h, self.w, self.q, self.length_bound, self.norm
         )
     }
-}
+}   
 
 impl Debug for SIS {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -46,7 +47,7 @@ impl Debug for SIS {
 
 impl SIS {
 
-    pub const fn new(h: usize, q: BigUint, length_bound: f64, w: usize, norm: Norm) -> Self {
+    pub const fn new(h: usize, w: usize, q:BigUint ,length_bound: f64, norm: Norm) -> Self {
         SIS {
             h,
             w,
@@ -148,6 +149,7 @@ impl SIS {
         optimal_w 
     }
 
+    //TODO make this another relation (CheNgue)
     fn optimal_block_size(&self, delta: f64) -> usize {
         let mut beta: usize = 40; 
 
@@ -169,7 +171,7 @@ impl SIS {
         
 
         //TODO actually,length bound might be safe for small parameters, see what is optimal
-        if self.length_bound < (self.w as f64).sqrt() * q / 2.0 {
+        if self.length_bound < (self.w as f64 * q.log2()).sqrt() {
             Err(LatticeEstimatorError::InvalidParameter { param_name: self.length_bound.to_string(), reason: ("The length bound is too small for the given parameters, no short vector is expected to be found.").to_string() })
         } else if self.length_bound >= q {
             Err(LatticeEstimatorError::InvalidParameter { param_name: self.length_bound.to_string(), reason: ("Solution is trivial for beta >= q").to_string() })
@@ -187,6 +189,9 @@ impl SIS {
 
                     //Find optimal BKZ block size
                     let block_size: usize = self.optimal_block_size(delta);  
+                    if block_size > 10e6 as usize {
+                        return Err(LatticeEstimatorError::InvalidParameter { param_name: block_size.to_string(), reason: ("The reduction is not possible with the given parameters, because the optimal BKZ_block_size > 10^6").to_string() })
+                    }
                     
                     //Actual reduction
                     if delta >= 1.0 && block_size <= w_opt.round() as usize {
@@ -270,7 +275,7 @@ impl SIS {
     }
 
     /// Return the smallest `h` such that `SIS\[h, w, q, length_bound\]` is $2^\lambda$-hard (for a given norm).
-    pub fn find_optimal_h(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
+    pub fn find_optimal_h_external(&self, lambda: usize) -> Result<usize, LatticeEstimatorError> {
         let mut hi: usize = self.upper_bound_h();
         let mut lo: usize = 1;
 
@@ -296,33 +301,276 @@ impl SIS {
         Ok(hi)
     }
 
-    /// Return the smallest `h` such that `SIS\[h, w, q, length_bound(h)\]` is $2^\lambda$-hard (for a given norm), where `length_bound` is a function of `h`.
-    pub fn find_optimal_h_dynamic<F>(
-        &self,
-        length_bound: F,
-        lambda: usize,
-    ) -> Result<usize, LatticeEstimatorError>
-    where
-        F: Fn(usize) -> f64,
-    {
-        // We can't assume that length_bound is monotonic, so we can't use binary search.
-        // Instead, exhaustively search powers of 2 until we find a suitable n.
-        // TODO: use a better search algorithm / return a more fine-grained result
-        let log2_m: u32 = self.w.ilog2();
-        let candidates = (1..log2_m).map(|i| 2usize.pow(i));
-        candidates
-            .map(|n| self.with_h(n).with_length_bound(length_bound(n)))
-            .find(|sis| sis.security_level() >= lambda as f64)
-            .map(|sis| sis.h)
-            .ok_or_else(|| LatticeEstimatorError::ConfigurationError {
-                message: "no suitable h found".to_string(),
-            })
-    }
 
+    pub fn find_optimal_h_annealing(&self, lambda: usize, estimate_type: Estimates) -> Result<usize, LatticeEstimatorError> {
+        let mut rng = rand::thread_rng();
+    
+        // Parameters for simulated annealing
+        let mut temperature = 100.0;
+        let cooling_rate = 0.95;    
+        let min_temperature = 0.001; 
+        let max_failures = 100000; 
+    
+    
+        let mut current_h = self.h;
+        let mut best_h = Some(current_h);
+        let mut failure_count = 0;
+    
+        // Annealing process
+        while temperature > min_temperature {
+            let current_sis = self.with_h(current_h);
+    
+            let current_security = match current_sis.security_level_internal(estimate_type) {
+                Ok(security) => security,
+                Err(_) => {
+                    failure_count += 1;
+                    if failure_count >= max_failures {
+                        return Err(LatticeEstimatorError::ConfigurationError {
+                            message: "Too many failures in security level estimation, the initial parameter h is too far from a possible value".to_string(),
+                        });
+                    }
+                    continue;
+                }
+            };
+    
+            
+            let perturbation = rng.gen_range(-5..=0);
+            let new_h = ((current_h as isize + perturbation).clamp(1, self.w as isize)) as usize;
+    
+            let new_sis = self.with_h(new_h);
+    
+            
+            let new_security = match new_sis.security_level_internal(estimate_type) {
+                Ok(security) => security,
+                Err(_) => {
+                    failure_count += 1;
+                    if failure_count >= max_failures {
+                        return Err(LatticeEstimatorError::ConfigurationError {
+                            message: "Too many failures in security level estimation".to_string(),
+                        });
+                    }
+                    continue;
+                }
+            };
+    
+            // Accept the new candidate if it improves the solution or probabilistically
+            if new_security >= lambda as f64
+                && (best_h.is_none() || new_h < best_h.unwrap())
+                || rng.gen::<f64>() < ((new_security - current_security) / temperature).exp()
+            {
+                current_h = new_h;
+                if new_security >= lambda as f64 {
+                    best_h = Some(new_h); // Track the best valid h
+                }
+            }
+    
+            // Decrease the temperature
+            temperature *= cooling_rate;
+        }
+    
+        // Post-processing: Refine the best `h` found by checking neighbors in the [-5, 5] window
+        if let Some(initial_best_h) = best_h {
+            let mut refined_best_h = initial_best_h;
+    
+            for delta in -5..=0 {
+                let neighbor_h = ((initial_best_h as isize + delta).clamp(1, self.w as isize)) as usize;
+                let neighbor_sis = self.with_h(neighbor_h);
+    
+                if let Ok(security) = neighbor_sis.security_level_internal(estimate_type) {
+                    if security >= lambda as f64 && neighbor_h < refined_best_h {
+                        refined_best_h = neighbor_h;
+                    }
+                }
+            }
+    
+            return Ok(refined_best_h);
+        }
+    
+        Err(LatticeEstimatorError::ConfigurationError {
+            message: "no suitable h found".to_string(),
+        })
+    }
+    
+    pub fn find_optimal_length_bound_annealing(&self, lambda: usize, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> {
+        
+        let mut rng = rand::thread_rng();
+    
+        // Parameters for simulated annealing
+        let mut temperature = 100.0; 
+        let cooling_rate = 0.99;    
+        let min_temperature = 0.001; 
+        let max_failures = 10000;
+    
+        // Initialize with the given `h` from the SIS instance
+        let mut current_bound = self.length_bound;
+        let mut best_bound = Some(current_bound);
+        let mut failure_count = 0;
+
+        loop {
+            let try_double:f64 = current_bound*2.0;
+            let sec_level = self.with_length_bound(try_double).security_level_internal(estimate_type);
+            if sec_level.is_err() || sec_level.is_ok_and(|x| x < lambda as f64) {
+                best_bound = Some(current_bound);
+                break;
+            }
+            else {
+                current_bound = current_bound * 2.0;
+            }
+
+        } 
+    
+        // Annealing process
+        while temperature > min_temperature {
+            let current_sis = self.with_length_bound(current_bound);
+    
+            // Attempt to get the security level, handling errors
+            let current_security = match current_sis.security_level_internal(estimate_type) {
+                Ok(security) => security,
+                Err(_) => {
+                    failure_count += 1;
+                    if failure_count >= max_failures {
+                        return Err(LatticeEstimatorError::ConfigurationError {
+                            message: "Too many failures in security level estimation, the initial parameter h is too far from a possible value".to_string(),
+                        });
+                    }
+                    continue; // Skip this perturbation
+                }
+            };
+    
+            // Generate multiple candidates per temperature iteration for better exploration
+            for _ in 0..5 { // Try multiple perturbations per iteration
+                let perturbation = rng.gen_range(0.0..=10.0); // Smaller perturbation step
+                let new_bound = current_bound + perturbation as f64;   
+                let new_sis = self.with_length_bound(new_bound);
+    
+                // Attempt to get the new security level, handling errors
+                let new_security = match new_sis.security_level_internal(estimate_type) {
+                    Ok(security) => security,
+                    Err(_) => {
+                        failure_count += 1;
+                        if failure_count >= max_failures {
+                            return Err(LatticeEstimatorError::ConfigurationError {
+                                message: "Too many failures in security level estimation".to_string(),
+                            });
+                        }
+                        continue; // Skip this perturbation
+                    }
+                };
+    
+                // Modified acceptance criteria: ensure new_bound meets security level requirement
+                if new_security >= lambda as f64
+                    && (best_bound.is_none() || new_bound < best_bound.unwrap())
+                    || (rng.gen::<f64>() < ((current_security - new_security) / temperature).exp() && new_security >= lambda as f64)
+                {
+                    current_bound = new_bound;
+                    if new_security >= lambda as f64 {
+                        best_bound = Some(new_bound);
+                    }
+                }
+            }
+    
+            // Decrease the temperature
+            temperature *= cooling_rate;
+        }
+    
+        // Return the best bound found during annealing
+        if let Some(best_bound) = best_bound {
+            return Ok(best_bound);
+        }
+    
+        Err(LatticeEstimatorError::ConfigurationError {
+            message: "No suitable length bound found".to_string(),
+        })
+    }
+    
+    pub fn simultaneous_optimize(&self, lambda: usize, estimate_type: Estimates) -> Result<(f64, usize), LatticeEstimatorError> {
+        let mut rng = rand::thread_rng();
+    
+        // Initial optimization for `h` and `length_bound`
+        let mut current_h = self.find_optimal_h_annealing(lambda, estimate_type)?;
+        let mut current_length_bound = self.find_optimal_length_bound_annealing(lambda, estimate_type)?;
+    
+        let mut best_h = current_h;
+        let mut best_length_bound = current_length_bound;
+    
+        let mut best_security = self
+            .with_h(current_h)
+            .with_length_bound(current_length_bound)
+            .security_level_internal(estimate_type)?;
+    
+        let mut temperature = 100.0; // Initial temperature
+        let cooling_rate = 0.95;     // Cooling rate
+        let min_temperature = 0.001; // Stopping condition
+        let max_failures = 10;       // Maximum allowed estimation failures
+        let mut failure_count = 0;
+    
+        while temperature > min_temperature {
+            // Perturb h and length_bound slightly
+            let h_perturbation = rng.gen_range(-5..=5); // Small adjustment to h
+            let length_bound_perturbation = rng.gen_range(-0.5..=0.5); // Small adjustment to length_bound
+    
+            let new_h = ((current_h as isize + h_perturbation).clamp(1, self.w as isize)) as usize;
+            let new_length_bound = (current_length_bound + length_bound_perturbation).max(0.0); // Ensure positive length_bound
+    
+            // Create a new SIS instance with the perturbed values
+            let new_sis = self.with_h(new_h).with_length_bound(new_length_bound);
+    
+            // Attempt to compute the new security level
+            let new_security = match new_sis.security_level_internal(estimate_type) {
+                Ok(security) => security,
+                Err(_) => {
+                    failure_count += 1;
+                    if failure_count >= max_failures {
+                        return Err(LatticeEstimatorError::ConfigurationError {
+                            message: "Too many failures in security level estimation.".to_string(),
+                        });
+                    }
+                    continue; // Skip this iteration if estimation fails
+                }
+            };
+    
+            // Check if the new values improve the security level while meeting the constraint
+            if new_security >= lambda as f64
+                && (new_security > best_security
+                    || (new_security == best_security && (new_h < best_h || new_length_bound < best_length_bound)))
+            {
+                // Update the best values
+                best_h = new_h;
+                best_length_bound = new_length_bound;
+                best_security = new_security;
+            }
+    
+            // Accept the new values probabilistically (Metropolis criterion)
+            if rng.gen::<f64>() < ((new_security - best_security) / temperature).exp() {
+                current_h = new_h;
+                current_length_bound = new_length_bound;
+            }
+    
+            // Decrease the temperature
+            temperature *= cooling_rate;
+        }
+    
+        // Final verification
+        let final_sis = self.with_h(best_h).with_length_bound(best_length_bound);
+        if let Ok(final_security) = final_sis.security_level_internal(estimate_type) {
+            if final_security >= lambda as f64 {
+                return Ok((best_length_bound, best_h));
+            }
+        }
+    
+        Err(LatticeEstimatorError::ConfigurationError {
+            message: "Failed to find a suitable combination of h and length_bound.".to_string(),
+        })
+    }
+    
+    
+   
+    
 }
 
 #[cfg(test)]
 mod test {
+
     use statrs::assert_almost_eq;
 
     use crate::norms::Norm;
@@ -331,18 +579,28 @@ mod test {
 
     #[test]
     fn test_sis_security_level_l2() {
-        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        let falcon512_unf: SIS = SIS::new(512, 1024, 12289u64.into(), 5833.9072, Norm::L2);
         let lambda = falcon512_unf.security_level();
         assert!(lambda >= 128.);
         println!("External : {falcon512_unf} -> lambda: {lambda}");
 
-        let cost_internal: f64 = falcon512_unf.security_level_internal(Estimates::Kyber(true)).unwrap();
-        println!("Internal : {falcon512_unf} -> lambda: {cost_internal}");
+        let cost_internal:Result<f64, crate::errors::LatticeEstimatorError> = falcon512_unf.security_level_internal(Estimates::Kyber(true));
+
+        match cost_internal {
+            Ok(cost) => {
+                println!("Internal : {falcon512_unf} -> lambda: {cost}");
+            },
+            Err(e) => {
+                panic!("Error: {:?}", e);
+            }
+            
+        }
     }
 
     #[test]
     fn test_cost_models_l2() {
-        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        let falcon512_unf: SIS = SIS::new(512, 1024, 12289u64.into(), 5833.9072, Norm::L2);
+
         
         let cost_chengue12: f64 = falcon512_unf.security_level_internal(Estimates::CheNgueEnum).unwrap();
         println!("Cost CheNgue12: {falcon512_unf} -> lambda: {cost_chengue12}");
@@ -372,7 +630,7 @@ mod test {
     #[test]
     fn test_sis_security_level_linf() {
         let dilithium2_msis_wk_unf: SIS =
-            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+            SIS::new(1024, 2304, 8380417u64.into(), 350209., Norm::Linf);
 
         let lambda: f64 = dilithium2_msis_wk_unf.security_level();
         assert!(lambda >= 128.);
@@ -383,25 +641,40 @@ mod test {
     }
 
     #[test]
-    fn test_find_optimal_h_l2() {
-        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
-        let h_opt = falcon512_unf.find_optimal_h(128).unwrap();
-        let sis = falcon512_unf.with_h(h_opt);
-        println!("{} ", h_opt);
-        let lambda = sis.security_level();
+    fn test_find_optimal_lenbound_annealing() {
+        let falcon512_unf: SIS = SIS::new(512, 1024, 12289u64.into(), 5833.9072, Norm::L2);
+        let best_bound: f64 = falcon512_unf.find_optimal_length_bound_annealing(124, Estimates::Matzov(true)).unwrap();
+        let sis = falcon512_unf.with_length_bound(best_bound);
+        println!("{} ", best_bound);
+        let lambda = sis.security_level_internal(Estimates::Matzov(true)).unwrap();
         println!(
             "{falcon512_unf} -> lambda: {}",
-            falcon512_unf.security_level()
+            falcon512_unf.security_level_internal(Estimates::Matzov(true)).unwrap()
         );
         println!("{sis} -> lambda: {lambda}");
     }
 
     #[test]
+    fn test_find_optimal_h_l2_annealing() {
+        let falcon512_unf: SIS = SIS::new(512, 1024, 12289u64.into(), 5833.9072, Norm::L2);
+        let h_opt: usize = falcon512_unf.find_optimal_h_annealing(128, Estimates::Matzov(true)).unwrap();
+        let sis = falcon512_unf.with_h(h_opt);
+        println!("{} ", h_opt);
+        let lambda = sis.security_level_internal(Estimates::Matzov(true)).unwrap();
+        println!(
+            "{falcon512_unf} -> lambda: {}",
+            falcon512_unf.security_level_internal(Estimates::Matzov(true)).unwrap()
+        );
+        println!("{sis} -> lambda: {lambda}");
+    }    
+
+
+    #[test]
     fn test_find_optimal_h_linf() {
         let dilithium2_msis_wk_unf: SIS =
-            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+        SIS::new(1024, 2304, 8380417u64.into(), 350209., Norm::Linf);
 
-        let h_opt = dilithium2_msis_wk_unf.find_optimal_h(128).unwrap();
+        let h_opt = dilithium2_msis_wk_unf.find_optimal_h_annealing(128, Estimates::Matzov(true)).unwrap();
         let sis = dilithium2_msis_wk_unf.with_h(h_opt);
         let lambda = sis.security_level();
         assert!(lambda >= 128.0);
@@ -415,7 +688,7 @@ mod test {
     #[test]
     fn test_cost_infinity() {
         let dilithium2_msis_wk_unf: SIS =
-            SIS::new(1024, 8380417u64.into(), 350209., 2304, Norm::Linf);
+        SIS::new(1024, 2304, 8380417u64.into(), 350209., Norm::Linf);
         
         let cost = dilithium2_msis_wk_unf.cost_infinity(575, 776, true, Estimates::Matzov(true));
         assert_almost_eq!(cost.rop, 248.0, 1e1);

@@ -74,9 +74,9 @@ impl VSIS {
     pub fn to_sis(&self) -> SIS {
         SIS::new(
             self.h,
+            (self.w + 1)  + (self.h * self.d),
             self.q.clone(),
             self.length_bound,
-            (self.w + 1)  + (self.h * self.d),
             self.norm,
         )
     }
@@ -91,6 +91,20 @@ impl VSIS {
 
     pub fn upper_bound_h(&self) -> usize {
         self.to_sis().upper_bound_h()
+    }
+
+    pub fn find_optimal_h_annealing(&self, lambda: usize, estimate_type: Estimates) -> usize {
+        match self.to_sis().find_optimal_h_annealing(lambda, estimate_type) {
+            Ok(h) => h,
+            Err(e) => panic!("Error: {:?}", e)
+        }
+    }
+
+    pub fn find_optimal_length_bound_annealing(&self, lambda: usize, estimate_type: Estimates) -> f64 {
+        match self.to_sis().find_optimal_length_bound_annealing(lambda, estimate_type) {
+            Ok(l) => l,
+            Err(e) => panic!("Error: {:?}", e)
+        }
     }
 }
 

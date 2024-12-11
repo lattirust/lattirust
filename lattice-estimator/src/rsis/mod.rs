@@ -10,9 +10,9 @@ use crate::reduction::Estimates;
 
 pub struct RSIS {
     h: usize,
+    w: usize,
     q: BigUint,
     length_bound: f64,
-    w: usize,
     norm: Norm,
 }
 
@@ -37,11 +37,42 @@ impl Debug for RSIS {
 }
 
 impl RSIS {
+
+    pub fn new(h: usize, w: usize, q: BigUint, length_bound: f64, norm: Norm) -> Self {
+        RSIS {
+            h,
+            w,
+            q,
+            length_bound,
+            norm,
+        }
+    }
+
     pub fn with_h(&self, h: usize) -> Self {
         RSIS {
             h,
             w: self.w,
             q: self.q.clone(),
+            length_bound: self.length_bound,
+            norm: self.norm,
+        }
+    }
+
+    pub fn with_w(&self, w: usize) -> Self {
+        RSIS {
+            h: self.h,
+            w,
+            q: self.q.clone(),
+            length_bound: self.length_bound,
+            norm: self.norm,
+        }
+    }
+
+    pub fn with_q(&self, q: BigUint) -> Self {
+        RSIS {
+            h: self.h,
+            w: self.w,
+            q,
             length_bound: self.length_bound,
             norm: self.norm,
         }
@@ -57,12 +88,13 @@ impl RSIS {
         }
     }
 
+
     pub fn to_sis(&self) -> SIS {
         SIS::new(
             self.h,
+            self.w * self.h,
             self.q.clone(),
             self.length_bound,
-            self.w * self.h,
             self.norm,
         )
     }
@@ -83,6 +115,8 @@ impl RSIS {
     pub fn upper_bound_h(&self) -> usize {
         self.to_sis().upper_bound_h()
     }
+
+    
 }
 
 

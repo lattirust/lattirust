@@ -154,7 +154,7 @@ fn kyber_cost(block_size: usize, d: usize, _q: usize, classical: bool) -> f64 {
         return chengue_enum(block_size);
     } else {
         let svp_calls: f64;
-        if(d - block_size) > 1 {
+        if(d as f64 - block_size as f64) > 1.0 {
             svp_calls = 5.46 * (d - block_size) as f64;
         } else {
             svp_calls = 5.46;
@@ -178,7 +178,7 @@ fn matzov_cost(block_size: usize, d: usize, _q: usize, classical: bool) -> f64 {
         return chengue_enum(block_size);
     } else {
         let svp_calls: f64;
-        if(d - block_size) > 1 {
+        if(d as f64 - block_size as f64) > 1.0 {
             svp_calls = 5.46 * (d - block_size) as f64;
         } else {
             svp_calls = 5.46;
@@ -335,7 +335,7 @@ pub fn gsa_simulator(d: usize, n: usize, q: usize, block_size: usize, approx: Op
 }
 
 
-pub fn zgsa_simulator(d: usize, n: usize, q: usize, block_size: usize, mut approx: Option<f64>) -> Vec<f64> {
+pub fn zgsa_simulator(d: usize, n: usize, q: usize, block_size: usize, approx: Option<f64>) -> Vec<f64> {
     let mut l: usize = 0;
     let log_volume: f64 = match approx {
         None => {
@@ -456,7 +456,7 @@ mod test {
 
     #[test]
     fn test_by_default_l2_param() {
-        let falcon512_unf: SIS = SIS::new(512, 12289u64.into(), 5833.9072, 1024, Norm::L2);
+        let falcon512_unf: SIS = SIS::new(512, 1024, 12289u64.into(), 5833.9072, Norm::L2);
         let lambda = falcon512_unf.security_level();
         assert!(lambda >= 128.);
         println!("External : {falcon512_unf} -> lambda: {lambda}");

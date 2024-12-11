@@ -1,159 +1,124 @@
 use std::fmt;
 use std::fmt::{Debug, Display};
 
-use core::f64;
-
-
 use num_bigint::BigUint;
-use num_traits::ToPrimitive;
-
 use crate::errors::LatticeEstimatorError;
 use crate::norms::Norm;
-use crate::reduction::Estimates;
-use statrs::function::factorial::factorial;
 use crate::sis::SIS;
+use crate::reduction::Estimates;
 
-pub struct KSIS {
-    pub h: usize,
-    pub w: usize,
-    pub q: BigUint,
-    pub length_bound: f64,
-    pub sigma: f64,
-    pub k: usize,
-    pub norm: Norm
+pub struct ISISf {
+    h: usize,
+    w: usize,
+    q: BigUint,
+    length_bound: f64,
+    k: usize,
+    norm: Norm,
 }
 
-impl Display for KSIS {
+impl Display for ISISf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "K-SIS[h={}, w={}, q={}, length_bound={}, sigma={}, k={}, norm={}]",
-            self.h, self.w, self.q, self.length_bound, self.sigma, self.k, self.norm
+            "ISISf[h={}, w={}, q={}, length_bound={}, k={}, norm={}]",
+            self.h, self.w, self.q, self.length_bound, self.k, self.norm
         )
     }
 }
 
-impl Debug for KSIS {
+impl Debug for ISISf {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "K-SIS[h={}, w={}, q={}, length_bound={}, sigma={}, k={}, norm={}]",
-            self.h, self.w, self.q, self.length_bound, self.sigma, self.k, self.norm
+            "ISISf[h={}, w={}, q={}, length_bound={}, k={}, norm={}]",
+            self.h, self.w, self.q, self.length_bound, self.k, self.norm
         )
     }
 }
 
-impl KSIS {
-    pub fn new(h: usize, w: usize, q: BigUint, length_bound: f64, sigma: f64, k: usize, norm: Norm) -> Self {
-        KSIS {
+impl ISISf {
+    pub fn new(h: usize, w: usize, q: BigUint, length_bound: f64, k: usize, norm: Norm) -> Self {
+        ISISf {
             h,
             w,
             q,
             length_bound,
-            sigma,
             k,
             norm,
         }
     }
 
     pub fn with_h(&self, h: usize) -> Self {
-        KSIS {
+        ISISf {
             h,
             w: self.w,
             q: self.q.clone(),
             length_bound: self.length_bound,
-            sigma: self.sigma,
             k: self.k,
             norm: self.norm,
         }
     }
 
     pub fn with_w(&self, w: usize) -> Self {
-        KSIS {
+        ISISf {
             h: self.h,
             w,
             q: self.q.clone(),
             length_bound: self.length_bound,
-            sigma: self.sigma,
             k: self.k,
             norm: self.norm,
         }
     }
 
     pub fn with_length_bound(&self, length_bound: f64) -> Self {
-        KSIS {
+        ISISf {
             h: self.h,
             w: self.w,
             q: self.q.clone(),
             length_bound,
-            sigma: self.sigma,
-            k: self.k,
-            norm: self.norm,
-        }
-    }
-
-    pub fn with_sigma(&self, sigma: f64) -> Self {
-        KSIS {
-            h: self.h,
-            w: self.w,
-            q: self.q.clone(),
-            length_bound: self.length_bound,
-            sigma,
             k: self.k,
             norm: self.norm,
         }
     }
 
     pub fn with_k(&self, k: usize) -> Self {
-        KSIS {
+        ISISf {
             h: self.h,
             w: self.w,
             q: self.q.clone(),
             length_bound: self.length_bound,
-            sigma: self.sigma,
             k,
             norm: self.norm,
         }
     }
 
-
     pub fn to_sis(&self) -> SIS {
-        let t = (self.h as f64).log2().sqrt();
-        let new_bound: f64 = self.length_bound * (self.k as f64).powf(3.0 / 2.0) * factorial(self.k as u64) as f64 * (self.sigma * t * (self.h as f64).log2()).powf(self.k as f64);
+
+        //The reduction can be to SIS/ISIS if f modelled with ROM
+        //The reduction can be to M-SIS/M-ISIS if we do an attack regardless of f
+        //We take the ROM road here
 
         SIS::new(
             self.h,
             self.w - self.k,
             self.q.clone(),
-            new_bound,
+            self.length_bound, 
             self.norm,
         )
+    }
+
+    pub fn security_level(&self) -> f64 {
+        self.to_sis().security_level()
+    }
+
+    pub fn security_level_internal(&self, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> { 
+        self.to_sis().security_level_internal(estimate_type)
     }
 
     pub fn upper_bound_h(&self) -> usize {
         self.to_sis().upper_bound_h()
     }
 
-    pub fn security_level_internal(&self, estimate_type: Estimates) -> Result<f64, LatticeEstimatorError> {
-
-        if (self.w as f64) < (0.00001)*(2.0 as f64) * self.h as f64 * self.q.to_f64().unwrap().log2(){
-            return Err(LatticeEstimatorError::InvalidParameter { param_name : self.w.to_string() , reason : "w should be bigger than 2hlog_2(q)".to_string() });
-        }
-
-        if self.w / self.k <= self.h {
-            return Err(LatticeEstimatorError::InvalidParameter { param_name : self.k.to_string() , reason : "h should be smaller than w/k".to_string() });
-        }
-
-        if (self.sigma as f64) < ((self.w as f64).log2()).sqrt() {
-            return Err(LatticeEstimatorError::InvalidParameter { param_name : self.sigma.to_string() , reason : "sigma should be bigger than sqrt(log(w))".to_string() });
-        }
-
-        if self.q.to_f64().unwrap() < self.sigma as f64 * ((self.w as f64).log2()).sqrt() {
-            return Err(LatticeEstimatorError::InvalidParameter { param_name : self.q.to_string() , reason : "q should be bigger than sigma*sqrt(log(w))".to_string() });
-        }
-
-        self.to_sis().security_level_internal(estimate_type)
-    }
 
     pub fn find_optimal_h_annealing(&self, lambda: usize, estimate_type: Estimates) -> usize {
         match self.to_sis().find_optimal_h_annealing(lambda, estimate_type) {
@@ -164,7 +129,7 @@ impl KSIS {
 
     pub fn find_optimal_length_bound_annealing(&self, lambda: usize, estimate_type: Estimates) -> f64 {
         match self.to_sis().find_optimal_length_bound_annealing(lambda, estimate_type) {
-            Ok(l) => l,
+            Ok(length_bound) => length_bound,
             Err(e) => panic!("Error: {:?}", e)
         }
     }
@@ -172,17 +137,17 @@ impl KSIS {
 
 
 
+#[cfg(test)]
+
 mod test{
-    
-    use crate::ksis::{self, KSIS};
+    use crate::isisf::ISISf;
     use crate::norms::Norm;
     use crate::reduction::Estimates;
 
     
     #[test]
     fn test_basis_security_level_l2() {
-        let falcon512_unf: KSIS = KSIS::new(256, 1024, 12289u64.into(), 126.0, 56.0, 2, Norm::L2);
-
+        let falcon512_unf: ISISf = ISISf::new(512, 1024, 12289u64.into(), 5833.9072, 1, Norm::L2);
 
         let security_level = falcon512_unf.security_level_internal(Estimates::Matzov(true)).unwrap();
         print!("Security level: {}", security_level);
@@ -191,8 +156,7 @@ mod test{
 
     #[test]
     fn test_find_optimal_h(){
-        let falcon512_unf: KSIS = KSIS::new(512, 1024, 12289u64.into(), 5833.9072, 57.0, 1, Norm::L2);
-
+        let falcon512_unf: ISISf = ISISf::new(512, 1024, 12289u64.into(), 5833.9072, 1, Norm::L2);
 
         let h_optimal = falcon512_unf.find_optimal_h_annealing(122, Estimates::Matzov(true));
         println!("Optimal h: {}", h_optimal);
@@ -204,7 +168,7 @@ mod test{
     #[test]
     fn test_find_optimal_lenbound(){
 
-        let falcon512_unf: KSIS = KSIS::new(512, 1024, 12289u64.into(), 5833.9072, 2355.0, 1, Norm::L2);
+        let falcon512_unf: ISISf = ISISf::new(512, 1024, 12289u64.into(), 5833.9072, 1, Norm::L2);
         let lenbound_optimal = falcon512_unf.find_optimal_length_bound_annealing(122, Estimates::Matzov(true));
         println!("Optimal length bound: {}", lenbound_optimal);
 
