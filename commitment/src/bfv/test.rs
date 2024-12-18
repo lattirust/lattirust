@@ -1,6 +1,8 @@
 use lattirust_arithmetic::ntt::ntt_modulus;
+use lattirust_arithmetic::ring::Zq;
 
-use crate::bfv::{plaintext::Plaintext, secret_key::SecretKey, util::rand_tuple};
+use crate::bfv::{plaintext::Plaintext, secret_key::SecretKey};
+use crate::bfv::util::{rand_tuple, vec_from_discrete_gaussian};
 
 const N: usize = 128;
 const P: u64 = ntt_modulus::<N>(15);
@@ -28,4 +30,9 @@ fn rand_message() {
     let act = sk.decrypt(ctxt).poly;
     let exp = ptxt.poly;
     assert_eq!(act, exp);
+}
+
+#[test]
+fn discrete_gaussian_poly_sampling() {
+    let v: [Zq<Q>; N] = vec_from_discrete_gaussian(None, None, 6_f64);
 }

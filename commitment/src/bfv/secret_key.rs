@@ -63,7 +63,8 @@ impl<const Q: u64, const P: u64, const N: usize> SecretKey<Q, P, N> {
 
         // TODO: try to devide by q then multiply by p
         // or the opposite
-        let coeffs: Vec<Zq<P>> = raw
+        let coeffs: Vec<Zq<P>> =     
+            raw
             .coeffs()
             .into_iter()
             .map(|x| <Zq<P>>::from((delta * (SignedRepresentative::from(x).0 as f64)) as i128))

@@ -9,13 +9,14 @@ use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChalle
 use lattirust_arithmetic::linear_algebra::{Matrix, Vector};
 use lattirust_arithmetic::ntt::ntt_modulus;
 
-use lattirust_arithmetic::ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, SignedRepresentative, UnsignedRepresentative, Zq};
+use lattirust_arithmetic::ring::{ConvertibleRing, PolyRing, Pow2CyclotomicPolyRing, Pow2CyclotomicPolyRingNTT, SignedRepresentative, UnsignedRepresentative, Zq, Z2_128};
 use rand::{CryptoRng, RngCore};
 use rand_distr::Normal;
 use rand::distributions::Distribution;
 use ark_ff::{One, UniformRand, Zero};
 use ark_std::rand;
 use lattirust_arithmetic::traits::FromRandomBytes;
+use openfhe::{self, ffi};
 
 pub type PolyR<const M: u64, const N: usize> = Pow2CyclotomicPolyRing<Zq<M>, N>;
 
@@ -66,6 +67,37 @@ pub fn get_gaussian_vec<Rng: RngCore + CryptoRng, const Q: u64>(
 
     val
 }
+
+// only with Peikart's method
+pub fn vec_from_discrete_gaussian<const Q: u64, const N: usize>(center: Option<f64>, std_dev: Option<f64>, smoothing_param: f64) -> [Zq<Q>; N] {
+    use ffi::{BaseSampler, DiscreteGaussianGeneratorGeneric};
+    
+    let center: f64 = center.unwrap_or(0_f64);
+    let std_dev: f64 = std_dev.unwrap_or(2_f64);
+    let count: usize = 10;
+    let mut vec = [Zq::<Q>::zero(); N];
+
+    let mut _base_samplers: Vec<*mut ffi::BaseSampler> = Vec::with_capacity(count);
+    
+    for _ in 0..count {
+        let mut _bg = ffi::GetBitGenerator();
+        let _new_sampler = unsafe { ffi::GetBaseSamplerWithParams(center, std_dev, _bg.into_raw(), ffi::BaseSamplerType::PEIKERT) };
+        _base_samplers.push(_new_sampler.into_raw());
+    }
+
+    let _base_samplers: *mut *mut ffi::BaseSampler = _base_samplers.as_mut_ptr();
+    let two = 2_f64;
+    let base = ((count as f64).ln() / two.ln()) as i64;
+    let mut _dgg = unsafe { ffi::GetGeneratorGenericWithParams(_base_samplers, std_dev, base, smoothing_param) };
+
+    for i in 0..N {
+        let n = _dgg.pin_mut().GenerateInteger(center, std_dev);
+        println!("{n:?}");
+        vec[i] = Zq::<Q>::from(n);
+    }
+    vec
+}
+
 
 pub fn get_gaussian<Rng: RngCore + CryptoRng, const Q: u64, const N: usize>(std_dev: f64, dimension: usize, rng: &mut Rng) -> PolyR<Q, N> {
     let rand_vec: Vec<Zq<Q>> = get_gaussian_vec(std_dev, dimension, rng);
