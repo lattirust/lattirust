@@ -102,7 +102,7 @@ The recomposition function complements decomposition, enabling the reassembly of
 
 This functionality also extends to matrices. Two additional functions are implemented to that end. The `recompose_matrix` function is used for matrices where each row has been decomposed into multiple columns using a basis. If $A$ is a $m\times n$-matrix decomposed into a $m\times nk$ matrix $\tilde{A}$, then $A = \tilde{A}G$ for the gadget matrix $G = g \otimes I$ where $g=\left[\begin{array}{c}1 \\b\\\vdots\\b^k\end{array}\right]$ and $I$ is an identity matrix of suitable dimensions. The `recompose_left_right_symmetric_matrix` function performs recomposition on symmetric matrices (in particular, matrices $M = A^\top A$), where the structure is $G^T * mat * G$, and `G` represents the gadget matrix. The function iterates through pairs of row and column indices, recomposing each element based on the `powers_of_basis`. For each symmetric matrix element, it multiplies the decomposed component by the corresponding product of powers, summing these products to reassemble the original element. The final result is an `n x n` symmetric matrix.
 
-Overall, these operations involve loop-carried dependencies and a relatively complex control flow inside the loop, making them a poor fit for GPU acceleration. GPUs are generally optimized for data-parallel workloads rather than speeding up a single, serial chain of computation, so the core decomposition and recomposition operations do not benefit much from a GPU approach. However, when extending these operations to vectors and matrices (via decompose_balanced_vec, decompose_matrix and their complementary recomposition functions), they are simply applied element-wise. In this context, minimal acceleration can be achieved by employing batched decomposition and recomposition, where multiple elements from the vector or matrix are processed in parallel on the GPU.
+Overall, these operations involve loop-carried dependencies and a relatively complex control flow inside the loop, making them a poor fit for GPU acceleration. GPUs are generally optimized for data-parallel workloads rather than speeding up a single, serial chain of computation, so the core decomposition and recomposition operations do not benefit much from a GPU approach. However, when extending these operations to vectors and matrices (via decompose_balanced_vec, decompose_matrix and their complementary recomposition functions), they are simply applied element-wise. In this context, minimal acceleration can be achieved on CPU, leveraging SIMD instructions for example, by employing batched decomposition and recomposition, where multiple elements from the vector or matrix are processed in parallel.
 
 #### Number Theoretic Transforms
 
@@ -219,18 +219,103 @@ CSC is more efficient for column-wise operations, such as accessing or modifying
 
 
 ### Implementation <a name="lova"></a>
+
+The implementation of GPU-accelerated operations in the lattirust-arithmetic package is specifically designed to leverage the ICICLE framework's Rust bindings for the CUDA backend, optimizing performance on Nvidia GPUs. Ingonyama is actively broadening hardware support for their framework, with plans to include a Metal/Apple Silicon backend. This expansion aims to provide an efficient solution for client-side cryptographic operations. Further details on this development will be discussed in the final section of this post.
+
+Lattirust handles the core arithmetic operations within the lattirust-arithmetic package. The implementation is designed to ensure that the library's broader functionalities remain agnostic to the underlying hardware and acceleration mechanisms. Consequently, the only package directly involved is lattirust-arithmetic, and the sole added dependency is the ICICLE framework. This approach allows for a clean separation of concerns, allowing for seamless replacement of the accelerated operations with alternative implementations in the future, if necessary. Additionally, we ensure that the interfaces in the library's original implementation remain unchanged, preserving compatibility with existing protocol implementations. Furthermore, the operations are designed to gracefully fall back to the CPU implementation in the event of any issues during GPU execution.
+
+To manage the GPU-accelerated operations, we introduce a new module, `gpu_context`. Its primary role is to handle the initialization, configuration, and data transfer between the host (CPU) and the device (GPU). Additionally, it provides utility functions for efficient conversion between field elements used in cryptographic computations. The module acts as a bridge between the cryptographic algorithms implemented in lattirust and the GPU-accelerated backend provided by ICICLE. By abstracting GPU-specific details and providing fallback mechanisms, it ensures that the library remains robust and hardware-agnostic. Its clean separation of responsibilities simplifies debugging, extensibility, and maintenance.
+
+#### Initialization and Backend Configuration
+- `load_backend`attempts to load the ICICLE CUDA backend from the specified environment variable which locates the backend on the device. 
+- `try_load_and_set_GPU_backend_device` attempts to register the GPU device and sets it as the active computation target. If GPU initialization fails, it falls back to CPU implementation.
+- `Error Management` is handled with an enum that provides a categorization of possible issues that may arise such as:
+    - Missing GPU Backend
+    - Device unavailability
+    - Data transfer failures
+
+#### Data Conversion Utilities
+To this day, ICICLE only supports operations on algebraic fields, whereas many operations in Lattirust are implemented over Rings. Further, the only compatible field in ICICLE is Babybear. Discussions are underway to expand ICICLE's capabilities to include fields tailored to Lattirust's  protocols specific requirements.
+
+For **Labrador**, two fields from the set {Babybear, KoalaBear, TeddyBear} are utilized. Labrador constructs a SNARK directly, benefiting from fields with approximately 64-bit sizes for efficient computations. In R1CS reduction, the size of the smallest prime factor of the modulus $q$ is crucial. Employing two Bear subfields is advantageous, potentially resulting in smaller proof sizes compared to the Labrador split.
+
+**Greyhound** requires a single ~32-bit prime $p$ where $p \equiv 5 \mod 8$. However, NTTs cannot be performed directly in this field. The approach involves selecting 12-14 primes that support NTTs, similar to those used in Gregor's implementation, and employing the Bernstein-Sorenson technique to execute NTTs within this CRT basis. Integrating these components requires additional effort to ensure seamless functionality.
+
+For **Lova**, there are no specific modulus constraints, and it utilizes $q = 2^{64}$. While Lova and other unstructured constructions are significant, they are currently less critical compared to the highly optimized structured constructions.
+
+In this work, we provide a preliminary implementation that uses the Babybear field for GPU-accelerated operations. The gpu_context module includes functions to convert between the Babybear field and the Ring field used in Lattirust, ensuring the data is correctly formatted for GPU execution with the ICICLE CUDA backend. Two types of conversion functions are implemented. The first, convert_to_babybear and convert_to_zq, handles the conversion of field elements defined in Lattirust to Babybear elements and vice versa. The second, convert_poly_vector_to_babybear and convert_babybear_to_poly_vector, manages the conversion of PolyRing elements in Lattirust to Babybear elements and back.
+
+##### `convert_to_babybear`
+
+Converts an array of `Zq<Q>` elements into a `Vec<BabybearField>`.
+
+**Implementation:**  
+1. The function iterates over the input array of `Zq<Q>` elements.
+2. Each `Zq<Q>` element is converted to its big integer representation using `.into_bigint()`. 
+3. The first 32 bits of this big integer are extracted (`.0[0] as u32`) and used to construct a `BabybearField` element.
+4. The result is collected into a `Vec<BabybearField>` and returned.
+
+---
+
+##### `convert_poly_vector_to_babybear`
+
+Converts a polynomial vector from a `PolyRing` representation into a `Vec<BabybearField>`.
+
+**Implementation:**  
+1. The polynomial coefficients are flattened into a single vector using `P::flattened(poly_vec)`.
+2. Each coefficient (a base-ring element) is converted into its unsigned representative (`UnsignedRepresentative`).
+3. The unsigned representative is then converted into a `BabybearField` using its first 32 bits (`usr.0 as u32`).
+4. The resulting `BabybearField` elements are collected into a `Vec<BabybearField>`.
+
+---
+
+##### `convert_babybear_to_poly_vector`
+
+Converts a vector of `BabybearField` elements back into a `Vector<P>` in the `PolyRing` format.
+
+**Implementation:**  
+1. Each `BabybearField` element is converted back to its base-ring representation using `P::BaseRing::from_bytes()` and its byte representation (`to_bytes_le()`).
+2. These base-ring elements are grouped into chunks corresponding to the dimension of the polynomials (`P::dimension()`).
+3. Each chunk is used to reconstruct a polynomial using `P::from()`.
+4. The reconstructed polynomials are collected into a `Vector<P>`.
+
+---
+
+##### `convert_to_Zq`
+
+Converts a vector of `BabybearField` elements into an array of `Zq<Q>` elements.
+
+**Implementation:**  
+1. The function first validates that the input vector's length matches the expected output array length.
+2. Each `BabybearField` element is converted into its byte representation using `.to_bytes_le()`.
+3. The raw value is reconstructed from these bytes using a bitwise operation (`(byte as u64) << (index * 8)`).
+4. A new `Zq<Q>` element is created using the reconstructed value.
+5. The converted elements are collected into an array and returned as a `Result`.
+
+#### Memory Management
+
+The `gpu_context` module manages memory allocation and data transfers as required for GPU-accelerated operations. Many ICICLE functions take a configuration parameter that specifies the location of the data (host or device). This approach offers two significant advantages. First, it simplifies development for applicable operations by making the programming process largely oblivious to data transfers—though this abstraction is not without risks. Second, it allows for the optimization of data transfer, ensuring efficient resource utilization and reduced overhead. In fact, in most lattice-based protocols, a matrix $A$ is typically decomposed into $\tilde{A}$, and then immediately committed to as $C = KA$  (lattice commitments is a dense-dense matrix-matrix multiplication). It would thus be advantageous to keep this data on GPU between these operations. Similarly, at a later stage of the protocol, a matrix $\tilde{A}$ is recomposed as $\tilde{A}G$, and then the L2 norm of its column vectors is checked (using inner products). 
+
+#### NTT Context Management and Acceleration
+
+The context module also provides essential functions to initialize and manage the NTT context on the GPU, enabling efficient polynomial transformations.
+
+The `init_ntt_context_on_device` function is responsible for allocating memory on the GPU and setting up the NTT domain using a specified primitive root. Domain initialization is performed once per GPU session because twiddle factors—roots of unity in the finite field—are cached to save runtime. The current implementation uses ICICLE's default NTT configuration, as this is a preliminary implementation. This configuration allows customization of parameters such as batch size, column batch computation, and the order of inputs and outputs. Future work will focus on benchmarking with custom settings tailored to adapted fields.
+
+The `gpu_ntt_acceleration` function handles both forward and inverse NTT operations. The direction is specified by the `dir` parameter in ICICLE's function signature. The process is as follows:
+1. The function attempts to load and set the GPU backend using `try_load_and_set_GPU_backend_device`. If the GPU backend is unavailable, it falls back to a CPU implementation.
+2. It initializes the GPU's NTT context via `init_ntt_context_on_device`, ensuring that input and output memory are allocated and prepared for computation.
+3. Input data is converted from `Zq<Q>` elements to `BabybearField` elements using `convert_to_babybear` and transferred from host memory to GPU memory using `copy_from_host`.
+4. The NTT operation is performed on the GPU with ICICLE's default NTT configuration.
+5. The results are copied back to host memory using `copy_to_host` and converted from `BabybearField` elements back to `Zq<Q>` elements using `convert_to_Zq`.
+
+If GPU acceleration is unavailable or disabled at compile time, the `gpu_ntt_acceleration` function defaults to a CPU-based implementation. While this approach is less efficient, it ensures that the system remains functional and reliable.
+
+#### Vector Operations Acceleration
+
 <>
 
-<!-- #### Data Movement Optimization
-
-In most lattice-based protocols, a matrix $A$ is typically decomposed into $\tilde{A}$, and then immediately committed to as $C = KA$  (lattice commitments is a dense-dense matrix-matrix multiplication). It would thus be advantageous to keep this data on GPU between these operations. 
-
-Similarly, at a later stage of the protocol, a matrix $\tilde{A}$ is recomposed as $\tilde{A}G$, and then the L2 norm of its column vectors is checked (using inner products).  -->
-
-<TO-DO give details about optimization techniques>
-
 ### Evaluation & Benchmarking <a name="applications"></a>
-
 
 The GPU we use in this work is the Nvidia 3090 with the following specifications:
 - GPU Codename : GA102
@@ -255,9 +340,9 @@ The GPU we use in this work is the Nvidia 3090 with the following specifications
 
 This project marks an advancement in accelerating Lattirust, a library dedicated to safe and efficient lattice-based cryptography. We have pinpointed the operations most crucial for acceleration and devised a comprehensive strategy for their implementation on GPU. The integration of the library with the ICICLE framework has been particularly advantageous during the prototyping and development phases. This framework, which conveniently includes Rust bindings, has proven very useful in navigating and adapting the Lattirust ecosystem. It has facilitated the identification of optimization opportunities, informed software engineering decisions, and, most importantly, the construction of preliminary benchmarks for the accelerated operations. Consequently, it has significantly reduced the time required to develop a functional version of the accelerated library.
 
-Our implementation of GPU-accelerated operations demonstrates the feasibility and substantial performance enhancements achievable through GPU acceleration in lattice-based cryptographic protocols. However, ICICLE is not yet the ultimate solution for accelerating a library like Lattirust. Its current implementation is still in its early stages, supporting a limited set of algebraic structures and operations, primarily tailored to zero-knowledge proofs. Furthermore, although Ingonyama, the company behind ICICLE, asserts that their framework is designed to be extensible, their CUDA backend is not open-source, unlike their CPU implementation. This limitation restricts our ability to customize and optimize the GPU kernels for our specific use case. 
+Our implementation of GPU-accelerated operations highlights the feasibility and significant performance gains achievable in lattice-based cryptographic protocols through GPU acceleration. However, ICICLE is not yet the definitive solution for accelerating a library like Lattirust. Its current development is still in its early stages, supporting a limited range of algebraic structures and operations, with a primary focus on zero-knowledge proofs. Additionally, while the CPU implementation of ICICLE is fully open source, the CUDA backend is currently designated as "delayed open-source." Ingonyama intends to release the backend under an MIT license once the integration reaches a stable state. This limitation restricts the ability to customize and fine-tune the GPU kernels for specific use cases, which could otherwise enhance performance further. Despite these constraints, we have worked closely with Ingonyama’s team to mitigate the impact of these limitations, ensuring meaningful progress in adapting ICICLE for our requirements.
 
-An area where ICICLE proves particularly useful is in managing complex algebraic structures. In the context of GPUs, the infrastructure required for these structures can vary significantly based on the configurations. Implementing cryptographic algorithms across different rings and fields necessitates customized approaches to address the distinct arithmetic properties and operational requirements of each algebraic structure. For finite fields, operations typically involve modular arithmetic with a prime modulus. Since GPUs do not natively support modular arithmetic, efficient implementation strategies are necessary. When working with rings, such as integers modulo n or polynomial rings, the arithmetic operations often become more complex. They may involve more complex arithmetic, such as polynomial multiplication or operations with composite moduli. Implementing these operations efficiently on GPUs requires specialized algorithms that can exploit parallelism. Furthermore, accross all implementations, memory bandwidth & latency, as well as, precision and numerical stability are critical considerations to take into account. The idea of Ingonyama's ICICLE framework is to provide a unified interface for these operations, allowing developers to focus on the cryptographic protocols rather than the low-level GPU optimizations.
+An area where ICICLE proves particularly useful is in managing complex algebraic structures. In the context of GPUs, the infrastructure required for these structures can vary significantly based on the configurations. Implementing cryptographic algorithms across different rings and fields necessitates customized approaches to address the distinct arithmetic properties and operational requirements of each algebraic structure. For finite fields, operations typically involve modular arithmetic with a prime modulus. Since GPUs do not natively support modular arithmetic, efficient implementation strategies are necessary. When working with rings, such as integers modulo n or polynomial rings, the arithmetic operations often become more complex. They may involve more complex arithmetic, such as polynomial multiplication or operations with composite moduli. Implementing these operations efficiently on GPUs requires specialized algorithms that can exploit parallelism. Furthermore, accross all implementations, memory bandwidth & latency, as well as, precision and numerical stability are critical considerations to take into account. The idea of Ingonyama's ICICLE framework is to provide a unified interface for these operations, allowing developers to focus on the cryptographic protocols rather than the low-level GPU optimizations.Besides, as mentioned in previous sections, Ingonyama plans to include a Metal/Apple Silicon backend in the future [ADD REF](), which would be beneficial on many aspects. Unlike CUDA, which relies on discrete memory architectures, Metal's unified memory model allows both the CPU and GPU to access the same memory pool without requiring costly data transfers. This eliminates the significant overhead associated with repeated CPU-to-GPU and GPU-to-CPU transfers, a major bottleneck in CUDA workflows, particularly when CPU computation is needed as a fallback. The unified memory advantage in Metal drastically improves performance for mixed workloads by reducing latency and simplifying memory management. For example, in workflows where data must be frequently accessed or modified by both the CPU and GPU, Metal avoids the need for explicit memory copying, resulting in near-zero transfer costs. This efficiency was highlighted in performance benchmarks performed by Ingonyama [ADD REF](), where Metal consistently outperformed CUDA, especially in tasks involving iterative data exchanges. Additionally, Metal's unified memory model aligns well with the requirements of Izero-knowledge proof computations, which often involve heavy interaction between different computational components.
 
 In the perspective of improving and maintaining a high-quality infrastructure for the acceleration of Lattirust, we foresee several areas for future exploration and improvement. One area is to continue the close collaboration with Ingonyama to ensure that they offer the right infrastructure and implementations for Lattirust's specific needs. This collaboration entails providing detailed feedback on the limitations and bottlenecks of the current system, as well as offering precise specifications for new features or optimizations. On one hand, engaging in such a dialogue would help Ingonyama refine their frameworks and ensure that they are aligned with the practical requirements of lattice-based cryptographic acceleration, on the other hand, this collaboration brings Lattirust one step closer to standardization. Another critical area for future work relates to the quality and reliability of GPU-accelerated software. Subtle synchronization bugs in GPU programs can lead to intermittent failures, jeopardizing the reliability of cryptographic computations. Additionally, sub-optimal programming practices can result in performance bugs, causing underutilization of GPUs, which are inherently resource-intensive and power-hungry. Future work will involve a thorough analysis of synchronization mechanisms and a systematic approach to identify and mitigate performance bottlenecks in GPU programs. This could include the exploration of a tool named iGUARD, which can pinpoint synchronization bugs to programmers [ADD REF]() and ScopeAdvice, which can help programmers find performance bugs due to over and redundant synchronization in GPU programs [ADD REF]().
 
