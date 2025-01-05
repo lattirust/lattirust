@@ -6,8 +6,8 @@ use icicle_runtime::memory::{DeviceVec, HostSlice};
 use icicle_runtime::{eIcicleError, runtime, Device};
 use icicle_babybear::field::ScalarField as BabybearField;
 
-use crate::ring::Zq;
-
+use crate::ring::{PolyRing, SignedRepresentative, UnsignedRepresentative, Zq};
+use crate::nimue::serialization::FromBytes;
 
 use log::{info, warn, debug, error};
 use pretty_env_logger::env_logger;
@@ -41,8 +41,7 @@ impl Error {
 }
 
 use Error::*;
-
-
+use crate::linear_algebra::Vector;
 // -----------------------------------------------------------------------------------------------
 // GPU State
 
@@ -92,6 +91,45 @@ pub fn convert_to_babybear<const Q: u64, const N: usize>(
         .iter()
         .map(|zq| BabybearField::from([zq.into_bigint().0[0] as u32])) 
         .collect()
+}
+
+pub fn convert_poly_vector_to_babybear<P: PolyRing>(poly_vec: &Vector<P>) -> Vec<BabybearField> {
+    // Flatten all polynomial coefficients from the Vector<P>
+    let base_ring_vec = P::flattened(poly_vec); 
+
+    // 2) Convert each base-ring element into a BabybearField:
+    base_ring_vec
+        .as_slice()
+        .iter()
+        .map(|coeff| {
+            let usr : UnsignedRepresentative = (*coeff).into();
+            BabybearField::from([usr.0 as u32])
+        })
+        .collect()
+}
+
+pub fn convert_babybear_to_poly_vector<P: PolyRing>(
+    babybear_vec: &[BabybearField],
+) -> Vector<P> {
+    // Convert each BabybearField back into a base-ring element
+    let base_ring_vec: Vec<P::BaseRing> = babybear_vec
+        .iter()
+        .map(|babybear| {
+            P::BaseRing::from_bytes(&babybear.to_bytes_le()).unwrap()            
+        })
+        .collect();
+
+    // Unflatten the base-ring vector back into a Vector<P>
+    let chunk_size = P::dimension();
+    let poly_vec: Vec<P> = base_ring_vec
+        .chunks(chunk_size)
+        .map(|chunk| {
+            let base_ring_coeffs: Vec<P::BaseRing> = chunk.to_vec();
+            P::from(base_ring_coeffs) // Construct polynomial from coefficients
+        })
+        .collect();
+
+    poly_vec.into()
 }
 
 /// Converts a slice of BabybearField elements to a Vec of Zq elements
