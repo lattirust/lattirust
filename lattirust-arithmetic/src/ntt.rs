@@ -163,7 +163,7 @@ fn gpu_ntt_acceleration<const Q: u64, const N: usize>(
 
         res.map_err(|_| InvalidInput)?.iter().enumerate().for_each(|(i, val)| input[i] = *val);
 
-        Ok(())
+        return Ok(());
     }
     #[cfg(not(feature = "GPU"))]
     {
