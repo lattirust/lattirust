@@ -58,7 +58,7 @@ Another contribution is REDsec [5](#REDsec), a framework that optimizes the exec
 
 Both Phantom and REDsec mark a shift from feasibility studies toward practical, high-performance implementations of HE schemes on GPUs. Their innovations bring GPU-acceleration closer to meeting industry standards emphasizing the role of hardware acceleration in advancing complex cryptosystems' applicability to real-world scenarios. These works collectively underscore the trend towards standardizing GPU-accelerated operations, nonetheless, the application of GPUs to lattice-based cryptographic schemes in the context of proof-systems remains an underexplored area. 
 
-Accelerating lattice-based proof systems using GPUs presents unique challenges compared to the GPU acceleration of traditional cryptosystems. Traditional cryptosystems, often rely on arithmetic operations that map well to GPU architectures, enabling efficient parallelization. In contrast, lattice-based cryptography involves complex mathematical structures and operations, such as high-dimensional polynomial multiplications, which are less straightforward to adapt and parallelize effectively on GPUs. One significant challenge in accelerating lattice-based cryptography on GPUs is the efficient implementation of polynomial multiplication, a core operation in these systems. NTTs are employed to perform these multiplications efficiently. However, implementing NTT on GPUs requires careful optimization to manage memory access patterns and parallel execution, as highlighted in [ADD REF](). Section III of this document provides a high level overview of the algorithms used for NTT acceleration on GPUs.
+Accelerating lattice-based proof systems using GPUs presents unique challenges compared to the GPU acceleration of traditional cryptosystems. Traditional cryptosystems, often rely on arithmetic operations that map well to GPU architectures, enabling efficient parallelization. In contrast, lattice-based cryptography involves complex mathematical structures and operations, such as high-dimensional polynomial multiplications, which are less straightforward to adapt and parallelize effectively on GPUs. One significant challenge in accelerating lattice-based cryptography on GPUs is the efficient implementation of polynomial multiplication, a core operation in these systems. NTTs are employed to perform these multiplications efficiently. However, implementing NTT on GPUs requires careful optimization to manage memory access patterns and parallel execution, as highlighted in [6](#ntt). Section III of this document provides a high level overview of the algorithms used for NTT acceleration on GPUs.
 
 These inherent complexities continue to impede efficient GPU acceleration. This project seeks to address these challenges by exploring GPU acceleration strategies tailored for lattice-based cryptographic schemes. It focuses on critical operations underpinning these systems and evaluates the tools and techniques available to achieve efficient implementation.
 
@@ -127,7 +127,7 @@ Where $n^{-1}$ is the modular inverse of $n$ modulo $q$. This inverse transform 
 
 ##### Accelerating NTT on GPUs
 
-There exists two specialized algorithms for the acceleration of NTT: the Cooley-Tukey Butterfly Algorithm [ADD REF]() and the Four-Step NTT Algorithm [ADD REF](). Each algorithm is tailored for different use cases based on polynomial degree, available hardware, and the nature of the cryptographic task.
+There exists two specialized algorithms for the acceleration of NTT: the Cooley-Tukey Butterfly Algorithm and the Four-Step NTT Algorithm. Each algorithm is tailored for different use cases based on polynomial degree, available hardware, and the nature of the cryptographic task.
 
 ###### Cooley-Tukey Butterfly Algorithm
 This algorithm represents the classical approach for computing the NTT. It is particularly well-suited for smaller polynomials or scenarios where simplicity and low overhead are essential. The process involves iterative, stage-wise computations of polynomial coefficients using modular arithmetic. It is well-suited for problems where the degree n of the polynomial is relatively small (e.g.,n ≤ $2^{16}$) and the memory or thread count available on the GPU is sufficient to handle all the coefficients in parallel.
@@ -313,7 +313,7 @@ If GPU acceleration is unavailable or disabled at compile time, the `gpu_ntt_acc
 
 #### Vector Operations Acceleration
 
-<>
+We adopt the same principle used for accelerating NTT operations to enhance the performance of vector operations. However, the core operation on vectors and its extension for matrices involve different data types, requiring careful handling. The current implementation focuses on accelerating the core inner product operation for vectors containing elements of type PolyRing. Additional work is required to extend this optimization to matrices. Lattirust's inner_product_mat function, which computes the inner products of the columns of a matrix, operates on the Scalar type. To fully integrate GPU acceleration for matrices, further development is needed to either convert the Scalar type to Babybear or unify the types used across the inner_products module.
 
 ### Evaluation & Benchmarking <a name="applications"></a>
 
@@ -336,20 +336,42 @@ The GPU we use in this work is the Nvidia 3090 with the following specifications
 - L2 Cache Size : 6144 KB
 - Register File Size : 20992 KB
 
+We are interested in end-to-end performance assessment of the GPU-accelerated operations in the lattirust-arithmetic package. The ultimate goal is to evaluate the performance of the operatinos as experienced by the protocol that uses them. 
+
+#### NTT
+
+To benchmark the NTT operations, we consider the forward and inverse NTT operations on NTT of varying sizes. We evaluate the performance of the GPU-accelerated NTT operations against the CPU implementation. The benchmarks are conducted on input sequences of sizes 64, 128, 256, 512, 1024, 2048 and 4096. The results are presented in the following graphs:
+
+![Alt Text](resources/ntt.png)
+- Figure 1. Comparative Graph of Forward NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+
+![Alt Text](resources/intt.png)
+- Figure 2. Comparative Graph of Inverse NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+
+The observed behavior aligns with the theoretical complexity analysis. GPU-accelerated NTT operations exhibit quasi-linear time complexity and demonstrate noticeable performance improvements over CPU implementations. This speedup becomes more pronounced with larger input sizes, where the GPU's parallel processing capabilities are fully utilized. However, typical input sizes for protocols like Labrador—which uses an input sequence of size 64—do not benefit as much from GPU acceleration when evaluated individually due to the overhead associated with data transfer. Note that the GPU context initialization overhead is not included in these benchmarks because, as mentioned in the implementation section, it is executed only once per GPU. This example highlights the importance of data movement optimization. In the context of a protocol execution, the overhead of data transfer can be amortized over multiple operations. Further benchmarking is required on this end to evaluate the overall performance of the GPU-accelerated protocol in a real-world scenario.
+
+#### Inner Products
+
+Similarly to NTT, we evaluate the performance of the inner product operation on CPU and GPU. The benchmarks are conducted on vectors of varying sizes, ranging from 10 to 10000 elements. The results are presented in the following graph:
+
+![Alt Text](resources/vec_ops.png)
+- Figure 3. Comparative Graph of Inner Product Vector Operation Times on CPU and GPU for Vectors of Different Sizes
+
+The conclusions drawn from the observed behavior align closely with those for NTT operations. The GPU-accelerated inner product operation exhibits significant performance improvements over the CPU implementation, particularly for larger vector sizes. Quasi-linear time complexity is achieved for sufficiently large input sizes, resulting in faster computations. However, the performance of individual operations can be impacted by data transfer overhead, particularly for smaller vector sizes. As with NTT operations, the advantages of GPU acceleration become more evident when multiple operations are executed in sequence, allowing the overhead to be amortized. Furthermore, the current implementation is based on the parallel version of the inner product operation from Lattirust with minimal modifications. Additional improvements could be made to fully utilize ICICLE's capabilities, such as implementing batched operations and custom configurations for optimized memory management.
+
 ### Concluding Remarks & Future Work <a name="conclusion"></a>
 
 This project marks an advancement in accelerating Lattirust, a library dedicated to safe and efficient lattice-based cryptography. We have pinpointed the operations most crucial for acceleration and devised a comprehensive strategy for their implementation on GPU. The integration of the library with the ICICLE framework has been particularly advantageous during the prototyping and development phases. This framework, which conveniently includes Rust bindings, has proven very useful in navigating and adapting the Lattirust ecosystem. It has facilitated the identification of optimization opportunities, informed software engineering decisions, and, most importantly, the construction of preliminary benchmarks for the accelerated operations. Consequently, it has significantly reduced the time required to develop a functional version of the accelerated library.
 
 Our implementation of GPU-accelerated operations highlights the feasibility and significant performance gains achievable in lattice-based cryptographic protocols through GPU acceleration. However, ICICLE is not yet the definitive solution for accelerating a library like Lattirust. Its current development is still in its early stages, supporting a limited range of algebraic structures and operations, with a primary focus on zero-knowledge proofs. Additionally, while the CPU implementation of ICICLE is fully open source, the CUDA backend is currently designated as "delayed open-source." Ingonyama intends to release the backend under an MIT license once the integration reaches a stable state. This limitation restricts the ability to customize and fine-tune the GPU kernels for specific use cases, which could otherwise enhance performance further. Despite these constraints, we have worked closely with Ingonyama’s team to mitigate the impact of these limitations, ensuring meaningful progress in adapting ICICLE for our requirements.
 
-An area where ICICLE proves particularly useful is in managing complex algebraic structures. In the context of GPUs, the infrastructure required for these structures can vary significantly based on the configurations. Implementing cryptographic algorithms across different rings and fields necessitates customized approaches to address the distinct arithmetic properties and operational requirements of each algebraic structure. For finite fields, operations typically involve modular arithmetic with a prime modulus. Since GPUs do not natively support modular arithmetic, efficient implementation strategies are necessary. When working with rings, such as integers modulo n or polynomial rings, the arithmetic operations often become more complex. They may involve more complex arithmetic, such as polynomial multiplication or operations with composite moduli. Implementing these operations efficiently on GPUs requires specialized algorithms that can exploit parallelism. Furthermore, accross all implementations, memory bandwidth & latency, as well as, precision and numerical stability are critical considerations to take into account. The idea of Ingonyama's ICICLE framework is to provide a unified interface for these operations, allowing developers to focus on the cryptographic protocols rather than the low-level GPU optimizations.Besides, as mentioned in previous sections, Ingonyama plans to include a Metal/Apple Silicon backend in the future [ADD REF](), which would be beneficial on many aspects. Unlike CUDA, which relies on discrete memory architectures, Metal's unified memory model allows both the CPU and GPU to access the same memory pool without requiring costly data transfers. This eliminates the significant overhead associated with repeated CPU-to-GPU and GPU-to-CPU transfers, a major bottleneck in CUDA workflows, particularly when CPU computation is needed as a fallback. The unified memory advantage in Metal drastically improves performance for mixed workloads by reducing latency and simplifying memory management. For example, in workflows where data must be frequently accessed or modified by both the CPU and GPU, Metal avoids the need for explicit memory copying, resulting in near-zero transfer costs. This efficiency was highlighted in performance benchmarks performed by Ingonyama [ADD REF](), where Metal consistently outperformed CUDA, especially in tasks involving iterative data exchanges. Additionally, Metal's unified memory model aligns well with the requirements of Izero-knowledge proof computations, which often involve heavy interaction between different computational components.
+An area where ICICLE proves particularly useful is in managing complex algebraic structures. In the context of GPUs, the infrastructure required for these structures can vary significantly based on the configurations. Implementing cryptographic algorithms across different rings and fields necessitates customized approaches to address the distinct arithmetic properties and operational requirements of each algebraic structure. For finite fields, operations typically involve modular arithmetic with a prime modulus. Since GPUs do not natively support modular arithmetic, efficient implementation strategies are necessary. When working with rings, such as integers modulo n or polynomial rings, the arithmetic operations often become more complex. They may involve more complex arithmetic, such as polynomial multiplication or operations with composite moduli. Implementing these operations efficiently on GPUs requires specialized algorithms that can exploit parallelism. Furthermore, accross all implementations, memory bandwidth & latency, as well as, precision and numerical stability are critical considerations to take into account. The idea of Ingonyama's ICICLE framework is to provide a unified interface for these operations, allowing developers to focus on the cryptographic protocols rather than the low-level GPU optimizations.Besides, as mentioned in previous sections, Ingonyama plans to include a Metal/Apple Silicon backend in the future [7](#icicle-metal), which would be beneficial on many aspects. Unlike CUDA, which relies on discrete memory architectures, Metal's unified memory model allows both the CPU and GPU to access the same memory pool without requiring costly data transfers. This eliminates the significant overhead associated with repeated CPU-to-GPU and GPU-to-CPU transfers, a major bottleneck in CUDA workflows, particularly when CPU computation is needed as a fallback. The unified memory advantage in Metal drastically improves performance for mixed workloads by reducing latency and simplifying memory management. For example, in workflows where data must be frequently accessed or modified by both the CPU and GPU, Metal avoids the need for explicit memory copying, resulting in near-zero transfer costs. This efficiency was highlighted in performance benchmarks performed by Ingonyama [7](#icicle-metal), where Metal consistently outperformed CUDA, especially in tasks involving iterative data exchanges. Additionally, Metal's unified memory model aligns well with the requirements of Izero-knowledge proof computations, which often involve heavy interaction between different computational components.
 
-In the perspective of improving and maintaining a high-quality infrastructure for the acceleration of Lattirust, we foresee several areas for future exploration and improvement. One area is to continue the close collaboration with Ingonyama to ensure that they offer the right infrastructure and implementations for Lattirust's specific needs. This collaboration entails providing detailed feedback on the limitations and bottlenecks of the current system, as well as offering precise specifications for new features or optimizations. On one hand, engaging in such a dialogue would help Ingonyama refine their frameworks and ensure that they are aligned with the practical requirements of lattice-based cryptographic acceleration, on the other hand, this collaboration brings Lattirust one step closer to standardization. Another critical area for future work relates to the quality and reliability of GPU-accelerated software. Subtle synchronization bugs in GPU programs can lead to intermittent failures, jeopardizing the reliability of cryptographic computations. Additionally, sub-optimal programming practices can result in performance bugs, causing underutilization of GPUs, which are inherently resource-intensive and power-hungry. Future work will involve a thorough analysis of synchronization mechanisms and a systematic approach to identify and mitigate performance bottlenecks in GPU programs. This could include the exploration of a tool named iGUARD, which can pinpoint synchronization bugs to programmers [ADD REF]() and ScopeAdvice, which can help programmers find performance bugs due to over and redundant synchronization in GPU programs [ADD REF]().
+In the perspective of improving and maintaining a high-quality infrastructure for the acceleration of Lattirust, we foresee several areas for future exploration and improvement. One area is to continue the close collaboration with Ingonyama to ensure that they offer the right infrastructure and implementations for Lattirust's specific needs. This collaboration entails providing detailed feedback on the limitations and bottlenecks of the current system, as well as offering precise specifications for new features or optimizations. On one hand, engaging in such a dialogue would help Ingonyama refine their frameworks and ensure that they are aligned with the practical requirements of lattice-based cryptographic acceleration, on the other hand, this collaboration brings Lattirust one step closer to standardization. Another critical area for future work relates to the quality and reliability of GPU-accelerated software. Subtle synchronization bugs in GPU programs can lead to intermittent failures, jeopardizing the reliability of cryptographic computations. Additionally, sub-optimal programming practices can result in performance bugs, causing underutilization of GPUs, which are inherently resource-intensive and power-hungry. Future work will involve a thorough analysis of synchronization mechanisms and a systematic approach to identify and mitigate performance bottlenecks in GPU programs. This could include the exploration of a tool named iGUARD, which can pinpoint synchronization bugs to programmers [9](#iguard) and ScopeAdvice, which can help programmers find performance bugs due to over and redundant synchronization in GPU programs [8](#oversync).
 
 ### Acknowledgements <a name="acknowledgements"></a>
 
-Many thanks to Christian Knabenhans for the great guidance and discussions throughout the project.
-
+Many thanks to Christian Knabenhans for the great guidance and discussions throughout the project. Thanks also to Ingonyama's team for providing hardware resources, early access to their CUDA backend, and their collaboration.
 ### References <a name="references"></a>
 
 ```
@@ -413,4 +435,54 @@ Many thanks to Christian Knabenhans for the great guidance and discussions throu
 }
 ```
 
+<a name="ntt"></a>
 
+```
+@misc{shivdikar2022acceleratingpolynomialmultiplicationhomomorphic,
+      title={Accelerating Polynomial Multiplication for Homomorphic Encryption on GPUs}, 
+      author={Kaustubh Shivdikar and Gilbert Jonatan and Evelio Mora and Neal Livesay and Rashmi Agrawal and Ajay Joshi and Jose Abellan and John Kim and David Kaeli},
+      year={2022},
+      eprint={2209.01290},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      url={https://arxiv.org/abs/2209.01290}, 
+}
+```
+
+<a name="icicle-metal"></a>
+```
+https://github.com/ingonyama-zk/metal-poc
+```
+
+<a name="oversync"></a>
+```
+@inproceedings{inproceedings,
+author = {Nayak, Ajay and Basu, Arkaprava},
+year = {2024},
+month = {11},
+pages = {795-809},
+title = {Over-Synchronization in GPU Programs},
+doi = {10.1109/MICRO61859.2024.00064}
+}
+```
+
+<a name="iguard"></a>
+```
+@inproceedings{10.1145/3477132.3483545,
+author = {Kamath, Aditya K. and Basu, Arkaprava},
+title = {iGUARD: In-GPU Advanced Race Detection},
+year = {2021},
+isbn = {9781450387095},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3477132.3483545},
+doi = {10.1145/3477132.3483545},
+abstract = {Newer use cases of GPU (Graphics Processing Unit) computing, e.g., graph analytics, look less like traditional bulk-synchronous GPU programs. To cater to the needs of emerging applications with semantically richer and finer grain sharing patterns, GPU vendors have been introducing advanced programming features, e.g., scoped synchronization and independent thread scheduling. While these features can speed up many applications and enable newer use cases, they can also introduce subtle synchronization errors if used incorrectly.We present iGUARD, a runtime software tool to detect races in GPU programs due to incorrect use of such advanced features. A key need for a race detector to be practical is to accurately detect races at reasonable overheads. We thus perform the race detection on the GPU itself without relying on the CPU. The GPU's parallelism helps speed up race detection by 15x over a closely related prior work. Importantly, iGUARD detects newer types of races that were hitherto not possible for any known tool. It detected previously unknown subtle bugs in popular GPU programs, including three in NVIDIA supported commercial libraries. In total, iGUARD detected 57 races in 21 GPU programs, without false positives.},
+booktitle = {Proceedings of the ACM SIGOPS 28th Symposium on Operating Systems Principles},
+pages = {49–65},
+numpages = {17},
+keywords = {Data races, Debugging, GPU program correctness},
+location = {Virtual Event, Germany},
+series = {SOSP '21}
+}
+```
