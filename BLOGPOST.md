@@ -1,5 +1,5 @@
 # GPU Acceleration of Lattice-Based Proof Systems
-#### *EMILE HREICH, 10.01.2025*
+#### *EMILE JANHO DIT HREICH, 10.01.2025*
 ---
 
 ### Table of Contents
@@ -28,11 +28,10 @@
 - **SSE**   : Streaming SIMD Extensions
 - **SIS**   : Short Integer Solution
 - **MSIS**  : Module Short Integer Solution
-- **CSR**   : Compressed Sparse Row
-- **CSC**   : Compressed Sparse Column
-
 
 ---
+<div style="page-break-after: always;"></div>
+
 
 ### Introduction <a name="introduction"></a>
 Lattices provide a versatile foundation for a broad spectrum of quantum-secure cryptographic schemes. The additional structural properties inherent in lattice-based assumptions offer a significant advantage over other post-quantum assumptions, such as those based on collision-resistant hash functions. This added structure allows for the design of cryptographic protocols that exhibit greater efficiency in their implementation. The operations used in lattice-based cryptography (and especially in succinct and zero-knowledge proofs) are essentially linear algebra operations over a ring (or similarly parallelizable computations).  Given the critical importance of performance for the adoption and standardization of such cryptosystems, this project explores the use of GPUs for advanced lattice-based cryptography, in particular by implementing a GPU backend for the arithmetics in the Lattirust library.
@@ -42,14 +41,14 @@ Lattirust is a Rust library designed to provide a secure and efficient foundatio
 To fully harness the computational capabilities of GPUs, this work focuses on accelerating key operations within the `lattirust-arithmetic` package, including matrix-matrix and matrix-vector operations, decomposition and recomposition processes, and number-theoretic transforms (NTT) for fast polynomial multiplication, and modular arithmetic. This post outlines a strategy for accelerating lattice-based cryptographic protocols on Nvidia GPUs by utilizing Ingonyama’s CUDA Backend. The primary goals are twofold: (1) achieving end-to-end integration with the ICICLE backend to enable the first deployment of the accelerated library and to evaluate the scope and implications of GPU acceleration, and (2) establishing both the theoretical and practical foundations for the eventual implementation of custom kernels tailored for further acceleration. This approach lays the groundwork for robust and scalable GPU-accelerated cryptographic solutions. At the time of writing, our contributions to Lattirust include:
 
 - Conducting research into GPU acceleration for arithmetic operations implemented in Lattirust and providing a detailed specification for integrating the ICICLE GPU backend [11](#icicle-backend).  
-- Developing the accelerated version of the `lattirust-arithmetic` package with GPU-accelerated support for critical operations such as NTT, decomposition, recomposition, and matrix-vector computations. This implementation is seamlessly integrated with Ingonyama's ICICLE backend.  
+- Developing the accelerated version of the `lattirust-arithmetic` package with GPU-accelerated support for critical operations such as NTT, and vector computations. This implementation is integrated with Ingonyama's ICICLE backend.  
 - Performing an experimental evaluation of the accelerated library implementation and presenting preliminary benchmark results to validate its performance improvements.  
 
 ### Related Work <a name="related"></a>
 
 Research on accelerating cryptographic schemes using GPU architectures has gained substantial momentum. This is driven by the need to meet performance and scalability standards essential for the adoption and standardization of these schemes. The computational demands of modern security applications in privacy-preserving computation and post-quantum cryptography, make accelerating the operations that underpin these schemes critical to achieving practical performance and usability.
 
-The available research on GPU acceleration in cryptography has primarily focused on Homomorphic Encryption and Secure Multi-Party Computation. These schemes are computationally intensive and require significant optimization to achieve practical performance. The use of GPUs in accelerating these schemes has shown promising results, with significant speedups achieved in various operations, such as basic Liner Algebra operations, Number Theoretic Transforms, and Modular Arithmetic. Several works on accelerating HE schemes exist in the literature. Early works in this field focus on evaluating the feasibility of GPU acceleration for basic computations on encrypted data. For instance, the work by [3](#CKKS) presents a GPU-accelerated implementation of the CKKS encryption scheme, a homomorphic encryption scheme that supports approximate arithmetic operations, for logistic regression over encrypted data. The authors demonstrate that while encrypted training remains slower than plaintext computation, their approach achieves comparable model accuracy, highlighting the potential for privacy-preserving ML applications. Their results suggest that FHE can support more complex ML applications, with performance improvements paving the way for broader privacy-preserving analytics on sensitive data.
+The available research on GPU acceleration in cryptography has primarily focused on Homomorphic Encryption and Secure Multi-Party Computation. These schemes are computationally intensive and require significant optimization to achieve practical performance. The use of GPUs in accelerating these schemes has shown promising results, with significant speedups achieved in various operations, such as basic liner algebra operations, NTTs, and modular arithmetic. Several works on accelerating HE schemes exist in the literature. Early works in this field focus on evaluating the feasibility of GPU acceleration for basic computations on encrypted data. For instance, the work by [3](#CKKS) presents a GPU-accelerated implementation of the CKKS encryption scheme, a homomorphic encryption scheme that supports approximate arithmetic operations, for logistic regression over encrypted data. The authors demonstrate that while encrypted training remains slower than plaintext computation, their approach achieves comparable model accuracy, highlighting the potential for privacy-preserving ML applications. Their results suggest that FHE can support more complex ML applications, with performance improvements paving the way for broader privacy-preserving analytics on sensitive data.
 
 More recent works focus on the performance comparison of different homomorphic encryption schemes accelerated on GPUs. The Phantom library [4](#Pantom) represents an advancement in leveraging GPUs to optimize word-wise HE schemes, specifically BGV, BFV, and CKKS, which support batch processing for privacy-preserving applications. This library introduces several innovations in GPU processing, such as kernel fusion, memory pooling, and efficient use of NTTs for polynomial multiplications. Phantom's benchmarks reveal substantial speed improvements over existing implementations, which reinforces the notion that GPU acceleration presents a viable solution for high-throughput applications.
 
@@ -57,8 +56,7 @@ Another contribution is REDsec [5](#REDsec), a framework that optimizes the exec
 
 Both Phantom and REDsec mark a shift from feasibility studies toward practical, high-performance implementations of HE schemes on GPUs. Their innovations bring GPU-acceleration closer to meeting industry standards emphasizing the role of hardware acceleration in advancing complex cryptosystems' applicability to real-world scenarios. These works collectively underscore the trend towards standardizing GPU-accelerated operations, nonetheless, the application of GPUs to lattice-based cryptographic schemes in the context of proof-systems remains an underexplored area. 
 
-Accelerating lattice-based proof systems using GPUs presents unique challenges compared to the GPU acceleration of traditional cryptosystems. Traditional cryptosystems, often rely on arithmetic operations that map well to GPU architectures, enabling efficient parallelization. In contrast, lattice-based cryptography involves complex mathematical structures and operations, such as high-dimensional polynomial multiplications, which are less straightforward to adapt and parallelize effectively on GPUs. One significant challenge in accelerating lattice-based cryptography on GPUs is the efficient implementation of polynomial multiplication, a core operation in these systems. NTTs are employed to perform these multiplications efficiently. However, implementing NTT on GPUs requires careful optimization to manage memory access patterns and parallel execution, as highlighted in [6](#ntt). Section III of this document provides a high level overview of the algorithms used for NTT acceleration on GPUs.
-
+Accelerating lattice-based proof systems using GPUs presents unique challenges compared to the GPU acceleration of traditional cryptosystems. Traditional cryptosystems, often rely on arithmetic operations that map well to GPU architectures, enabling efficient parallelization. In contrast, lattice-based cryptography involves complex mathematical structures and operations, which are less straightforward to adapt and parallelize effectively on GPUs. One significant challenge in accelerating lattice-based cryptography on GPUs is the efficient implementation of polynomial multiplication, a core operation in these systems. NTTs are employed to perform these multiplications efficiently. However, implementing NTT on GPUs requires careful optimization to manage memory access patterns and parallel execution, as highlighted in [6](#ntt). Section III of this document provides a high level overview of the algorithms used for NTT acceleration on GPUs.
 These inherent complexities continue to impede efficient GPU acceleration. This project seeks to address these challenges by exploring GPU acceleration strategies tailored for lattice-based cryptographic schemes. It focuses on critical operations underpinning these systems and evaluates the tools and techniques available to achieve efficient implementation.
 
 ### Hardware Acceleration <a name="hardware"></a>
@@ -67,7 +65,7 @@ The traction gained by GPU acceleration in cryptographic schemes stems not only 
 
 #### SIMD on CPU vs. GPU
 
-CPUs incorporate SIMD (Single Instruction, Multiple Data) capabilities through various instruction set extensions, such as Intel's SSE (Streaming SIMD Extensions) and AVX (Advanced Vector Extensions). These extensions enable CPUs to perform parallel operations on multiple data points simultaneously, enhancing performance in tasks like multimedia processing and scientific computations.However, the SIMD capabilities of CPUs are limited compared to GPUs. CPUs are optimized for general-purpose computing, emphasizing low-latency execution of single-threaded tasks. Their SIMD units typically feature narrower vector widths.Additionally, CPUs have fewer SIMD registers and limited memory bandwidth compared to GPUs, which are architected to handle high-throughput parallel workloads with thousands of concurrent threads. This architectural difference means that while CPUs can leverage SIMD for performance gains, they are less suited for tasks that require extensive parallelism, where GPUs excel.
+CPUs incorporate SIMD (Single Instruction, Multiple Data) capabilities through various instruction set extensions, such as Intel's SSE (Streaming SIMD Extensions) and AVX (Advanced Vector Extensions). These extensions enable CPUs to perform parallel operations on multiple data points simultaneously, enhancing performance in tasks like multimedia processing and scientific computations. However, the SIMD capabilities of CPUs are limited compared to GPUs. CPUs are optimized for general-purpose computing, emphasizing low-latency execution of single-threaded tasks. Their SIMD units typically feature narrower vector widths.Additionally, CPUs have fewer SIMD registers and limited memory bandwidth compared to GPUs, which are architected to handle high-throughput parallel workloads with thousands of concurrent threads. This architectural difference means that while CPUs can leverage SIMD for performance gains, they are less suited for tasks that require extensive parallelism, where GPUs excel.
 
 #### GPU vs. FPGA
 
@@ -75,13 +73,12 @@ FPGAs are known for their power efficiency and ability to be customized for spec
 
 ### Design: Integrating ICICLE with lattirust-arithmetic <a name="lattirust"></a>
 
-The *lattirust-arithmetic* package is responsible for handling a variety of algebraic operations central to the library’s GPU-accelerated functionality. We focus on five of its core operations which are bottlenecks in the lattice-based cryptographic protocols that Lattirust supports:
+The *lattirust-arithmetic* package is responsible for handling a variety of algebraic operations central to the library’s GPU-accelerated functionality. We focus on four of its core operations which are bottlenecks in the lattice-based cryptographic protocols that Lattirust supports:
 
 1. **Decomposition**  
 2. **Recomposition**  
-3. **Number Theoretic Transforms (NTTs)**  
+3. **Number Theoretic Transforms**  
 4. **Inner Products**  
-5. **Sparse Matrix-Vector Multiplication**
 
 To support these operations efficiently, several key parameters must be considered:
 
@@ -95,9 +92,7 @@ To support these operations efficiently, several key parameters must be consider
 
 The decomposition operations is handled in the `decompose_balanced` function of the package. It is implemented for rings and field elements but its functionality also extends to vectors and matrices, where each element of a matrix can be decomposed according to the same principles. The function decomposes field elements with respect to a basis `b` into an equivalent representation of multiple field elements with smaller norm. We consider a balanced decomposition, where each element of the decomposition lies in the range $[-b/2, b/2]$. The basis `b` must be greater than 1. The current implementation requires `b` to be even for simplicity. 
 
-The implementation iteratively extracts the remainder (`rem`) of the current value divided by the basis `b`. This remainder represents the next component in the decomposition sequence. If `rem` falls within the $([-b/2, b/2])$ range, it is appended to the decomposition, and the current value is reduced by dividing it by `b`. If `rem` falls outside this range, adjustments are made to bring it back within bounds by adding or subtracting `b`, followed by computing and applying a "carry" to adjust the current value. This step ensures each component of the decomposition stays within the balanced range. The loop terminates once the current value reaches zero, meaning the entire element has been decomposed. If a padding size is specified, the function pads the decomposition to this length with zeros. Otherwise, it removes any trailing zeros that don’t affect the original value.
-
-The recomposition function complements decomposition, enabling the reassembly of previously decomposed elements back into their original form. The `recompose` function takes a vector of `FinitefieldWrapper` elements and reconstructs the original finite field element. This function essentially sums the values weighted by their respective powers of `b`, reversing the decomposition process.
+The implementation iteratively extracts the remainder (`rem`) of the current value divided by the basis `b`. This remainder represents the next component in the decomposition sequence. If `rem` falls within the $([-b/2, b/2])$ range, it is appended to the decomposition, and the current value is reduced by dividing it by `b`. If `rem` falls outside this range, adjustments are made to bring it back within bounds by adding or subtracting `b`, followed by computing and applying a "carry" to adjust the current value. This step ensures each component of the decomposition stays within the balanced range. The loop terminates once the current value reaches zero, meaning the entire element has been decomposed. If a padding size is specified, the function pads the decomposition to this length with zeros. Otherwise, it removes any trailing zeros that don’t affect the original value. The recomposition function complements decomposition, enabling the reassembly of previously decomposed elements back into their original form by summing the values weighted by their respective powers of `b`.
 
 This functionality also extends to matrices. Two additional functions are implemented to that end. The `recompose_matrix` function is used for matrices where each row has been decomposed into multiple columns using a basis. If $A$ is a $m\times n$-matrix decomposed into a $m\times nk$ matrix $\tilde{A}$, then $A = \tilde{A}G$ for the gadget matrix $G = g \otimes I$ where $g=\left[\begin{array}{c}1 \\b\\\vdots\\b^k\end{array}\right]$ and $I$ is an identity matrix of suitable dimensions. The `recompose_left_right_symmetric_matrix` function performs recomposition on symmetric matrices (in particular, matrices $M = A^\top A$), where the structure is $G^T * mat * G$, and `G` represents the gadget matrix. The function iterates through pairs of row and column indices, recomposing each element based on the `powers_of_basis`. For each symmetric matrix element, it multiplies the decomposed component by the corresponding product of powers, summing these products to reassemble the original element. The final result is an `n x n` symmetric matrix.
 
@@ -147,7 +142,7 @@ After the row-wise NTTs, each element of the matrix undergoes a twiddle factor m
 
 Ingonyama's ICICLE CUDA Backend provides an implementation that supports two algorithms for NTT acceleration: `radix-2` and `mixed-radix`. These algorithms are variations of the Cooley-Tukey Butterfly Algorithm, optimized for finite fields. The choice between them depends on the degree of the polynomial and the available hardware resources, as each has distinct computational and memory requirements.
 
-The Radix-2 NTT algorithm is designed for input sequences whose lengths are powers of two, leveraging a divide-and-conquer approach to simplify computations. The input sequence is recursively divided into smaller subsequences of even-indexed and odd-indexed elements. This process halves the problem size at each stage. The core of the computation lies in the butterfly operation, where pairs of elements are combined using a modular arithmetic formula. Precomputed twiddle factors, which are roots of unity in the finite field, are used to optimize these operations. A final step reorders the output from a bit-reversed sequence into its natural order.
+The Radix-2 NTT algorithm is designed for input sequences whose lengths are powers of two. The input sequence is recursively divided into smaller subsequences of even-indexed and odd-indexed elements. This process halves the problem size at each stage. The core of the computation lies in the butterfly operation, where pairs of elements are combined using a modular arithmetic formula. Precomputed twiddle factors, which are roots of unity in the finite field, are used to optimize these operations. A final step reorders the output from a bit-reversed sequence into its natural order.
 
 The butterfly operation for Radix-2 is:
 
@@ -172,29 +167,18 @@ where:
 - $( W_{j,k} )$: Twiddle factor specific to the radix.
 - $( p )$: Prime modulus.
 
-After performing all butterfly operations, Mixed-Radix recombines the results into a single output sequence. Reordering in Mixed-Radix is more complex than in Radix-2, often requiring digit-reversal permutations due to the varied sizes of the sub-transforms.
+After performing all butterfly operations, Mixed-Radix recombines the results into a single output sequence. Reordering in Mixed-Radix is more complex than in Radix-2, often requiring digit-reversal permutations due to the varied sizes of the sub-transforms. Overall, the Radix-2 algorithm is best suited for input sizes that are powers of two, offering simplicity and computational efficiency. Meanwhile, the Mixed-Radix algorithm is ideal for inputs with composite lengths, providing greater flexibility and optimized performance for larger polynomials. 
 
-The Radix-2 algorithm is best suited for input sizes that are powers of two, offering simplicity and computational efficiency. Meanwhile, the Mixed-Radix algorithm is ideal for inputs with composite lengths, providing greater flexibility and optimized performance for larger polynomials. 
+#### Inner Products
 
-#### Inner Products & Sparse Matrix-Vector Multiplication
+The inner product operation computes the sum of element-wise products between two vectors in the field. The implementation computes the inner products between pairs of vectors, producing a scalar. `inner_products_serial` computes the inner product of each pair of vectors in a given vector set, returning the results as a symmetric matrix, while `inner_products` does the same thing with some basic parallelism. The `inner_products_mat` function takes a matrix $A$ and computes the symmetric matrix $A^\top A$ (which we store as an upper triangular matrix). These operations are accelerated using the Vectors Operations from the ICICLE CUDA backend [11](#icicle-vec).
 
-The inner product operation computes the sum of element-wise products between two vectors in the field. The implementation computes the inner products between pairs of vectors, producing a scalar. `inner_products_serial` computes the inner product of each pair of vectors in a given vector set, returning the results as a symmetric matrix, while `inner_products` does the same thing with some basic parallelism. The `inner_products_mat` function takes a matrix $A$ and computes the symmetric matrix $A^\top A$ (which we store as an upper triangular matrix).  
-
-The `sparse_matrix_vec_mult` function multiplies a sparse matrix (in Compressed Sparse Column (CSC) format) by a dense vector.
-
-##### Accelerating Matrix Operations on GPUs
-
-For general efficient matrix multiplication on GPU, we suggest to follow the Nvidia cuTLASS tiling structure. It decomposes the computation into a hierarchy of thread block tiles, warp tiles  and thread tiles, effectively mirroring the CUDA programming model. The cuTLASS library has supported operations on sparse matrices since the 2.3 release, making it a viable option for managing the sparse-dense operations. Alternatively, the cuSPARSE library can be utilized, which, like cuBLAS (closed source), provides a specialized set of kernels designed explicitly for handling operations on sparse matrices. 
-
-###### ICICLE CUDA Backend
-
-As of now, ICICLE supports only matrix transposition and lacks built-in matrix multiplication capabilities. However, in the lattirust framework, matrix-vector multiplication can still be optimized using ICICLE's existing vector multiplication functions. This is achieved by decomposing the matrix-vector multiplication into multiple vector-vector multiplications, where each row of the matrix is multiplied by the vector.
 
 ### Implementation <a name="lova"></a>
 
 The implementation of GPU-accelerated operations in the lattirust-arithmetic package is specifically designed to leverage the ICICLE framework's Rust bindings for the CUDA backend, optimizing performance on Nvidia GPUs. Ingonyama is actively broadening hardware support for their framework, with plans to include a Metal/Apple Silicon backend. This expansion aims to provide an efficient solution for client-side cryptographic operations. Further details on this development will be discussed in the final section of this post.
 
-Lattirust handles the core arithmetic operations within the lattirust-arithmetic package. The implementation is designed to ensure that the library's broader functionalities remain agnostic to the underlying hardware and acceleration mechanisms. Consequently, the only package directly involved is lattirust-arithmetic, and the sole added dependency is the ICICLE framework. This approach allows for a clean separation of concerns, allowing for seamless replacement of the accelerated operations with alternative implementations in the future, if necessary. Additionally, we ensure that the interfaces in the library's original implementation remain unchanged, preserving compatibility with existing protocol implementations. Furthermore, the operations are designed to gracefully fall back to the CPU implementation in the event of any issues during GPU execution.
+Lattirust handles the core arithmetic operations within the lattirust-arithmetic package. The implementation is designed to ensure that the library's broader functionalities remain agnostic to the underlying hardware and acceleration mechanisms. Consequently, the only package directly involved is lattirust-arithmetic, and the sole added dependency is the ICICLE framework. Additionally, we ensure that the interfaces in the library's original implementation remain unchanged, preserving compatibility with existing protocol implementations. Furthermore, the operations are designed to gracefully fall back to the CPU implementation in the event of any issues during GPU execution.
 
 To manage the GPU-accelerated operations, we introduce a new module, `gpu_context`. Its primary role is to handle the initialization, configuration, and data transfer between the host (CPU) and the device (GPU). Additionally, it provides utility functions for efficient conversion between field elements used in cryptographic computations. The module acts as a bridge between the cryptographic algorithms implemented in lattirust and the GPU-accelerated backend provided by ICICLE. By abstracting GPU-specific details and providing fallback mechanisms, it ensures that the library remains robust and hardware-agnostic. Its clean separation of responsibilities simplifies debugging, extensibility, and maintenance.
 
@@ -211,7 +195,7 @@ To this day, ICICLE only supports operations on algebraic fields, whereas many o
 
 For **Labrador**, two fields from the set {Babybear, KoalaBear, TeddyBear} are utilized. Labrador constructs a SNARK directly, benefiting from fields with approximately 64-bit sizes for efficient computations. In R1CS reduction, the size of the smallest prime factor of the modulus $q$ is crucial. Employing two Bear subfields is advantageous, potentially resulting in smaller proof sizes compared to the Labrador split.
 
-**Greyhound** requires a single ~32-bit prime $p$ where $p \equiv 5 \mod 8$. However, NTTs cannot be performed directly in this field. The approach involves selecting 12-14 primes that support NTTs, similar to those used in Gregor's implementation, and employing the Bernstein-Sorenson technique to execute NTTs within this CRT basis. Integrating these components requires additional effort to ensure seamless functionality.
+**Greyhound** requires a single ~32-bit prime $p$ where $p \equiv 5 \mod 8$. However, NTTs cannot be performed directly in this field. The approach involves selecting 12-14 primes that support NTTs, similar to those used in Gregor's implementation [12](#gregor), and employing the Bernstein-Sorenson technique to execute NTTs within this CRT basis. Integrating these components requires additional effort to ensure seamless functionality.
 
 For **Lova**, there are no specific modulus constraints, and it utilizes $q = 2^{64}$. While Lova and other unstructured constructions are significant, they are currently less critical compared to the highly optimized structured constructions.
 
@@ -221,7 +205,6 @@ In this work, we provide a preliminary implementation that uses the Babybear fie
 
 Converts an array of `Zq<Q>` elements into a `Vec<BabybearField>`.
 
-**Implementation:**  
 1. The function iterates over the input array of `Zq<Q>` elements.
 2. Each `Zq<Q>` element is converted to its big integer representation using `.into_bigint()`. 
 3. The first 32 bits of this big integer are extracted (`.0[0] as u32`) and used to construct a `BabybearField` element.
@@ -233,7 +216,6 @@ Converts an array of `Zq<Q>` elements into a `Vec<BabybearField>`.
 
 Converts a polynomial vector from a `PolyRing` representation into a `Vec<BabybearField>`.
 
-**Implementation:**  
 1. The polynomial coefficients are flattened into a single vector using `P::flattened(poly_vec)`.
 2. Each coefficient (a base-ring element) is converted into its unsigned representative (`UnsignedRepresentative`).
 3. The unsigned representative is then converted into a `BabybearField` using its first 32 bits (`usr.0 as u32`).
@@ -245,7 +227,6 @@ Converts a polynomial vector from a `PolyRing` representation into a `Vec<Babybe
 
 Converts a vector of `BabybearField` elements back into a `Vector<P>` in the `PolyRing` format.
 
-**Implementation:**  
 1. Each `BabybearField` element is converted back to its base-ring representation using `P::BaseRing::from_bytes()` and its byte representation (`to_bytes_le()`).
 2. These base-ring elements are grouped into chunks corresponding to the dimension of the polynomials (`P::dimension()`).
 3. Each chunk is used to reconstruct a polynomial using `P::from()`.
@@ -257,7 +238,6 @@ Converts a vector of `BabybearField` elements back into a `Vector<P>` in the `Po
 
 Converts a vector of `BabybearField` elements into an array of `Zq<Q>` elements.
 
-**Implementation:**  
 1. The function first validates that the input vector's length matches the expected output array length.
 2. Each `BabybearField` element is converted into its byte representation using `.to_bytes_le()`.
 3. The raw value is reconstructed from these bytes using a bitwise operation (`(byte as u64) << (index * 8)`).
@@ -276,7 +256,7 @@ The `init_ntt_context_on_device` function is responsible for allocating memory o
 
 The `gpu_ntt_acceleration` function handles both forward and inverse NTT operations. The direction is specified by the `dir` parameter in ICICLE's function signature. The process is as follows:
 1. The function attempts to load and set the GPU backend using `try_load_and_set_GPU_backend_device`. If the GPU backend is unavailable, it falls back to a CPU implementation.
-2. It initializes the GPU's NTT context via `init_ntt_context_on_device`, ensuring that input and output memory are allocated and prepared for computation.
+2. It initializes the GPU's NTT context via `init_ntt_context_on_device`, ensuring that input and output memory are allocated and prepared for computation. The context also includes the NTT domain configuration which should be done once. That is, this routine should ideally be done at compile time or once during some initialization process. However, this would involve triggering the GPU initialization at the protocol level. For the purpose of this implementation, we set the domain initialization to be done every time the NTT operation is called. The overhead of this operation is not included in the benchmarks.
 3. Input data is converted from `Zq<Q>` elements to `BabybearField` elements using `convert_to_babybear` and transferred from host memory to GPU memory using `copy_from_host`.
 4. The NTT operation is performed on the GPU with ICICLE's default NTT configuration.
 5. The results are copied back to host memory using `copy_to_host` and converted from `BabybearField` elements back to `Zq<Q>` elements using `convert_to_Zq`.
@@ -315,19 +295,29 @@ We are interested in end-to-end performance assessment of the GPU-accelerated op
 To benchmark the NTT operations, we consider the forward and inverse NTT operations on NTT of varying sizes. We evaluate the performance of the GPU-accelerated NTT operations against the CPU implementation. The benchmarks are conducted on input sequences of sizes 64, 128, 256, 512, 1024, 2048 and 4096. The results are presented in the following graphs:
 
 ![Alt Text](resources/ntt.png)
-- Figure 1. Comparative Graph of Forward NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+- Figure 1. Comparative Graph of Forward NTT end-to-end Operation Times on CPU and GPU for Input Sequences of Different Sizes
 
 ![Alt Text](resources/intt.png)
-- Figure 2. Comparative Graph of Inverse NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+- Figure 2. Comparative Graph of Inverse NTT end-to-end Operation Times on CPU and GPU for Input Sequences of Different Sizes
 
-The observed behavior aligns with the theoretical complexity analysis. GPU-accelerated NTT operations exhibit quasi-linear time complexity and demonstrate noticeable performance improvements over CPU implementations. This speedup becomes more pronounced with larger input sizes, where the GPU's parallel processing capabilities are fully utilized. However, typical input sizes for protocols like Labrador—which uses an input sequence of size 64—do not benefit as much from GPU acceleration when evaluated individually due to the overhead associated with data transfer. Note that the GPU context initialization overhead is not included in these benchmarks because, as mentioned in the implementation section, it is executed only once per GPU. This example highlights the importance of data movement optimization. In the context of a protocol execution, the overhead of data transfer can be amortized over multiple operations. Further benchmarking is required on this end to evaluate the overall performance of the GPU-accelerated protocol in a real-world scenario.
+The observed behavior aligns with the expected results from GPU theoretical complexity analysis. GPU-accelerated NTT operations exhibit quasi-linear time complexity and demonstrate noticeable performance improvements over CPU implementations. This speedup becomes more pronounced with larger input sizes, where the GPU's parallel processing capabilities are fully utilized. However, typical input sizes for protocols like Labrador—which uses an input sequence of size 64—do not benefit as much from GPU acceleration when evaluated individually due to the overhead associated with data transfer. Note that the GPU context initialization overhead is not included in these benchmarks because, as mentioned in the implementation section, it is executed only once per GPU. This example highlights the importance of data movement optimization. In the context of a protocol execution, the overhead of data transfer can be amortized over multiple operations. Further benchmarking is required on this end to evaluate the overall performance of the GPU-accelerated protocol in a real-world scenario.
+
+As a matter of interest, we also evaluate the performance of the accelerated NTT operations disregarding the data transfers. The results are presented in the following graphs:
+
+![Alt Text](resources/ntt-kernel.png)
+- Figure 3. Comparative Graph of Forward NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+
+![Alt Text](resources/intt-kernel.png)
+- Figure 4. Comparative Graph of Inverse NTT Operation Times on CPU and GPU for Input Sequences of Different Sizes
+
+For all input sizes, the GPU-accelerated implementation maintains a consistent running time, suggesting that the GPU is not operating at full capacity for the evaluated sizes. As expected, the CPU implementation exhibits the same behavior observed in the end-to-end evaluation. This underscores the significant advantages of GPUs' large-scale parallelization capabilities, particularly for larger input sizes. However, it is worth noting that for an NTT size of 64, as in Labrador, the GPU implementation is slower (815 $\mu s$ against 268 $\mu s$), although the inverse NTT shows improved performance. This indicates that the benefits of GPU acceleration are less pronounced for smaller input sizes. ICICLE provides flexibility with options to customize the NTT domain, memory management, and batched executions, which can be leveraged to optimize performance for smaller inputs. 
 
 #### Inner Products
 
 Similarly to NTT, we evaluate the performance of the inner product operation on CPU and GPU. The benchmarks are conducted on vectors of varying sizes, ranging from 10 to 10000 elements. The results are presented in the following graph:
 
 ![Alt Text](resources/vec_ops.png)
-- Figure 3. Comparative Graph of Inner Product Vector Operation Times on CPU and GPU for Vectors of Different Sizes
+- Figure 5. Comparative Graph of Inner Product Vector Operation Times on CPU and GPU for Vectors of Different Sizes
 
 The conclusions drawn from the observed behavior align closely with those for NTT operations. The GPU-accelerated inner product operation exhibits significant performance improvements over the CPU implementation, particularly for larger vector sizes. Quasi-linear time complexity is achieved for sufficiently large input sizes, resulting in faster computations. However, the performance of individual operations can be impacted by data transfer overhead, particularly for smaller vector sizes. As with NTT operations, the advantages of GPU acceleration become more evident when multiple operations are executed in sequence, allowing the overhead to be amortized. Furthermore, the current implementation is based on the parallel version of the inner product operation from Lattirust with minimal modifications. Additional improvements could be made to fully utilize ICICLE's capabilities, such as implementing batched operations and custom configurations for optimized memory management.
 
@@ -462,4 +452,14 @@ series = {SOSP '21}
 <a name="icicle-backend"></a>
 ```
 https://dev.ingonyama.com/icicle/rust-bindings
+```
+
+<a name="icicle-vec"></a>
+```
+https://dev.ingonyama.com/icicle/rust-bindings/vec-ops
+```
+
+<a name="gregor"></a>
+```
+https://github.com/lattice-dogs/labrador/blob/main/data64.c
 ```
