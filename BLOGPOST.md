@@ -1,6 +1,5 @@
-# Towards the Standardization of Lattice-based Proof Systems through GPU Acceleration
+# GPU Acceleration of Lattice-Based Proof Systems
 #### *EMILE HREICH, 10.01.2025*
-
 ---
 
 ### Table of Contents
@@ -42,7 +41,7 @@ Lattirust is a Rust library designed to provide a secure and efficient foundatio
 
 To fully harness the computational capabilities of GPUs, this work focuses on accelerating key operations within the `lattirust-arithmetic` package, including matrix-matrix and matrix-vector operations, decomposition and recomposition processes, and number-theoretic transforms (NTT) for fast polynomial multiplication, and modular arithmetic. This post outlines a strategy for accelerating lattice-based cryptographic protocols on Nvidia GPUs by utilizing Ingonyama’s CUDA Backend. The primary goals are twofold: (1) achieving end-to-end integration with the ICICLE backend to enable the first deployment of the accelerated library and to evaluate the scope and implications of GPU acceleration, and (2) establishing both the theoretical and practical foundations for the eventual implementation of custom kernels tailored for further acceleration. This approach lays the groundwork for robust and scalable GPU-accelerated cryptographic solutions. At the time of writing, our contributions to Lattirust include:
 
-- Conducting research into GPU acceleration for arithmetic operations implemented in Lattirust and providing a detailed specification for integrating the ICICLE GPU backend.  
+- Conducting research into GPU acceleration for arithmetic operations implemented in Lattirust and providing a detailed specification for integrating the ICICLE GPU backend [11](#icicle-backend).  
 - Developing the accelerated version of the `lattirust-arithmetic` package with GPU-accelerated support for critical operations such as NTT, decomposition, recomposition, and matrix-vector computations. This implementation is seamlessly integrated with Ingonyama's ICICLE backend.  
 - Performing an experimental evaluation of the accelerated library implementation and presenting preliminary benchmark results to validate its performance improvements.  
 
@@ -190,33 +189,6 @@ For general efficient matrix multiplication on GPU, we suggest to follow the Nvi
 ###### ICICLE CUDA Backend
 
 As of now, ICICLE supports only matrix transposition and lacks built-in matrix multiplication capabilities. However, in the lattirust framework, matrix-vector multiplication can still be optimized using ICICLE's existing vector multiplication functions. This is achieved by decomposing the matrix-vector multiplication into multiple vector-vector multiplications, where each row of the matrix is multiplied by the vector.
-
-While this method is straightforward, it doesn't account for the matrix's sparsity or its in-memory storage format, which can lead to inefficiencies. Sparse matrices, characterized by a majority of zero elements, benefit from specialized storage formats that enhance computational performance and reduce memory usage.
-
-**Compressed Sparse Row (CSR) Format:**
-
-In CSR format, a matrix is represented using three arrays:
-
-1. **Values:** Contains all the non-zero elements of the matrix.
-
-2. **Column Indices:** Stores the column index corresponding to each value.
-
-3. **Row Pointers:** An array where each entry indicates the starting position of a row in the 'Values' and 'Column Indices' arrays.
-
-This structure is particularly efficient for row-wise operations, such as iterating over elements in a specific row, making it advantageous for algorithms that process matrices row by row.
-
-**Compressed Sparse Column (CSC) Format:**
-
-Similarly, the CSC format uses three arrays:
-
-1. **Values:** Contains all the non-zero elements.
-
-2. **Row Indices:** Stores the row index for each value.
-
-3. **Column Pointers:** An array where each entry points to the starting position of a column in the 'Values' and 'Row Indices' arrays.
-
-CSC is more efficient for column-wise operations, such as accessing or modifying elements in a particular column, and is beneficial when algorithms process matrices column by column.
-
 
 ### Implementation <a name="lova"></a>
 
@@ -485,4 +457,9 @@ keywords = {Data races, Debugging, GPU program correctness},
 location = {Virtual Event, Germany},
 series = {SOSP '21}
 }
+```
+
+<a name="icicle-backend"></a>
+```
+https://dev.ingonyama.com/icicle/rust-bindings
 ```
