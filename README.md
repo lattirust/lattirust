@@ -51,3 +51,28 @@ Lattirust is provided for research and prototyping purposes, and has not been au
   - hax specification for LWE/RLWE key generation available
 - Summer 2025:
   - hax specification for LWE/RLWE key generation verified
+
+## GPU Acceleration with ICICLE CUDA Backend
+
+- The current implementation uses a specific ICICLE revision specified in the cargo.lock file of `lattirust-arithmetic`. To switch to the latest ICICLE version, update the lines 31-32 in the cargo.toml file to the following:
+```
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main" }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main" }
+icicle-babybear = { git = "https://github.com/ingonyama-zk/icicle.git", branch = "main" }
+```
+
+- The package requires the environment variable $ICICLE_BACKEND_INSTALL_DIR to be set to the path of the ICICLE backend installation directory.
+
+- To enable the CUDA backend and GPU accelerated functions to use the GPU implementation, you should specify the `--features GPU` flag when building the package.
+
+- The commands to run the tests for NTT and Vector Operations with the GPU backend are as follows:
+```
+$ cargo test --features GPU test_ntt_intt
+$ cargo test --features GPU test_inner_products_icicle
+```
+
+- (Linux environment) To resolve the SAGE dependency, we use a conda environment. In case of issues with the compilers for ICICLE, you can override the default compilers of the environment by setting the following environment variables. Note that in more recent revisions of the ICICLE library, default compilers are set to clang, so this is not applicable in that case.
+```
+$ export CC=/usr/bin/gcc && export CXX=/usr/bin/g++
+```
+
