@@ -39,10 +39,8 @@ impl<F: Ring> Iterator for BooleanHypercube<F> {
 
 #[cfg(test)]
 mod tests {
-    use ark_ff::{One, Zero};
-
     use lattirust_arithmetic::ring::Zq1;
-
+    use num_traits::identities::{One, Zero};
     use super::BooleanHypercube;
 
     type F = Zq1<655357>;

@@ -1,7 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::{Read, Write};
-use std::iter::{Product};
+use std::iter::Product;
 use std::ops::{Mul, MulAssign, Neg};
 
 use ark_serialize::{
@@ -9,7 +9,7 @@ use ark_serialize::{
 };
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
-use derive_more::{Add, AddAssign, From, Into, Sub, SubAssign, Sum};
+use derive_more::{Add, AddAssign, Display, From, Into, Sub, SubAssign, Sum};
 use num_bigint::BigUint;
 use num_traits::{One, Zero};
 
@@ -23,8 +23,22 @@ use crate::traits::{
 };
 
 #[derive(
-    Clone, Copy, Debug, Eq, PartialEq, Hash, Add, AddAssign, Sum, Sub, SubAssign, From, Into,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Add,
+    AddAssign,
+    Sum,
+    Sub,
+    SubAssign,
+    From,
+    Into,
+    Display,
 )]
+#[display("NTT({})", self.0)]
 pub struct Pow2CyclotomicPolyRingNTT<BaseRing: NttRing<N>, const N: usize>(SVector<BaseRing, N>);
 
 impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N> {
@@ -39,11 +53,14 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     }
 
     pub fn from_coefficients(coeffs: &[BaseRing]) -> Self {
-        let mut evals_array: [BaseRing; N] = coeffs.try_into().expect(format!(
-            "Invalid number of coefficients: expected {}, got {}",
-            N,
-            coeffs.len()
-        ).as_str());
+        let mut evals_array: [BaseRing; N] = coeffs.try_into().expect(
+            format!(
+                "Invalid number of coefficients: expected {}, got {}",
+                N,
+                coeffs.len()
+            )
+            .as_str(),
+        );
         Self::ntt(&mut evals_array);
         Self(Self::Inner::const_from_array(evals_array))
     }
@@ -153,12 +170,6 @@ impl<BaseRing: NttRing<N>, const N: usize> Default for Pow2CyclotomicPolyRingNTT
     #[inline(always)]
     fn default() -> Self {
         Self::zero()
-    }
-}
-
-impl<BaseRing: NttRing<N>, const N: usize> Display for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, f)
     }
 }
 

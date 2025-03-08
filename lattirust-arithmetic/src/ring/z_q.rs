@@ -3,7 +3,7 @@
 
 use std::array;
 use std::convert::Into;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::iter::Iterator;
@@ -14,12 +14,14 @@ use ark_ff::{
     MontConfig, PrimeField,
 };
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Compress, EmptyFlags, Flags, SerializationError, Valid, Validate,
 };
 use ark_std::rand::distributions::Distribution;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derivative::Derivative;
+use derive_more::Display;
 use num_bigint::BigUint;
 use num_traits::{One, Signed, Zero};
 use rounded_div::RoundedDiv;
@@ -27,10 +29,10 @@ use zeroize::Zeroize;
 
 use crate::balanced_decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
+use crate::ring::{NttRing, Ring};
 use crate::ring::ntt::Ntt;
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::z_q_signed_representative::ZqSignedRepresentative;
-use crate::ring::{NttRing, Ring};
 use crate::traits::{FromRandomBytes, Modulus, WithLinfNorm};
 
 /// Returns an array containing the prime factors of `n`.
@@ -128,7 +130,18 @@ pub const fn fq_zero<const Q: u64>() -> Fq<Q> {
 
 pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
     const MODULI: [u64; L];
-    type Limbs: Sync + Send + Sized + Clone + Copy + Debug + Hash + PartialEq + Eq + Zeroize;
+    type Limbs: Sync
+        + Send
+        + Sized
+        + Clone
+        + Copy
+        + Debug
+        + Hash
+        + PartialEq
+        + Eq
+        + Zeroize
+        + CanonicalSerialize
+        + CanonicalDeserialize;
 
     const ZERO: Zq<Self, L>;
     const ONE: Zq<Self, L>;
@@ -166,7 +179,7 @@ pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Zq<Self, L>;
 }
 
-#[derive(Derivative, PartialOrd, Ord, Zeroize)]
+#[derive(Derivative, PartialOrd, Ord, Zeroize, Display)]
 #[derivative(
     Debug(bound = ""),
     Hash(bound = ""),
@@ -175,15 +188,10 @@ pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
     PartialEq(bound = ""),
     Eq(bound = "")
 )]
+#[display("{}", C::into_bigint(*self))]
 pub struct Zq<C: ZqConfig<L>, const L: usize>(C::Limbs);
 
 impl<C: ZqConfig<L>, const L: usize> Zq<C, L> {}
-
-impl<C: ZqConfig<L>, const L: usize> Display for Zq<C, L> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
 
 impl<C: ZqConfig<L>, const L: usize> Default for Zq<C, L> {
     fn default() -> Self {
@@ -587,17 +595,17 @@ impl<C: ZqConfig<L>, const L: usize> CanonicalSerialize for Zq<C, L> {
         writer: W,
         compress: Compress,
     ) -> Result<(), SerializationError> {
-        todo!()
+        self.0.serialize_with_mode(writer, compress)
     }
 
     fn serialized_size(&self, compress: Compress) -> usize {
-        todo!()
+        self.0.serialized_size(compress)
     }
 }
 
 impl<C: ZqConfig<L>, const L: usize> Valid for Zq<C, L> {
     fn check(&self) -> Result<(), SerializationError> {
-        todo!()
+        self.0.check()
     }
 }
 
@@ -607,7 +615,7 @@ impl<C: ZqConfig<L>, const L: usize> CanonicalDeserialize for Zq<C, L> {
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-        todo!()
+       C::Limbs::deserialize_with_mode(reader, compress, validate).map(Self)
     }
 }
 
@@ -759,6 +767,18 @@ macro_rules! zq_config_impl {
                     Zq::<Self, $L>(($(Self::[< F $i >]::rand(rng),)*))
                 }
             }
+
+            impl<$(const [< Q $i >]: u64,)* const N: usize> Ntt<N> for Zq<[< Zq $L ConfigImpl >]<$([< Q $i >],)*>, $L>
+                where $(Fq<[< Q $i >]>: Ntt<N>,)*
+            {
+                fn ntt(coeffs: &mut [Self; N]) {
+                    $(Fq::<[< Q $i >]>::ntt(&mut coeffs.map(|x| x.0 .$i));)*
+                }
+
+                fn intt(evals: &mut [Self; N]) {
+                    $(Fq::<[< Q $i >]>::intt(&mut evals.map(|x| x.0 .$i));)*
+                }
+            }
         }
     }
 }
@@ -768,11 +788,11 @@ zq_config_impl!(2, 0, 1);
 zq_config_impl!(3, 0, 1, 2);
 zq_config_impl!(4, 0, 1, 2, 3);
 zq_config_impl!(5, 0, 1, 2, 3, 4);
-zq_config_impl!(6, 0, 1, 2, 3, 4, 5);
-zq_config_impl!(7, 0, 1, 2, 3, 4, 5, 6);
-zq_config_impl!(8, 0, 1, 2, 3, 4, 5, 6, 7);
-zq_config_impl!(9, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-zq_config_impl!(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+// zq_config_impl!(6, 0, 1, 2, 3, 4, 5);
+// zq_config_impl!(7, 0, 1, 2, 3, 4, 5, 6);
+// zq_config_impl!(8, 0, 1, 2, 3, 4, 5, 6, 7);
+// zq_config_impl!(9, 0, 1, 2, 3, 4, 5, 6, 7, 8);
+// zq_config_impl!(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
 
 pub type Zq1<const Q: u64> = Zq<Zq1ConfigImpl<Q>, 1>;
 pub type Zq2<const Q1: u64, const Q2: u64> = Zq<Zq2ConfigImpl<Q1, Q2>, 2>;
@@ -781,19 +801,6 @@ pub type Zq4<const Q1: u64, const Q2: u64, const Q3: u64, const Q4: u64> =
     Zq<Zq4ConfigImpl<Q1, Q2, Q3, Q4>, 4>;
 pub type Zq5<const Q1: u64, const Q2: u64, const Q3: u64, const Q4: u64, const Q5: u64> =
     Zq<Zq5ConfigImpl<Q1, Q2, Q3, Q4, Q5>, 5>;
-
-impl<const Q: u64, const N: usize> Ntt<N> for Zq1<Q>
-where
-    Fq<Q>: Ntt<N>,
-{
-    fn ntt(coeffs: &mut [Self; N]) {
-        Fq::<Q>::ntt(&mut coeffs.map(|x| x.0 .0));
-    }
-
-    fn intt(evals: &mut [Self; N]) {
-        Fq::<Q>::intt(&mut evals.map(|x| x.0 .0));
-    }
-}
 
 macro_rules! test_zq_config_impl {
     ($L:literal $(,$Q:ident)+) => {
@@ -819,6 +826,30 @@ macro_rules! test_zq_config_impl {
                         }
                         assert_eq!(x_bigint, x_out);
                     }
+                }
+            }
+            
+            #[test]
+            fn [< test_zq_config_impl_canonical_serialize_deserialize_compressed $L >]() {
+                let modulus: BigUint = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::modulus();
+                for x in [0, 1, $($Q/2, $Q-1,)*] {
+                    let x_in = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::try_from(x).unwrap();
+                    let mut bytes = Vec::new();
+                    x_in.serialize_with_mode(&mut bytes, Compress::No).unwrap();
+                    let mut x_out = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::deserialize_with_mode(&*bytes, Compress::No, Validate::Yes).unwrap();
+                    assert_eq!(x_in, x_out);
+                }
+            }
+
+            #[test]
+            fn [< test_zq_config_impl_canonical_serialize_deserialize_uncompressed $L >]() {
+                let modulus: BigUint = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::modulus();
+                for x in [0, 1, $($Q/2, $Q-1,)*] {
+                    let x_in = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::try_from(x).unwrap();
+                    let mut bytes = Vec::new();
+                    x_in.serialize_with_mode(&mut bytes, Compress::Yes).unwrap();
+                    let x_out = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::deserialize_with_mode(&*bytes, Compress::Yes, Validate::Yes).unwrap();
+                    assert_eq!(x_in, x_out);
                 }
             }
         }
@@ -865,9 +896,9 @@ mod test {
     test_zq_config_impl!(3, Q1, Q2, Q3);
     test_zq_config_impl!(4, Q1, Q2, Q3, Q4);
     test_zq_config_impl!(5, Q1, Q2, Q3, Q4, Q5);
-    test_zq_config_impl!(6, Q1, Q2, Q3, Q4, Q5, Q6);
-    test_zq_config_impl!(7, Q1, Q2, Q3, Q4, Q5, Q6, Q7);
-    test_zq_config_impl!(8, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
-    test_zq_config_impl!(9, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
-    test_zq_config_impl!(10, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
+    // test_zq_config_impl!(6, Q1, Q2, Q3, Q4, Q5, Q6);
+    // test_zq_config_impl!(7, Q1, Q2, Q3, Q4, Q5, Q6, Q7);
+    // test_zq_config_impl!(8, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
+    // test_zq_config_impl!(9, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
+    // test_zq_config_impl!(10, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
 }

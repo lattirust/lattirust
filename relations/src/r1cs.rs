@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use ark_std::rand::rngs::OsRng;
 
 use lattirust_arithmetic::linear_algebra::{SparseMatrix, Vector};
@@ -25,36 +27,72 @@ pub struct Size {
     pub num_witness_variables: usize,
 }
 
-impl<R: Ring> Relation for R1CS<R>
-{
+impl<R: Ring> Relation for R1CS<R> {
     type Size = Size;
     type Index = Index<R>;
     type Instance = Instance<R>;
     type Witness = Witness<R>;
 
     fn is_well_defined(i: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> bool {
+        Self::is_well_defined_err(i, x, w).is_ok()
+    }
+
+    fn is_well_defined_err(
+        i: &Self::Index,
+        x: &Self::Instance,
+        w: Option<&Self::Witness>,
+    ) -> anyhow::Result<()> {
         let matrices_same_dim = i.a.nrows() == i.b.nrows()
             && i.b.nrows() == i.c.nrows()
             && i.a.ncols() == i.b.ncols()
             && i.b.ncols() == i.c.ncols();
+        if !matrices_same_dim {
+            anyhow::bail!("Matrices A, B, and C must have the same dimensions");
+        }
         match w {
-            Some(w) => matrices_same_dim && i.a.ncols() == x.0.len() + w.0.len(),
-            None => matrices_same_dim && i.a.ncols() <= x.0.len(),
+            Some(w) => {
+                if i.a.ncols() != x.0.len() + w.0.len() {
+                    anyhow::bail!("The number of columns in A must be equal to the sum of the number of instance and witness variables");
+                } else {
+                    Ok(())
+                }
+            }
+            None => {
+                if i.a.ncols() != x.0.len() {
+                    anyhow::bail!("The number of columns in A must be equal to the number of instance variables");
+                } else {
+                    Ok(())
+                }
+            }
         }
     }
 
     fn is_satisfied(i: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> bool {
+        Self::is_satisfied_err(i, x, w).is_ok()
+    }
+
+    fn is_satisfied_err(
+        i: &Self::Index,
+        x: &Self::Instance,
+        w: &Self::Witness,
+    ) -> anyhow::Result<()> {
+        Self::is_well_defined_err(i, x, Some(w))?;
+
         let z = Vector::<R>::from_vec(
             x.0.clone()
                 .into_iter()
                 .chain(w.0.clone().into_iter())
                 .collect::<Vec<R>>(),
         );
-        Self::is_well_defined(i, x, Some(w)) && {
-            let a_z = &i.a * &z;
-            let b_z = &i.b * &z;
-            let c_z = &i.c * &z;
-            a_z.component_mul(&b_z) == c_z
+
+        let a_z = &i.a * &z;
+        let b_z = &i.b * &z;
+        let c_z = &i.c * &z;
+
+        if a_z.component_mul(&b_z) != c_z {
+            anyhow::bail!("The R1CS constraint is not satisfied");
+        } else {
+            Ok(())
         }
     }
 
@@ -151,7 +189,6 @@ impl<R: Ring> Relation for R1CS<R>
         let witness = Witness(z[size.num_instance_variables..].to_vec());
 
         debug_assert!(Self::is_well_defined(&index, &instance, Some(&witness)));
-        println!("____UNSAT______");
         debug_assert!(!Self::is_satisfied(&index, &instance, &witness));
         (index, instance, witness)
     }

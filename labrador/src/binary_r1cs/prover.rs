@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 
-
 use nimue::{Merlin, ProofResult};
 use tracing::{event, instrument, Level};
 
@@ -9,13 +8,13 @@ use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallen
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::ring::PolyRing;
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::{principal_relation, Relation};
 
-use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript};
 use crate::binary_r1cs::BinaryR1CS;
+use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce};
 use crate::prover::prove_principal_relation;
 use crate::util::{concat, embed, lift};
 
@@ -38,8 +37,6 @@ pub fn prove_reduction_binaryr1cs_labradorpr<'a, R: PolyRing>(
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
-
-
 {
     let (A, B, C) = (&index.a, &index.b, &index.c);
 
@@ -140,6 +137,8 @@ where
     let index_pr = pp.core_crs.clone(); // TODO: this should be derived separately
 
     let instance_pr = reduce(pp, &transcript);
+    let i =  reduce(pp, &transcript);
+    assert_eq!(i, instance_pr, "reduction should be deterministic");
 
     let witness_pr = principal_relation::Witness::<R> {
         s: vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde], // see definition of indices above
@@ -161,13 +160,11 @@ where
     <R as PolyRing>::BaseRing: WithSignedRepresentative,
     <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative:
         DecompositionFriendlySignedRepresentative,
-
-
 {
     let (index_pr, instance_pr, witness_pr) =
         prove_reduction_binaryr1cs_labradorpr(pp, merlin, index, instance, witness);
 
     merlin.ratchet()?;
 
-    prove_principal_relation(merlin, &instance_pr, &witness_pr, &pp.core_crs)
+    prove_principal_relation(merlin, &index_pr, &instance_pr, &witness_pr, &pp.core_crs)
 }

@@ -35,12 +35,12 @@ const TEST_SIZE: Size = Size {
 
 test_completeness!(
     TestReduction,
-    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_constraints),
+    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
     TEST_SIZE
 );
 
 test_soundness!(
     TestReduction,
-    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_constraints),
+    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
     TEST_SIZE
 );

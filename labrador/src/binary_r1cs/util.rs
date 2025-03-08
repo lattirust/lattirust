@@ -3,6 +3,7 @@
 use std::fmt::Debug;
 
 use ark_std::rand;
+use derive_more::Display;
 use num_bigint::BigUint;
 use num_traits::{ToPrimitive, Zero};
 
@@ -19,12 +20,19 @@ use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Display)]
+#[display(
+    "BinaryR1CSCRS: {} constraints, {} variables, {} bits of security, m={}",
+    num_constraints,
+    num_variables,
+    security_parameter,
+    m
+)]
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
     pub num_constraints: usize,
     pub num_variables: usize,
-    pub m: usize,
+    m: usize,
     pub core_crs: Index<R>,
     pub security_parameter: usize,
 }
@@ -124,6 +132,7 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct BinaryR1CSTranscript<R: PolyRing> {
     pub t: Vector<R>,
     pub alpha: Matrix<Z2>,
@@ -157,8 +166,6 @@ pub fn reduce<R: PolyRing>(
     transcript: &BinaryR1CSTranscript<R>,
 ) -> Instance<R>
 where
-
-
 {
     let (k, n) = (pp.num_constraints, pp.num_variables);
     let d = R::dimension();
@@ -188,14 +195,10 @@ where
                 .map(|v| Vector::<R>::from_slice(v))
                 .collect::<Vec<Vector<R>>>();
         phi.append(&mut vec![Vector::<R>::zeros(n_pr); r_pr / 2]); // pad with zeros for "tilde witnesses"
-        quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new(
-            Matrix::<R>::zeros(r_pr, r_pr),
-            phi,
-            t[i],
-        ));
+        quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new_linear(phi, t[i]))
     }
 
-    // TODO: the paper claims that the following constraints should be expressd as a "constant" constraint, but I don't see how this is possible. Added as standard constraints instead
+    // TODO: the paper claims that the following constraints should be expressed as a "constant" constraint, but I don't see how this is possible. Added as standard constraints instead
     // ã = sigma_{-1}(a) <=>
     // ã_0 = a_0 and -ã_{n-i} = a_i for i in [n] <=>
     // <e_0, a> - <e_0, ã> = 0 and <e_i, a> + <e_{n-i}, ã> = 0, where e_i denote the i-th standard basis vector
@@ -212,11 +215,7 @@ where
             } else {
                 basis_vector(n_pr - i, n_pr)
             };
-            quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new(
-                Matrix::<R>::zeros(r_pr, r_pr),
-                phis,
-                R::zero(),
-            ));
+            quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new_linear(phis, R::zero()));
         }
     }
 
@@ -286,11 +285,7 @@ where
         phi[c_idx] = embed_Zqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
         phi[w_idx] = -embed_Zqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
 
-        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
-            Matrix::<R>::zeros(r_pr, r_pr),
-            phi,
-            g[i],
-        ));
+        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new_linear(phi, g[i]));
     }
 
     Instance::<R> {

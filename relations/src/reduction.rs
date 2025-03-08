@@ -1,5 +1,5 @@
-use std::error::Error;
-
+use anyhow::{bail, Context};
+use log::debug;
 use nimue::{Arthur, IOPattern, Merlin, ProofResult};
 
 use crate::Relation;
@@ -42,14 +42,12 @@ where
         arthur: &mut Arthur,
     ) -> ProofResult<(RelationOut::Index, RelationOut::Instance)>;
 
-    fn test_completeness(
-        pp: &PublicParameters,
-        size: &RelationIn::Size,
-    ) -> Result<(), Box<dyn Error>> {
+    fn test_completeness(pp: &PublicParameters, size: &RelationIn::Size) -> anyhow::Result<()>
+    where <RelationOut as Relation>::Instance: std::fmt::Display
+    {
         let (index_in, instance_in, witness_in) = RelationIn::generate_satisfied_instance(&size);
-        debug_assert_eq!(
+        debug_assert!(
             RelationIn::is_satisfied(&index_in, &instance_in, &witness_in),
-            true,
             "generated instance is not satisfied, aborting test"
         );
         let io = Self::iopattern(&pp, &index_in, &instance_in);
@@ -61,44 +59,40 @@ where
         let (pp_out_prover, instance_out_prover, witness_out) = match prover_result {
             Ok(result) => result,
             Err(e) => {
-                return Err(From::from(format!(
-                    "reduction is not complete; prover failed, returned {}",
-                    e
-                )))
+                bail!("reduction is not complete; prover failed, returned {}", e)
             }
         };
 
-        if !RelationOut::is_satisfied(&pp_out_prover, &instance_out_prover, &witness_out) {
-            return Err("reduction is not complete; the output witness is not a valid witness for the output instance and public parameters".into());
+        let sat = RelationOut::is_satisfied_err(&pp_out_prover, &instance_out_prover, &witness_out);
+        if sat.is_err() {
+            bail!("reduction is not complete; the output witness is not a valid witness for the output instance and public parameters: {}", sat.err().unwrap());
         }
 
         let proof = merlin.transcript();
         let mut arthur = io.to_arthur(proof);
         let verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
 
-        let (pp_out_verifier, instance_out_verifier) = verifier_result
-            .map_err(|e| format!("reduction is not complete; verifier failed, returned {e}"))?;
+        let (pp_out_verifier, instance_out_verifier) = match verifier_result {
+            Ok(result) => result,
+            Err(e) => {
+                bail!("reduction is not complete; verifier failed, returned {}", e)
+            }
+        };
 
         if pp_out_prover != pp_out_verifier {
-            return Err(From::from("reduction is not complete; the prover and verifier output different public parameters"));
+            bail!("reduction is not complete; the prover and verifier output different public parameters");
         }
 
         if instance_out_prover != instance_out_verifier {
-            return Err(From::from(
-                "reduction is not complete; the prover and verifier output different instances",
-            ));
+            bail!("reduction is not complete; the prover and verifier output different instances");
         }
         Ok(())
     }
 
-    fn test_soundness(
-        pp: &PublicParameters,
-        size: &RelationIn::Size,
-    ) -> Result<(), Box<dyn Error>> {
+    fn test_soundness(pp: &PublicParameters, size: &RelationIn::Size) -> anyhow::Result<()> {
         let (index_in, instance_in, witness_in) = RelationIn::generate_unsatisfied_instance(&size);
-        debug_assert_eq!(
+        debug_assert!(
             !RelationIn::is_satisfied(&index_in, &instance_in, &witness_in),
-            false,
             "generated instance is satisfied, aborting test"
         );
         let io = Self::iopattern(&pp, &index_in, &instance_in);
@@ -109,15 +103,13 @@ where
         let (pp_out_prover, instance_out_prover, witness_out) = match prover_result {
             Ok(result) => result,
             Err(e) => {
-                return Err(From::from(format!(
-                    "reduction is not complete; prover failed, returned {}",
-                    e
-                )))
+                bail!("reduction is not complete; prover failed, returned {}", e)
             }
         };
 
-        if RelationOut::is_satisfied(&pp_out_prover, &instance_out_prover, &witness_out) {
-            return Err(From::from("reduction is not sound; the output witness is a valid witness for the output instance and public parameters"));
+        let sat = RelationOut::is_satisfied_err(&pp_out_prover, &instance_out_prover, &witness_out);
+        if sat.is_err() {
+            return sat.with_context(|| "reduction is not sound; the output witness is a valid witness for the output instance and public parameters");
         }
 
         let proof = merlin.transcript();
@@ -125,9 +117,7 @@ where
         let verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
 
         if verifier_result.is_ok() {
-            return Err(From::from(
-                "reduction is not sound; the verifier accepted the proof",
-            ));
+            bail!("reduction is not sound; the verifier accepted the proof");
         }
 
         Ok(())

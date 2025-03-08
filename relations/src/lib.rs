@@ -1,5 +1,7 @@
 #![feature(associated_type_defaults)]
 
+use std::error::Error;
+
 pub mod ajtai_cm;
 pub mod principal_relation;
 pub mod r1cs;
@@ -15,9 +17,25 @@ pub trait Relation {
     /// For example, for R1CS, this function should check that the dimensions of the matrices A, B, and C are the same, are consistent with the public parameters, and that the witness has the correct length.
     fn is_well_defined(i: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> bool;
 
+    /// Returns true iff the index `i` and instance `x` (and witness `w`, if not `None`) are well-defined.
+    /// For example, for R1CS, this function should check that the dimensions of the matrices A, B, and C are the same, are consistent with the public parameters, and that the witness has the correct length.
+    fn is_well_defined_err(
+        i: &Self::Index,
+        x: &Self::Instance,
+        w: Option<&Self::Witness>,
+    ) -> anyhow::Result<()>;
+
     /// Return true iff the index `i` and instance `x` and witness `w` satisfy the relation.
     /// For example, for R1CS, this function should check that Aw * Bw = Cw.
     fn is_satisfied(i: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> bool;
+
+    /// Return true iff the index `i` and instance `x` and witness `w` satisfy the relation.
+    /// For example, for R1CS, this function should check that Aw * Bw = Cw.
+    fn is_satisfied_err(
+        i: &Self::Index,
+        x: &Self::Instance,
+        w: &Self::Witness,
+    ) -> anyhow::Result<()>;
 
     /// Generate a (possibly random) instance-witness that are in the relation for a given size `size`.
     /// This is used in particular for testing that `Reduction` implementations are complete (where we require an instance-witness pair in the relation as input).

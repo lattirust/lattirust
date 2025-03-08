@@ -28,15 +28,12 @@ pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
 ) -> ProofResult<(Index<R>, Instance<R>)>
 where
     <R as PolyRing>::BaseRing: WithSignedRepresentative,
-
-
 {
     let (A, B, C) = (&index.a, &index.b, &index.c);
 
-    let d = R::dimension();
     let (k, n) = (pp.num_constraints, pp.num_variables);
 
-    let t = arthur.next_vector(pp.m.div_ceil(d))?;
+    let t = arthur.next_vector(pp.A.nrows())?;
 
     let alpha = arthur.challenge_binary_matrix(pp.security_parameter, k)?;
     let beta = arthur.challenge_binary_matrix(pp.security_parameter, n)?;
@@ -55,6 +52,7 @@ where
         );
     }
 
+    // TODO: ratchet to make sure we consumed everything?
     let transcript = BinaryR1CSTranscript {
         t,
         alpha,
@@ -63,6 +61,7 @@ where
         g,
         delta,
     };
+    
     let instance_pr = reduce(pp, &transcript);
     Ok((pp.core_crs.clone(), instance_pr))
 }

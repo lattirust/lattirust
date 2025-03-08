@@ -347,7 +347,7 @@ where
         transcript = verify_core(&crs, &instance, arthur)?;
         let recurse = crs.next_crs.is_some();
         if recurse {
-            (instance, _) = fold_instance(&transcript, false);
+            (_, instance, _) = fold_instance(&transcript, false);
             crs = *crs.next_crs.unwrap();
         } else {
             break;

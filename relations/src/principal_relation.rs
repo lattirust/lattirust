@@ -1,6 +1,8 @@
 #![allow(non_snake_case)]
 
 use std::cmp::{max, max_by};
+use std::error::Error;
+use ark_std::iterable::Iterable;
 
 use ark_std::rand;
 use ark_std::rand::thread_rng;
@@ -8,6 +10,7 @@ use log::info;
 use num_bigint::BigUint;
 use num_traits::{One, ToPrimitive, Zero};
 use serde::Serialize;
+use derive_more::Display;
 
 use lattice_estimator::msis::{MSIS, msis_h_128_l2};
 use lattice_estimator::norms::Norm;
@@ -337,38 +340,56 @@ impl<R: PolyRing> Index<R> {
         }
     }
 
-    pub fn is_wellformed_instance(&self, instance: &Instance<R>) -> bool {
-        instance.quad_dot_prod_funcs.len() == self.num_constraints
-            && instance
-                .quad_dot_prod_funcs
-                .iter()
-                .all(|c| self.is_wellformed_constraint(c))
-            && instance.ct_quad_dot_prod_funcs.len() == self.num_constant_constraints
-            && instance
-                .ct_quad_dot_prod_funcs
-                .iter()
-                .all(|c| self.is_wellformed_const_constraint(c))
+    pub fn is_wellformed_instance(&self, instance: &Instance<R>) -> anyhow::Result<()> {
+        if instance.quad_dot_prod_funcs.len() != self.num_constraints {
+            return Err(anyhow::anyhow!(
+                "Number of quadratic-linear constraints does not match num_constraints"
+            ));
+        }
+        if instance.ct_quad_dot_prod_funcs.len() != self.num_constant_constraints {
+            return Err(anyhow::anyhow!(
+                "Number of constant quadratic-linear constraints does not match num_constant_constraints"
+            ));
+        }
+        let malformed_constraint_indices: Vec<_> = instance.quad_dot_prod_funcs.iter().enumerate()
+            .filter_map(|(idx, c)| (!self.is_wellformed_constraint(c)).then(|| idx)).collect();
+        if malformed_constraint_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Constraints {:?} are not well-formed", malformed_constraint_indices));
+        }
+
+        let malformed_const_constraint_indices: Vec<_>  = instance.ct_quad_dot_prod_funcs.iter().enumerate()
+            .filter_map(|(idx, c)| (!self.is_wellformed_const_constraint(c)).then(|| idx)).collect();
+        if malformed_const_constraint_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Constant constraints {:?} are not well-formed", malformed_const_constraint_indices));
+        }
+       return Ok(())
     }
 
-    pub fn is_wellformed_witness(&self, witness: &Witness<R>) -> bool {
-        witness.s.len() == self.r
-            && witness.s.iter().all(|s_i| s_i.len() == self.n)
-            && witness
-                .s
-                .iter()
-                .map(|s_i| s_i.l2_norm_squared())
-                .sum::<BigUint>().to_f64().unwrap()
-                <= self.norm_bound_squared
+    pub fn is_wellformed_witness(&self, witness: &Witness<R>) -> anyhow::Result<()> {
+        if witness.s.len() != self.r {
+            return Err(anyhow::anyhow!("Number of witness vectors does not match r"));
+        }
+        let malformed_witness_indices: Vec<_> = witness.s.iter().enumerate()
+            .filter_map(|(idx, s)| (s.len() != self.n).then(|| idx)).collect();
+        if malformed_witness_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Witness vectors {:?} have the wrong length", malformed_witness_indices));
+        }
+        if witness.s.iter().map(|s_i| s_i.l2_norm_squared()).sum::<BigUint>().to_f64().unwrap() > self.norm_bound_squared {
+            return Err(anyhow::anyhow!("L2 norm of witness vectors exceeds norm_bound_squared"));
+        }
+        Ok(())
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Display)]
+#[display("PrincipalRelation::Instance: \nquad_dot_prod_funcs: {:?}\nct_quad_dot_prod_funcs: {:?}", quad_dot_prod_funcs, ct_quad_dot_prod_funcs)]
 pub struct Instance<R: PolyRing> {
     pub quad_dot_prod_funcs: Vec<QuadDotProdFunction<R>>,
     pub ct_quad_dot_prod_funcs: Vec<ConstantQuadDotProdFunction<R>>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Display)]
+#[display("QuadDotProdConstraint: A: {:?}, phi: {:?}, b: {:?}", A, phi, b)]
 pub struct QuadDotProdFunction<R: PolyRing> {
     // TODO: A is always symmetric, so we could at least use a symmetric matrix type. A is also very sparse in some cases.
     pub A: Option<Matrix<R>>,
@@ -452,7 +473,8 @@ impl<R: PolyRing> QuadDotProdFunction<R> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Display)]
+#[display("ConstantQuadDotProdConstraint: A: {:?}, phi: {:?}, b: {:?}", A, phi, b)]
 pub struct ConstantQuadDotProdFunction<R: PolyRing> {
     pub A: Option<Matrix<R>>,
     pub phi: Vec<Vector<R>>,
@@ -544,14 +566,18 @@ impl<R: PolyRing> Witness<R> {
 }
 
 impl<R: PolyRing> Instance<R> {
-    pub fn is_valid_witness(&self, witness: &Witness<R>) -> bool {
-        self.quad_dot_prod_funcs
+    pub fn is_valid_witness(&self, witness: &Witness<R>) -> anyhow::Result<()> {
+        if self.quad_dot_prod_funcs
             .iter()
-            .all(|c| c.is_valid_witness(witness))
-            && self
-                .ct_quad_dot_prod_funcs
+            .all(|c| c.is_valid_witness(witness)) {
+            return Err(anyhow::anyhow!("Some standard constraints are not satisfied"));
+        }
+        if self.ct_quad_dot_prod_funcs
                 .iter()
-                .all(|c| c.is_valid_witness(witness))
+                .all(|c| c.is_valid_witness(witness)) {
+            return Err(anyhow::anyhow!("Some constant constraints are not satisfied"));
+        }
+        Ok(())
     }
 }
 
@@ -574,15 +600,23 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
     type Witness = Witness<R>;
 
     fn is_well_defined(pp: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> bool {
-        pp.is_wellformed_instance(x)
-            && match w {
-                Some(w) => pp.is_wellformed_witness(w),
-                None => true,
-            }
+        Self::is_well_defined_err(pp, x, w).is_ok()
+    }
+
+    fn is_well_defined_err(pp: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> anyhow::Result<()> {
+        pp.is_wellformed_instance(x)?;
+        match w {
+            Some(w) => pp.is_wellformed_witness(w),
+            None => Ok(()),
+        }
     }
 
     fn is_satisfied(pp: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> bool {
-        Self::is_well_defined(pp, x, Some(w)) && x.is_valid_witness(w)
+        Self::is_satisfied_err(pp, x, w).is_ok()
+    }
+
+    fn is_satisfied_err(pp: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> anyhow::Result<()> {
+        Self::is_well_defined_err(pp, x, Some(w)).and(x.is_valid_witness(w))
     }
 
     fn generate_satisfied_instance(
@@ -679,8 +713,8 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
 
 #[cfg(test)]
 mod test {
-    use lattirust_arithmetic::ring::ntt::ntt_prime;
     use lattirust_arithmetic::ring::{Pow2CyclotomicPolyRingNTT, Zq1};
+    use lattirust_arithmetic::ring::ntt::ntt_prime;
 
     use crate::{test_generate_satisfied_instance, test_generate_unsatisfied_instance};
     use crate::principal_relation::{PrincipalRelation, Size};

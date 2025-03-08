@@ -5,4 +5,5 @@ pub mod prover;
 pub mod shared;
 pub mod util;
 pub mod verifier;
+mod test;
 //pub mod r1cs;

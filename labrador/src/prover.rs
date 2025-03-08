@@ -246,6 +246,7 @@ where
 
 pub fn prove_principal_relation<'a, R: PolyRing>(
     merlin: &'a mut Merlin,
+    index: &Index<R>,
     instance: &Instance<R>,
     witness: &Witness<R>,
     crs: &Index<R>,
@@ -259,11 +260,11 @@ where
     <R as TryFrom<u128>>::Error: Debug
 {
     // Check dimensions and norms
-    debug_assert!(crs.is_wellformed_instance(instance));
-    debug_assert!(crs.is_wellformed_witness(witness));
+    debug_assert!(crs.is_wellformed_instance(instance).is_ok());
+    debug_assert!(crs.is_wellformed_witness(witness).is_ok());
 
     // Check that the witness is valid for this instance
-    debug_assert!(instance.is_valid_witness(witness));
+    debug_assert!(instance.is_valid_witness(witness).is_ok());
 
     // Initialize Fiat-Shamir transcript
     // TODO: add the following, but at the moment this causes a stack overflow somewhere in nimue/keccak
@@ -273,8 +274,8 @@ where
     // merlin.ratchet()?;
 
     // Prove
-    let num_constraints = instance.quad_dot_prod_funcs.len();
-    let num_ct_constraints = instance.ct_quad_dot_prod_funcs.len();
+    let num_constraints = index.num_constraints;
+    let num_ct_constraints = index.num_constant_constraints;
     let mut prover = Prover::new(instance, witness, crs);
 
     prover.prove_1();
@@ -334,9 +335,10 @@ where
     let recurse = crs.next_crs.is_some();
     if recurse {
         // Fold relation and recurse
-        let (instance_next, witness_next) = fold_instance(&prover.transcript, true);
+        let (index_next, instance_next, witness_next) = fold_instance(&prover.transcript, true);
         prove_principal_relation(
             merlin,
+            &index_next,
             &instance_next,
             &witness_next.unwrap(),
             crs.next_crs.as_ref().unwrap(),

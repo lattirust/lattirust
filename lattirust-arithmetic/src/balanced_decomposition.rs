@@ -331,7 +331,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_std::iterable::Iterable;
     use ark_std::test_rng;
 
     use crate::ring;

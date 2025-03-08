@@ -20,6 +20,7 @@ use crate::linear_algebra::ClosedAddAssign;
 use crate::linear_algebra::vector::{GenericRowVector, GenericVector};
 
 #[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut)]
+#[display("{}", _0)]
 pub struct GenericMatrix<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>>(
     pub(crate) nalgebra::Matrix<T, R, C, S>,
 );

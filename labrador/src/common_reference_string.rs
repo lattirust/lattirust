@@ -12,7 +12,7 @@ use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
-use relations::principal_relation::{Instance, QuadDotProdFunction, Witness};
+use relations::principal_relation::{Index, Instance, QuadDotProdFunction, Witness};
 
 use crate::shared::BaseTranscript;
 use crate::util::{
@@ -68,7 +68,7 @@ pub struct CommonReferenceString<R: PolyRing> {
 pub fn fold_instance<R: PolyRing>(
     transcript: &BaseTranscript<R>,
     compute_witness: bool,
-) -> (Instance<R>, Option<Witness<R>>)
+) -> (Index<R>, Instance<R>, Option<Witness<R>>)
 where
     <R as PolyRing>::BaseRing: WithSignedRepresentative,
     <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative:
@@ -378,5 +378,6 @@ where
         None
     };
 
-    (instance_next, witness)
+    let index_next = *crs.clone().next_crs.unwrap();
+    (index_next, instance_next, witness)
 }
