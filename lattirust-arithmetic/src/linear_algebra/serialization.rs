@@ -1,16 +1,14 @@
 use std::array::from_fn;
 use std::io::{Read, Write};
 
-use ark_std::UniformRand;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use nalgebra::{ArrayStorage, Const, DefaultAllocator, Dim, Dyn, RawStorage, Scalar, VecStorage};
 use nalgebra::allocator::Allocator;
+use nalgebra::{ArrayStorage, Const, DefaultAllocator, Dim, Dyn, RawStorage, Scalar, VecStorage};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::linear_algebra::generic_matrix::GenericMatrix;
-use crate::linear_algebra::matrix::Matrix;
 
 /// Serialize dynamically-sized/fixed-sized matrix/vector/row-vector
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Serialize for GenericMatrix<T, R, C, S>
@@ -42,7 +40,7 @@ where
 /// CanonicalSerialize non-fixed-sized matrix/vector/row-vector
 impl<T: Scalar, R: Dim, C: Dim> CanonicalSerialize for GenericMatrix<T, R, C, VecStorage<T, R, C>>
 where
-    T: CanonicalSerialize ,
+    T: CanonicalSerialize,
     VecStorage<T, R, C>: RawStorage<T, R, C>,
     DefaultAllocator: Allocator<Dyn, Dyn>,
 {
@@ -72,10 +70,11 @@ where
 }
 
 /// CanonicalSerialize fixed-sized matrix/vector/row-vector
-impl<T: Scalar, const R: usize, const C: usize> CanonicalSerialize for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
+impl<T: Scalar, const R: usize, const C: usize> CanonicalSerialize
+    for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
 where
     T: CanonicalSerialize + Send,
-    ArrayStorage<T, R, C>: RawStorage<T, Const<R>, Const<C>>
+    ArrayStorage<T, R, C>: RawStorage<T, Const<R>, Const<C>>,
 {
     fn serialize_with_mode<W: Write>(
         &self,
@@ -89,10 +88,9 @@ where
     }
 
     fn serialized_size(&self, compress: Compress) -> usize {
-        self
-                .iter()
-                .map(|x| x.serialized_size(compress))
-                .sum::<usize>()
+        self.iter()
+            .map(|x| x.serialized_size(compress))
+            .sum::<usize>()
     }
 }
 
@@ -117,7 +115,8 @@ where
 }
 
 /// Valid-ate fixed-sized matrix/vector/row-vector
-impl<T: Scalar, const R: usize, const C: usize> Valid for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
+impl<T: Scalar, const R: usize, const C: usize> Valid
+    for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
 where
     T: Valid,
     ArrayStorage<T, R, C>: RawStorage<T, Const<R>, Const<C>>,
@@ -163,20 +162,19 @@ where
 }
 
 /// CanonicalDeserialize fixed-sized matrix/vector/row-vector
-impl<T: Scalar, const R: usize, const C: usize> CanonicalDeserialize for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
+impl<T: Scalar, const R: usize, const C: usize> CanonicalDeserialize
+    for GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>
 where
     T: CanonicalDeserialize + Send,
-    ArrayStorage<T, R, C>: RawStorage<T, Const<R>, Const<C>>
+    ArrayStorage<T, R, C>: RawStorage<T, Const<R>, Const<C>>,
 {
     fn deserialize_with_mode<Re: Read>(
         mut reader: Re,
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-        let arr: [[T; R]; C] = from_fn(|_| { 
-            from_fn(|_| {
-                T::deserialize_with_mode(&mut reader, compress, validate).unwrap()
-            })
+        let arr: [[T; R]; C] = from_fn(|_| {
+            from_fn(|_| T::deserialize_with_mode(&mut reader, compress, validate).unwrap())
         });
         Ok(Self(Self::Inner::from_data(ArrayStorage(arr))))
     }
@@ -186,22 +184,33 @@ where
 mod test {
     use std::fmt::Debug;
 
-    use crate::linear_algebra::{SMatrix, SRowVector, Vector};
+    use crate::linear_algebra::{Matrix, SMatrix, SRowVector, Vector};
 
     use super::*;
 
     const M: usize = 101;
     const N: usize = 42;
 
-    fn test_canonical_serialization_deserialization<T: Scalar, R: Dim, C: Dim, S: nalgebra::RawStorage<T, R, C>>(mat: GenericMatrix<T, R, C, S>) 
-        where GenericMatrix<T, R, C, S>: CanonicalSerialize + CanonicalDeserialize + PartialEq + Debug
+    fn test_canonical_serialization_deserialization<
+        T: Scalar,
+        R: Dim,
+        C: Dim,
+        S: nalgebra::RawStorage<T, R, C>,
+    >(
+        mat: GenericMatrix<T, R, C, S>,
+    ) where
+        GenericMatrix<T, R, C, S>: CanonicalSerialize + CanonicalDeserialize + PartialEq + Debug,
     {
         for mode in [Compress::No, Compress::Yes] {
             let mut bytes = vec![];
             mat.serialize_with_mode(&mut bytes, mode).unwrap();
 
-            let mat2 = GenericMatrix::<T, R, C, S>::deserialize_with_mode(bytes.as_slice(), mode, Validate::Yes)
-                .unwrap();
+            let mat2 = GenericMatrix::<T, R, C, S>::deserialize_with_mode(
+                bytes.as_slice(),
+                mode,
+                Validate::Yes,
+            )
+            .unwrap();
             assert_eq!(mat, mat2);
         }
     }

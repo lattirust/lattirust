@@ -141,7 +141,8 @@ pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
         + Eq
         + Zeroize
         + CanonicalSerialize
-        + CanonicalDeserialize;
+        + CanonicalDeserialize
+        + FromRandomBytes<Self::Limbs>;
 
     const ZERO: Zq<Self, L>;
     const ONE: Zq<Self, L>;
@@ -575,17 +576,14 @@ impl<C: ZqConfig<L>, const L: usize> Modulus for Zq<C, L> {
     }
 }
 
-impl<C: ZqConfig<L>, const L: usize> FromRandomBytes<Zq<C, L>> for Zq<C, L> {
+impl<C: ZqConfig<L>, const L: usize> FromRandomBytes<Zq<C, L>> for Zq<C, L> 
+{
     fn needs_bytes() -> usize {
-        C::MODULI
-            .iter()
-            .map(|m| m.next_power_of_two().ilog2() as usize)
-            .sum::<usize>()
-            / 8
+        C::Limbs::needs_bytes()
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Zq<C, L>> {
-        todo!()
+        C::Limbs::try_from_random_bytes_inner(bytes).map(Self)
     }
 }
 

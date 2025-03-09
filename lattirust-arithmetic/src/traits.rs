@@ -1,3 +1,5 @@
+use std::array;
+
 use num_bigint::BigUint;
 use num_traits::{Signed, ToPrimitive};
 
@@ -110,6 +112,169 @@ pub trait FromRandomBytes<T> {
 
     /// Returns `Some(t)` for a `t` created from `bytes`, or `None` if there was an error.
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<T>;
+}
+
+impl<T, const N: usize> FromRandomBytes<[T; N]> for [T; N]
+where
+    T: FromRandomBytes<T>,
+{
+    fn needs_bytes() -> usize {
+        N * T::needs_bytes() // Use T::needs_byte() rather than T::byte_size() for efficiency: this returns `SECPARAM + N * T::needs_bytes()` instead of `N * (SECPARAM + T::needs_bytes())` in the biased case.
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<[T; N]> {
+        let chunks: Vec<&[u8]> = bytes.chunks_exact(T::needs_bytes()).collect();
+        Some(array::from_fn(|i| {
+            T::try_from_random_bytes_inner(chunks[i]).unwrap()
+        }))
+    }
+}
+
+impl<T1> FromRandomBytes<(T1,)> for (T1,)
+where
+    T1: FromRandomBytes<T1>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1,)> {
+        Some((T1::try_from_random_bytes_inner(bytes)?,))
+    }
+}
+
+impl<T1, T2> FromRandomBytes<(T1, T2)> for (T1, T2)
+where
+    T1: FromRandomBytes<T1>,
+    T2: FromRandomBytes<T2>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes() + T2::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1, T2)> {
+        let t1_len = T1::needs_bytes();
+        let t1 = T1::try_from_random_bytes_inner(&bytes[..t1_len])?;
+        let t2 = T2::try_from_random_bytes_inner(&bytes[t1_len..])?;
+        Some((t1, t2))
+    }
+}
+
+impl<T1, T2, T3> FromRandomBytes<(T1, T2, T3)> for (T1, T2, T3)
+where
+    T1: FromRandomBytes<T1>,
+    T2: FromRandomBytes<T2>,
+    T3: FromRandomBytes<T3>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes() + T2::needs_bytes() + T3::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1, T2, T3)> {
+        let t1_len = T1::needs_bytes();
+        let t2_len = T2::needs_bytes();
+        let t1 = T1::try_from_random_bytes_inner(&bytes[..t1_len])?;
+        let t2 = T2::try_from_random_bytes_inner(&bytes[t1_len..t1_len + t2_len])?;
+        let t3 = T3::try_from_random_bytes_inner(&bytes[t1_len + t2_len..])?;
+        Some((t1, t2, t3))
+    }
+}
+
+impl<T1, T2, T3, T4> FromRandomBytes<(T1, T2, T3, T4)> for (T1, T2, T3, T4)
+where
+    T1: FromRandomBytes<T1>,
+    T2: FromRandomBytes<T2>,
+    T3: FromRandomBytes<T3>,
+    T4: FromRandomBytes<T4>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes() + T2::needs_bytes() + T3::needs_bytes() + T4::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1, T2, T3, T4)> {
+        let t1_len = T1::needs_bytes();
+        let t2_len = T2::needs_bytes();
+        let t3_len = T3::needs_bytes();
+        let t1 = T1::try_from_random_bytes_inner(&bytes[..t1_len])?;
+        let t2 = T2::try_from_random_bytes_inner(&bytes[t1_len..t1_len + t2_len])?;
+        let t3 =
+            T3::try_from_random_bytes_inner(&bytes[t1_len + t2_len..t1_len + t2_len + t3_len])?;
+        let t4 = T4::try_from_random_bytes_inner(&bytes[t1_len + t2_len + t3_len..])?;
+        Some((t1, t2, t3, t4))
+    }
+}
+
+impl<T1, T2, T3, T4, T5> FromRandomBytes<(T1, T2, T3, T4, T5)> for (T1, T2, T3, T4, T5)
+where
+    T1: FromRandomBytes<T1>,
+    T2: FromRandomBytes<T2>,
+    T3: FromRandomBytes<T3>,
+    T4: FromRandomBytes<T4>,
+    T5: FromRandomBytes<T5>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes()
+            + T2::needs_bytes()
+            + T3::needs_bytes()
+            + T4::needs_bytes()
+            + T5::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1, T2, T3, T4, T5)> {
+        let t1_len = T1::needs_bytes();
+        let t2_len = T2::needs_bytes();
+        let t3_len = T3::needs_bytes();
+        let t4_len = T4::needs_bytes();
+        let t1 = T1::try_from_random_bytes_inner(&bytes[..t1_len])?;
+        let t2 = T2::try_from_random_bytes_inner(&bytes[t1_len..t1_len + t2_len])?;
+        let t3 =
+            T3::try_from_random_bytes_inner(&bytes[t1_len + t2_len..t1_len + t2_len + t3_len])?;
+        let t4 = T4::try_from_random_bytes_inner(
+            &bytes[t1_len + t2_len + t3_len..t1_len + t2_len + t3_len + t4_len],
+        )?;
+        let t5 = T5::try_from_random_bytes_inner(&bytes[t1_len + t2_len + t3_len + t4_len..])?;
+        Some((t1, t2, t3, t4, t5))
+    }
+}
+
+impl<T1, T2, T3, T4, T5, T6> FromRandomBytes<(T1, T2, T3, T4, T5, T6)> for (T1, T2, T3, T4, T5, T6)
+where
+    T1: FromRandomBytes<T1>,
+    T2: FromRandomBytes<T2>,
+    T3: FromRandomBytes<T3>,
+    T4: FromRandomBytes<T4>,
+    T5: FromRandomBytes<T5>,
+    T6: FromRandomBytes<T6>,
+{
+    fn needs_bytes() -> usize {
+        T1::needs_bytes()
+            + T2::needs_bytes()
+            + T3::needs_bytes()
+            + T4::needs_bytes()
+            + T5::needs_bytes()
+            + T6::needs_bytes()
+    }
+
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<(T1, T2, T3, T4, T5, T6)> {
+        let t1_len = T1::needs_bytes();
+        let t2_len = T2::needs_bytes();
+        let t3_len = T3::needs_bytes();
+        let t4_len = T4::needs_bytes();
+        let t5_len = T5::needs_bytes();
+        let t1 = T1::try_from_random_bytes_inner(&bytes[..t1_len])?;
+        let t2 = T2::try_from_random_bytes_inner(&bytes[t1_len..t1_len + t2_len])?;
+        let t3 =
+            T3::try_from_random_bytes_inner(&bytes[t1_len + t2_len..t1_len + t2_len + t3_len])?;
+        let t4 = T4::try_from_random_bytes_inner(
+            &bytes[t1_len + t2_len + t3_len..t1_len + t2_len + t3_len + t4_len],
+        )?;
+        let t5 = T5::try_from_random_bytes_inner(
+            &bytes[t1_len + t2_len + t3_len + t4_len..t1_len + t2_len + t3_len + t4_len + t5_len],
+        )?;
+        let t6 =
+            T6::try_from_random_bytes_inner(&bytes[t1_len + t2_len + t3_len + t4_len + t5_len..])?;
+        Some((t1, t2, t3, t4, t5, t6))
+    }
 }
 
 pub trait WithConjugationAutomorphism {

@@ -1,4 +1,4 @@
-use ark_ff::{BigInt, BigInteger, Fp, FpConfig, PrimeField};
+use ark_ff::{BigInt, BigInteger, Fp, FpConfig, PrimeField, Field};
 
 use crate::traits::FromRandomBytes;
 
@@ -17,22 +17,10 @@ fn byte_to_bits(byte: &u8) -> [bool; 8] {
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     fn needs_bytes() -> usize {
-        Self::MODULUS_BIT_SIZE as usize / 8
+        (<Self as PrimeField>::MODULUS_BIT_SIZE as usize + 7) / 8
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Fp<C, N>> {
-        let mut r = BigInt::from_bits_be(
-            &bytes
-                .iter()
-                .flat_map(|b| byte_to_bits(b))
-                .collect::<Vec<bool>>(),
-        );
-        // This is safe, since we're using FromRandomBytesForModulus, which makes sure that taking the modulus only introduces negligible bias
-        // let mut r = ark_ff::Fp::<C, N>::new_unchecked(bigint);
-        while r > Self::MODULUS {
-            let borrow = r.sub_with_borrow(&Self::MODULUS);
-            assert_eq!(borrow, false);
-        }
-        Self::from_bigint(r)
+        <Self as Field>::from_random_bytes(bytes)
     }
 }

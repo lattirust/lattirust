@@ -1,22 +1,22 @@
 #![allow(non_snake_case)]
 
 use std::ops::Neg;
-use std::array;
 
-use ark_std::{rand, UniformRand};
 use ark_std::rand::prelude::SliceRandom;
+use ark_std::{rand, UniformRand};
 use delegate::delegate;
 use nalgebra::{self, ArrayStorage, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
+use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::{Scalar, SymmetricMatrix};
-use crate::linear_algebra::generic_matrix::GenericMatrix;
 
 pub type Const<const S: usize> = nalgebra::Const<S>;
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
-pub type SMatrix<T, const R: usize, const C: usize> = GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>;
+pub type SMatrix<T, const R: usize, const C: usize> =
+    GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>;
 
 impl<R: ComplexField> Matrix<R> {
     delegate! {
