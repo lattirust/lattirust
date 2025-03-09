@@ -1,8 +1,9 @@
-use std::error::Error;
+use std::ops::AddAssign;
 
+use num_traits::Zero;
 use ark_std::rand::rngs::OsRng;
 
-use lattirust_arithmetic::linear_algebra::{SparseMatrix, Vector};
+use lattirust_arithmetic::linear_algebra::{SparseMatrix, Vector, Scalar};
 use lattirust_arithmetic::ring::Ring;
 
 use crate::Relation;
@@ -194,12 +195,30 @@ impl<R: Ring> Relation for R1CS<R> {
     }
 }
 
+pub fn sparse_matrix_from_ark_matrix<R: Scalar + Copy + Zero + AddAssign>(
+    matrix: ark_relations::r1cs::Matrix<R>,
+    nrows: usize,
+    ncols: usize,
+) -> SparseMatrix<R> {
+    assert_eq!(nrows, matrix.len());
+    let triplets = matrix
+        .iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            row.iter()
+                .map(move |(elem, col_index)| (row_index, *col_index, *elem))
+        })
+        .flatten()
+        .collect();
+    SparseMatrix::<R>::try_from_triplets(nrows, ncols, triplets).unwrap()
+}
+
 #[cfg(test)]
 mod test {
     use lattirust_arithmetic::ring::Zq1;
 
-    use crate::{Relation, test_generate_satisfied_instance};
     use crate::test_generate_unsatisfied_instance;
+    use crate::{test_generate_satisfied_instance, Relation};
 
     use super::*;
 

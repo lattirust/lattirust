@@ -1,7 +1,5 @@
 #![feature(associated_type_defaults)]
 
-use std::error::Error;
-
 pub mod ajtai_cm;
 pub mod principal_relation;
 pub mod r1cs;
@@ -57,8 +55,8 @@ macro_rules! test_generate_satisfied_instance {
         #[test]
         fn test_generate_satisfied_instance() {
             let (index, instance, witness) = <$T>::generate_satisfied_instance(&$size);
-            assert!(<$T>::is_well_defined(&index, &instance, Some(&witness)));
-            assert!(<$T>::is_satisfied(&index, &instance, &witness));
+            <$T>::is_well_defined_err(&index, &instance, Some(&witness)).unwrap();
+            <$T>::is_satisfied_err(&index, &instance, &witness).unwrap();
         }
     };
 }
@@ -69,8 +67,8 @@ macro_rules! test_generate_unsatisfied_instance {
         #[test]
         fn test_generate_unsatisfied_instance() {
             let (index, instance, witness) = <$T>::generate_unsatisfied_instance(&$size);
-            assert!(<$T>::is_well_defined(&index, &instance, Some(&witness)));
-            assert!(!<$T>::is_satisfied(&index, &instance, &witness));
+            <$T>::is_well_defined_err(&index, &instance, Some(&witness)).unwrap();
+            assert!(<$T>::is_satisfied_err(&index, &instance, &witness).is_err());
         }
     };
 }

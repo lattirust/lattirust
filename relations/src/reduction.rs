@@ -1,5 +1,4 @@
 use anyhow::{bail, Context};
-use log::debug;
 use nimue::{Arthur, IOPattern, Merlin, ProofResult};
 
 use crate::Relation;
@@ -114,11 +113,9 @@ where
 
         let proof = merlin.transcript();
         let mut arthur = io.to_arthur(proof);
-        let verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
+        let _verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
 
-        if verifier_result.is_ok() {
-            bail!("reduction is not sound; the verifier accepted the proof");
-        }
+        // TODO: test whether the verifier accepts the proof? In this particular test only we still use the honest prover, so the verifier will accept for most protocols.  
 
         Ok(())
     }

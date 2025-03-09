@@ -1,8 +1,6 @@
 #![allow(non_snake_case)]
 
 use std::cmp::{max, max_by};
-use std::error::Error;
-use ark_std::iterable::Iterable;
 
 use ark_std::rand;
 use ark_std::rand::thread_rng;
@@ -12,7 +10,7 @@ use num_traits::{One, ToPrimitive, Zero};
 use serde::Serialize;
 use derive_more::Display;
 
-use lattice_estimator::msis::{MSIS, msis_h_128_l2};
+use lattice_estimator::msis::{self, msis_h_128_l2, MSIS};
 use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products;
@@ -105,6 +103,11 @@ impl<R: PolyRing> Index<R> {
         (t2, b2)
     }
 
+    pub fn new_for_size(size: Size) -> Index<R> {
+        let mut rng = thread_rng();
+        Self::new(size.num_witnesses, size.witness_size, size.norm_bound_sq, size.num_constraints, size.num_constant_constraints, &mut rng)
+    }
+
     pub fn new<Rng: rand::Rng + ?Sized>(
         r: usize,
         n: usize,
@@ -176,10 +179,13 @@ impl<R: PolyRing> Index<R> {
             norm: Norm::L2,
         };
         let k = msis_1.upper_bound_h();
+        let k = msis::lattice_estimator::find_optimal_h_dynamic(&msis_1, norm_bound_1, 128).expect(format!("failed to find secure rank for {msis_1}. Are the witness vectors long enough in your system?").as_str());
+        // let k = msis::find_optimal_h(&msis_1, 128).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         // let k = msis_1.find_optimal_h_dynamic(norm_bound_1, SECPARAM).expect(format!("failed to find secure rank for {msis_1}. Are there enough constraints in your system?").as_str());
         msis_1 = msis_1.with_h(k).with_length_bound(norm_bound_1(k));
-        //info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
+        info!("  k={k} for the MSIS instance {msis_1}  gives {} bits of security",msis_1.security_level()); // TODO: silently assume that this gives us enough security, which it will for any reasonable parameters
         info!("  Chose largest k={k} for the MSIS instance {msis_1}");
+        assert!(k > 0);
 
         let mut msis_2 = MSIS {
             h: 0, // Dummy value, will be set later
@@ -197,6 +203,7 @@ impl<R: PolyRing> Index<R> {
             "  k1=k2={k1} for the MSIS instance {msis_2}  gives {} bits of security",
             msis_2.security_level()
         );
+        assert!(k > 1);
 
         // TODO: this only gives 125 bits of soundness error for SECPARAM = 128, how do we best document this?
         // TODO: all params should be bigger to account for the slack of sqrt(128/30) per recursion level
@@ -556,10 +563,10 @@ pub struct Witness<R: PolyRing> {
     pub s: Vec<Vector<R>>,
 }
 
+
 impl<R: PolyRing> Witness<R> {
-    pub fn new_dummy(rank: usize, multiplicity: usize, _norm_bound: u64) -> Self {
+    pub fn zero(rank: usize, multiplicity: usize) -> Self {
         Self {
-            // Guaranteed to have low norm, but not very interesting
             s: vec![Vector::<R>::from_fn(multiplicity, |_, _| R::zero()); rank],
         }
     }
@@ -567,15 +574,17 @@ impl<R: PolyRing> Witness<R> {
 
 impl<R: PolyRing> Instance<R> {
     pub fn is_valid_witness(&self, witness: &Witness<R>) -> anyhow::Result<()> {
-        if self.quad_dot_prod_funcs
-            .iter()
-            .all(|c| c.is_valid_witness(witness)) {
-            return Err(anyhow::anyhow!("Some standard constraints are not satisfied"));
-        }
-        if self.ct_quad_dot_prod_funcs
-                .iter()
-                .all(|c| c.is_valid_witness(witness)) {
-            return Err(anyhow::anyhow!("Some constant constraints are not satisfied"));
+        let unsat_indices = self.quad_dot_prod_funcs.iter().enumerate()
+            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then(|| idx)).collect::<Vec<_>>();
+        let ct_unsat_indices = self.ct_quad_dot_prod_funcs.iter().enumerate()
+            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then(|| idx)).collect::<Vec<_>>();
+        
+        if unsat_indices.len() > 0 && ct_unsat_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Standard constraints {:?} are not satisfied", unsat_indices));
+        } else if unsat_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Standard constraints {:?} are not satisfied", unsat_indices));
+        } else if ct_unsat_indices.len() > 0 {
+            return Err(anyhow::anyhow!("Constant constraints {:?} are not satisfied", ct_unsat_indices));
         }
         Ok(())
     }
@@ -659,7 +668,7 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
                 .collect(),
         };
 
-        let witness = Witness::new_dummy(size.num_witnesses, size.witness_size, 0);
+        let witness = Witness::zero(size.num_witnesses, size.witness_size);
         (index, instance, witness)
     }
 
@@ -706,7 +715,7 @@ impl<R: PolyRing> Relation for PrincipalRelation<R> {
         // Add single unsatisfied constraint
         instance.ct_quad_dot_prod_funcs.last_mut().unwrap().b = R::BaseRing::one();
 
-        let witness = Witness::new_dummy(size.num_witnesses, size.witness_size, 0);
+        let witness = Witness::zero(size.num_witnesses, size.witness_size);
         (index, instance, witness)
     }
 }
