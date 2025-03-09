@@ -1,9 +1,10 @@
 use std::marker::PhantomData;
 
+use anyhow::{bail, Ok};
 use ark_std::rand::thread_rng;
 use ark_std::UniformRand;
 use derive_more::Display;
-use log::{debug, info};
+use log::info;
 use nimue::{DuplexHash, IOPattern};
 use num_bigint::BigUint;
 use num_traits::cast::ToPrimitive;
@@ -314,7 +315,10 @@ impl<F: Ring> PublicParameters<F> {
 
 impl<F: Ring + WithSignedRepresentative> PublicParameters<F> {
     pub fn powers_of_basis(&self) -> Vec<F> {
-        ring::util::powers_of_basis(F::try_from(self.decomposition_basis).unwrap(), self.decomposition_length)
+        ring::util::powers_of_basis(
+            F::try_from(self.decomposition_basis).unwrap(),
+            self.decomposition_length,
+        )
     }
 }
 
@@ -350,6 +354,14 @@ where
     type Witness = Witness<F>;
 
     fn is_well_defined(pp: &Self::Index, x: &Self::Instance, w: Option<&Self::Witness>) -> bool {
+        Self::is_well_defined_err(pp, x, w).is_ok()
+    }
+
+    fn is_well_defined_err(
+        pp: &Self::Index,
+        x: &Self::Instance,
+        w: Option<&Self::Witness>,
+    ) -> anyhow::Result<()> {
         let mut is_well_defined = pp.commitment_mat.nrows() == x.commitment.nrows();
         if let Some(w) = w {
             is_well_defined = is_well_defined
@@ -357,29 +369,44 @@ where
                 && x.commitment.ncols() == w.ncols()
                 && x.inner_products.size() == w.ncols();
         }
-        is_well_defined
+        match is_well_defined {
+            true => Ok(()),
+            false => anyhow::bail!("instance and witness are not well-defined"),
+        }
     }
 
     fn is_satisfied(pp: &Self::Index, x: &Self::Instance, w: &Self::Witness) -> bool {
+        Self::is_satisfied_err(pp, x, w).is_ok()
+    }
+
+    fn is_satisfied_err(
+        pp: &Self::Index,
+        x: &Self::Instance,
+        w: &Self::Witness,
+    ) -> anyhow::Result<()> {
+        Self::is_well_defined_err(pp, x, Some(w))?;
+
         let norm_bound_sq = pp.norm_bound * pp.norm_bound;
         let w_int = w; // TODO: work over the integers; to_integers(w);
 
-        let commitments_match = &pp.commitment_mat * w == x.commitment; // mod q
-        debug!("  commitments match:      {commitments_match} (pp.commitment_mat * w == x.commitment (mod q))");
+        // mod q
+        if &pp.commitment_mat * w != x.commitment {
+            bail!("Commitments do not match: pp.commitment_mat * w != x.commitment (mod q)");
+        }
 
-        let inner_products_match = inner_products_mat(&w_int) == x.inner_products; // over the integers
-        debug!("  inner products match:   {inner_products_match} (w_int.transpose() * w_int == x.inner_products (over the integers))");
+        // over the integers
+        if inner_products_mat(&w_int) != x.inner_products {
+            bail!("Inner products do not match: w_int.transpose() * w_int != x.inner_products (over the integers)");
+        }
 
         let inner_products_are_small =
             x.inner_products.diag().into_iter().all(|inner_product_ii| {
                 inner_product_ii.linf_norm().to_f64().unwrap() <= norm_bound_sq
             });
-        debug!("  inner products bounded: {inner_products_are_small} (x.inner_products()[i][i] <= norm_bound_sq)");
-
-        Self::is_well_defined(pp, x, Some(w))
-            && commitments_match
-            && inner_products_match
-            && inner_products_are_small
+        if !inner_products_are_small {
+            bail!("Inner products are not small: !(x.inner_products()[i][i] <= norm_bound_sq)")
+        }
+        Ok(())
     }
 
     fn generate_satisfied_instance(
