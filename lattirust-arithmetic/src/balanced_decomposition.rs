@@ -10,8 +10,8 @@ use rounded_div::RoundedDiv;
 use crate::linear_algebra::{
     ClosedAddAssign, ClosedMulAssign, Matrix, RowVector, SymmetricMatrix, Vector,
 };
-use crate::ring::{PolyRing, Ring};
 use crate::ring::representatives::WithSignedRepresentative;
+use crate::ring::{PolyRing, Ring};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: BigUint) -> usize {
@@ -189,7 +189,7 @@ where
     <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
         DecompositionFriendlySignedRepresentative,
 {
-    decompose_balanced_vec::<PR::BaseRing>(v.coeffs().as_slice(), b, padding_size)
+    decompose_balanced_vec::<PR::BaseRing>(v.coefficients().as_slice(), b, padding_size)
         .into_par_iter()
         .map(|v_i| PR::from(v_i))
         .collect()
@@ -412,7 +412,7 @@ mod tests {
             let decomp: Vec<PolyR> = decompose_balanced_polyring(&v, b, None);
 
             for d_i in &decomp {
-                for d_ij in d_i.coeffs() {
+                for d_ij in d_i.coefficients() {
                     assert!(d_ij.linf_norm() <= b_half.into());
                 }
             }
@@ -438,7 +438,7 @@ mod tests {
 
             for v_i in &decomp {
                 for v_ij in v_i.as_slice() {
-                    for v_ijk in v_ij.coeffs() {
+                    for v_ijk in v_ij.coefficients() {
                         assert!(v_ijk.linf_norm() <= b_half.into());
                     }
                 }

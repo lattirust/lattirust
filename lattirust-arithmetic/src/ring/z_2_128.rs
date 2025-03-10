@@ -9,10 +9,10 @@ use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
-use num_bigint::BigUint;
-use num_traits::{One, Zero, ConstOne, ToPrimitive};
-use zeroize::Zeroize;
 use i256::i256;
+use num_bigint::BigUint;
+use num_traits::{One, ToPrimitive, Zero};
+use zeroize::Zeroize;
 
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::Ring;
@@ -79,7 +79,7 @@ macro_rules! from_primitive_type {
                     } else {
                         let unsigned_256 = i256::from_u128(unsigned);
                         let modulus = i256::from_u8(1u8) << 128;
-                        let res: i256 = unsigned_256.sub(modulus); 
+                        let res: i256 = unsigned_256.sub(modulus);
                         res.as_i128()
                     };
                     Self(Wrapping(signed as i128))
@@ -93,15 +93,15 @@ macro_rules! from_primitive_type {
 macro_rules! into_primitive_type {
     ($($t:ty),*) => {
         $(
-            impl Into<$t> for Z2_128 {
-                fn into(self: Self) -> $t {
-                    let signed = self.0 .0;
+            impl From<Z2_128> for $t {
+                fn from(x: Z2_128) -> Self {
+                    let signed = x.0 .0;
                     let unsigned: u128 = if signed >= 0 {
                         signed as u128
                     } else {
                         let signed_256 = i256::from_i128(signed);
                         let modulus = i256::from_u8(1u8) << 128;
-                        let res: i256 = signed_256.add(modulus); 
+                        let res: i256 = signed_256.add(modulus);
                         res.as_u128()
                     };
                     unsigned as $t
@@ -248,7 +248,7 @@ impl Ring for Z2_128 {
         if self.0 .0 % 2 == 0 {
             None
         } else {
-            let self_unsigned = BigUint::from(Into::<u128>::into(self.clone()));
+            let self_unsigned = BigUint::from(Into::<u128>::into(*self));
             let inv_unsigned_bigint = self_unsigned.modinv(&Self::modulus()).unwrap();
             let inv_unsigned = inv_unsigned_bigint.to_u128().unwrap();
             Some(Self::from(inv_unsigned))

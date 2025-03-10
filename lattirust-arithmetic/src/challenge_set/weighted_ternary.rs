@@ -2,9 +2,9 @@ use std::ops::Neg;
 
 use num_traits::{One, Zero};
 
-use crate::ring::{NttRing, Ring};
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::ring::{NttRing, Ring};
 use crate::traits::FromRandomBytes;
 
 /// Challenge set $\\{-1, 0, 1\\} \subset \mathbb{Z}_q$, where $Pr\[C = 0\] = \frac{1}{2}$ and $Pr\[C = 1\] = Pr\[C = -1\] = \frac{1}{4}$
@@ -12,7 +12,7 @@ pub struct WeightedTernaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
 
-impl<T: Zero + One + Neg<Output=T>> FromRandomBytes<T> for WeightedTernaryChallengeSet<T> {
+impl<T: Zero + One + Neg<Output = T>> FromRandomBytes<T> for WeightedTernaryChallengeSet<T> {
     fn has_no_bias() -> bool {
         true
     }

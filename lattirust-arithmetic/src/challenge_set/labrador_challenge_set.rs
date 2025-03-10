@@ -1,9 +1,9 @@
 use bitter::BitReader;
 
 use crate::linear_algebra::Matrix;
-use crate::ring::{NttRing, PolyRing, Ring};
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
+use crate::ring::{NttRing, PolyRing, Ring};
 use crate::traits::FromRandomBytes;
 
 pub struct LabradorChallengeSet<R: PolyRing> {
@@ -210,15 +210,15 @@ impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRin
 
 #[cfg(test)]
 mod tests {
+    use ark_std::rand::{thread_rng, Rng};
     use ark_std::{test_rng, UniformRand};
-    use ark_std::rand::{Rng, thread_rng};
     use num_traits::ToPrimitive;
 
     use crate::linear_algebra::Matrix;
     use crate::linear_algebra::Vector;
-    use crate::ring::{PolyRing, Zq1};
     use crate::ring::ntt::ntt_prime;
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+    use crate::ring::{PolyRing, Zq1};
     use crate::traits::{FromRandomBytes, WithL2Norm};
 
     use super::LabradorChallengeSet;
@@ -267,7 +267,7 @@ mod tests {
 
         for _ in 0..NUM_REPETITIONS {
             let r = PolyR::rand(&mut thread_rng());
-            let r_vec = Vector::<R>::from(r.coeffs());
+            let r_vec = Vector::<R>::from(r.coefficients());
             let cr_vec = &c_mat * &r_vec;
             let cr = PolyR::from(cr_vec.iter().cloned().collect::<Vec<R>>());
             assert_eq!(c_poly * r, cr);
@@ -298,14 +298,14 @@ mod tests {
         // Check that from_random_bytes() is consistent with check_coeffs_from_random_bytes()
         let c_poly =
             LabradorChallengeSet::<PolyR>::try_from_random_bytes(&bytes.as_slice()).unwrap();
-        assert_eq!(c.len(), c_poly.coeffs().len());
+        assert_eq!(c.len(), c_poly.coefficients().len());
         for i in 0..c.len() {
             let val = if c[i] >= 0 {
                 R::try_from(c[i] as u32).unwrap()
             } else {
                 -R::try_from(-c[i] as u32).unwrap()
             };
-            assert_eq!(val, c_poly.coeffs()[i]);
+            assert_eq!(val, c_poly.coefficients()[i]);
         }
 
         // TODO: this fails sometimes, but it is not clear why

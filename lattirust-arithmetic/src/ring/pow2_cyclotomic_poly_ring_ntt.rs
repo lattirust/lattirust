@@ -496,14 +496,14 @@ where
 
 #[cfg(test)]
 mod test {
+    use super::*;
     use crate::ring::ntt::ntt_prime;
     use crate::ring::Zq1;
     use crate::*;
-    use super::*;
 
     const N: usize = 128;
     const Q: u64 = ntt_prime::<N>(16);
-    type BaseRing = Zq1::<Q>;
+    type BaseRing = Zq1<Q>;
 
     test_ring!(Pow2CyclotomicPolyRingNTT::<BaseRing, N>, 10);
 }

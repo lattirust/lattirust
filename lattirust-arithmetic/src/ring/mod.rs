@@ -176,7 +176,7 @@ macro_rules! test_ring {
         test_inverse_multiplication!($T, $N);
         test_canonical_serialize_deserialize_uncompressed!($T, $N);
         test_canonical_serialize_deserialize_compressed!($T, $N);
-    }
+    };
 }
 
 #[macro_export]
@@ -194,7 +194,7 @@ macro_rules! test_distributive {
                 assert_eq!((a + b) * c, a * c + b * c);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -211,7 +211,7 @@ macro_rules! test_associative_addition {
                 assert_eq!(a + (b + c), (a + b) + c);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -228,7 +228,7 @@ macro_rules! test_associative_multiplication {
                 assert_eq!(a * (b * c), (a * b) * c);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -244,7 +244,7 @@ macro_rules! test_identity_addition {
                 assert_eq!(<$T as Ring>::ZERO + a, a);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -260,7 +260,7 @@ macro_rules! test_identity_multiplication {
                 assert_eq!(<$T as Ring>::ONE * a, a);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -276,7 +276,7 @@ macro_rules! test_inverse_addition {
                 assert_eq!(-a + a, <$T as Ring>::ZERO);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -285,7 +285,10 @@ macro_rules! test_inverse_multiplication {
         #[test]
         fn test_inverse_multiplication() {
             let rng = &mut ark_std::test_rng();
-            assert_eq!(<$T as Ring>::inverse(&<$T as Ring>::ONE).unwrap(), <$T as Ring>::ONE);
+            assert_eq!(
+                <$T as Ring>::inverse(&<$T as Ring>::ONE).unwrap(),
+                <$T as Ring>::ONE
+            );
             assert_eq!(<$T as Ring>::inverse(&<$T as Ring>::ZERO), None);
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -296,7 +299,7 @@ macro_rules! test_inverse_multiplication {
                 }
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -310,11 +313,16 @@ macro_rules! test_canonical_serialize_deserialize_compressed {
                 let a = <$T as UniformRand>::rand(rng);
                 let mut bytes = Vec::new();
                 a.serialize_with_mode(&mut bytes, Compress::Yes).unwrap();
-                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(&*bytes, Compress::Yes, Validate::Yes).unwrap();
+                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(
+                    &*bytes,
+                    Compress::Yes,
+                    Validate::Yes,
+                )
+                .unwrap();
                 assert_eq!(a, a2);
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -328,9 +336,14 @@ macro_rules! test_canonical_serialize_deserialize_uncompressed {
                 let a = <$T as UniformRand>::rand(rng);
                 let mut bytes = Vec::new();
                 a.serialize_with_mode(&mut bytes, Compress::No).unwrap();
-                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(&*bytes, Compress::No, Validate::Yes).unwrap();
+                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(
+                    &*bytes,
+                    Compress::No,
+                    Validate::Yes,
+                )
+                .unwrap();
                 assert_eq!(a, a2);
             }
         }
-    }
+    };
 }

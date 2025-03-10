@@ -7,17 +7,17 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use delegate::delegate;
 use derive_more;
 use derive_more::{Display, From, Index, IndexMut, Into};
+use nalgebra::allocator::Allocator;
+use nalgebra::constraint::{DimEq, ShapeConstraint};
 use nalgebra::{
     self, ClosedMulAssign, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned,
     RawStorage, Scalar, Storage, StorageMut, ViewStorage,
 };
-use nalgebra::allocator::Allocator;
-use nalgebra::constraint::{DimEq, ShapeConstraint};
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
-use crate::linear_algebra::ClosedAddAssign;
 use crate::linear_algebra::vector::{GenericRowVector, GenericVector};
+use crate::linear_algebra::ClosedAddAssign;
 
 #[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut)]
 #[display("{}", _0)]

@@ -92,9 +92,9 @@ macro_rules! from_primitive_type {
 macro_rules! into_primitive_type {
     ($($t:ty),*) => {
         $(
-            impl Into<$t> for Z2_64 {
-                fn into(self: Self) -> $t {
-                    let signed = self.0 .0;
+            impl From<Z2_64> for $t {
+                fn from(x: Z2_64) -> Self {
+                    let signed = x.0 .0;
                     let unsigned: u64 = if signed >= 0 {
                         signed as u64
                     } else {
@@ -245,7 +245,7 @@ impl Ring for Z2_64 {
         if self.0 .0 % 2 == 0 {
             None
         } else {
-            let self_unsigned = BigUint::from(Into::<u64>::into(self.clone()));
+            let self_unsigned = BigUint::from(Into::<u64>::into(*self));
             let inv_unsigned_bigint = self_unsigned.modinv(&Self::modulus()).unwrap();
             let inv_unsigned = inv_unsigned_bigint.to_u64().unwrap();
             let inv = Self::from(inv_unsigned);

@@ -104,7 +104,7 @@ pub trait FromRandomBytes<T> {
             return None;
         }
         if Self::has_no_bias() {
-            Self::try_from_random_bytes_inner(&bytes)
+            Self::try_from_random_bytes_inner(bytes)
         } else {
             Self::try_from_random_bytes_inner(&bytes[(Self::SECURITY_PARAMETER / 8)..])
         }

@@ -12,7 +12,8 @@ use ark_ff::{
     AdditiveGroup, BigInt, FftField, Field, LegendreSymbol, PrimeField, SqrtPrecomputation,
 };
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, Compress, EmptyFlags, Flags, SerializationError, Valid, Validate
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
+    CanonicalSerializeWithFlags, Compress, EmptyFlags, Flags, SerializationError, Valid, Validate,
 };
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
@@ -178,8 +179,7 @@ impl CanonicalSerializeWithFlags for Z2 {
         &self,
         writer: W,
         flags: F,
-    ) -> Result<(), SerializationError> 
-    {
+    ) -> Result<(), SerializationError> {
         if flags.u8_bitmask() != EmptyFlags.u8_bitmask() {
             return Err(SerializationError::UnexpectedFlags);
         }
@@ -360,9 +360,9 @@ impl FromStr for Z2 {
     }
 }
 
-impl Into<BigUint> for Z2 {
-    fn into(self) -> BigUint {
-        if self.0 {
+impl From<Z2> for BigUint {
+    fn from(x: Z2) -> BigUint {
+        if x.0 {
             BigUint::one()
         } else {
             BigUint::zero()
@@ -370,9 +370,9 @@ impl Into<BigUint> for Z2 {
     }
 }
 
-impl Into<BigInt<1>> for Z2 {
-    fn into(self) -> BigInt<1> {
-        BigInt::<1>::from(self.0 as u64)
+impl From<Z2> for BigInt<1> {
+    fn from(x: Z2) -> BigInt<1> {
+        BigInt::<1>::from(x.0 as u64)
     }
 }
 
@@ -394,7 +394,9 @@ impl Field for Z2 {
         iter::once(*self)
     }
 
-    fn from_base_prime_field_elems(elems: impl IntoIterator<Item = Self::BasePrimeField>,) -> Option<Self> {
+    fn from_base_prime_field_elems(
+        elems: impl IntoIterator<Item = Self::BasePrimeField>,
+    ) -> Option<Self> {
         let mut elems = elems.into_iter();
         let elem = elems.next()?;
         if elems.next().is_some() {

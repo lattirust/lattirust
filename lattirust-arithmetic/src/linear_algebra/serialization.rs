@@ -185,6 +185,7 @@ mod test {
     use std::fmt::Debug;
 
     use crate::linear_algebra::{Matrix, SMatrix, SRowVector, Vector};
+    use ark_std::UniformRand;
 
     use super::*;
 

@@ -3,7 +3,6 @@ use num_bigint::ToBigInt;
 use num_traits::{Num, One, Signed, ToPrimitive, Zero};
 use rounded_div::RoundedDiv;
 
-
 #[derive(
     Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, From, Into, Add, Sub, Mul, Rem, Div, Neg,
 )]

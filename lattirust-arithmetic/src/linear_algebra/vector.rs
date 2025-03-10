@@ -2,11 +2,11 @@ use ark_ff::UniformRand;
 use ark_std::rand;
 use ark_std::rand::Rng;
 use delegate::delegate;
+use nalgebra::allocator::Allocator;
 use nalgebra::{
     self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
     ViewStorage,
 };
-use nalgebra::allocator::Allocator;
 use num_bigint::BigUint;
 use num_traits::Zero;
 
@@ -140,7 +140,8 @@ impl<T: Scalar + WithLinfNorm, R: Dim, S: RawStorage<T, R, Const<1>>> WithLinfNo
 
 pub type GenericRowVector<T, C, S> = GenericMatrix<T, Const<1>, C, S>;
 pub type RowVector<T> = GenericRowVector<T, Dyn, VecStorage<T, Const<1>, Dyn>>;
-pub type SRowVector<T, const N: usize> = GenericMatrix<T, Const<1>, Const<N>, ArrayStorage<T, 1, N>>;
+pub type SRowVector<T, const N: usize> =
+    GenericMatrix<T, Const<1>, Const<N>, ArrayStorage<T, 1, N>>;
 
 impl<T: Scalar> From<Vec<T>> for RowVector<T> {
     fn from(v: Vec<T>) -> Self {
