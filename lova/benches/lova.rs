@@ -64,7 +64,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     b.iter_batched(
                         || {
                             (
-                                IOPattern::new("lova").fold(&pp).to_merlin(),
+                                IOPattern::new("lova").fold(pp).to_merlin(),
                                 witness_1.clone(),
                                 witness_2.clone(),
                             )
@@ -72,12 +72,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         |(mut merlin, witness_1, witness_2)| {
                             // Prove folding
                             let new_witness =
-                                Prover::fold(&mut merlin, &pp, witness_1, witness_2).unwrap();
+                                Prover::fold(&mut merlin, pp, witness_1, witness_2).unwrap();
                             black_box(new_witness);
                             let folding_proof = merlin.transcript();
 
                             // Save proof globally for verifier
-                            if proof.len() == 0 {
+                            if proof.is_empty() {
                                 proof.extend_from_slice(folding_proof);
                             }
                         },
@@ -100,7 +100,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     b.iter_batched(
                         || {
                             (
-                                IOPattern::new("lova").fold(&pp).to_arthur(proof),
+                                IOPattern::new("lova").fold(pp).to_arthur(proof),
                                 instance_1.clone(),
                                 instance_2.clone(),
                             )
@@ -108,7 +108,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         |(mut arthur, instance_1, instance_2)| {
                             // Verify folding
                             let new_instance =
-                                Verifier::fold(&mut arthur, &pp, instance_1, instance_2).unwrap();
+                                Verifier::fold(&mut arthur, pp, instance_1, instance_2).unwrap();
                             black_box(new_instance);
                         },
                         PerIteration,

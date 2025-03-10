@@ -9,7 +9,7 @@ impl Measurement for ProofSize {
     type Value = usize;
 
     fn start(&self) -> Self::Intermediate {
-        ()
+        
     }
 
     fn end(&self, _i: Self::Intermediate) -> Self::Value {

@@ -395,7 +395,7 @@ where
         }
 
         // over the integers
-        if inner_products_mat(&w_int) != x.inner_products {
+        if inner_products_mat(w_int) != x.inner_products {
             bail!("Inner products do not match: w_int.transpose() * w_int != x.inner_products (over the integers)");
         }
 
