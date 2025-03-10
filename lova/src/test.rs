@@ -14,7 +14,7 @@ use crate::verifier::Verifier;
 
 type F = Z2_64;
 
-const N: usize = 1 << 16;
+const N: usize = 1 << 17;
 
 fn init() {
     tui_logger::init_logger(LevelFilter::Debug).unwrap();
