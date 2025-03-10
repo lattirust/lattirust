@@ -1,9 +1,9 @@
 use std::ops::AddAssign;
 
-use num_traits::Zero;
 use ark_std::rand::rngs::OsRng;
+use num_traits::Zero;
 
-use lattirust_arithmetic::linear_algebra::{SparseMatrix, Vector, Scalar};
+use lattirust_arithmetic::linear_algebra::{Scalar, SparseMatrix, Vector};
 use lattirust_arithmetic::ring::Ring;
 
 use crate::Relation;

@@ -42,7 +42,8 @@ where
     ) -> ProofResult<(RelationOut::Index, RelationOut::Instance)>;
 
     fn test_completeness(pp: &PublicParameters, size: &RelationIn::Size) -> anyhow::Result<()>
-    where <RelationOut as Relation>::Instance: std::fmt::Display
+    where
+        <RelationOut as Relation>::Instance: std::fmt::Display,
     {
         let (index_in, instance_in, witness_in) = RelationIn::generate_satisfied_instance(&size);
         debug_assert!(
@@ -115,7 +116,7 @@ where
         let mut arthur = io.to_arthur(proof);
         let _verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
 
-        // TODO: test whether the verifier accepts the proof? In this particular test only we still use the honest prover, so the verifier will accept for most protocols.  
+        // TODO: test whether the verifier accepts the proof? In this particular test only we still use the honest prover, so the verifier will accept for most protocols.
 
         Ok(())
     }
@@ -126,6 +127,17 @@ macro_rules! test_completeness {
     ($Reduction:tt, $pp:expr, $size:expr) => {
         #[test]
         fn test_completeness() {
+            $Reduction::test_completeness(&$pp, &$size).unwrap()
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! test_completeness_with_init {
+    ($Reduction:tt, $pp:expr, $size:expr, $init:expr) => {
+        #[test]
+        fn test_completeness() {
+            $init();
             $Reduction::test_completeness(&$pp, &$size).unwrap()
         }
     };
