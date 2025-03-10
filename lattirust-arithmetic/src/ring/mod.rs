@@ -91,8 +91,6 @@ pub trait Ring:
 + FromBytes
 + ToBytes
 + Modulus
-+ CanonicalSerialize
-+ CanonicalDeserialize
 + WithL2Norm
 + WithLinfNorm
 {
@@ -163,5 +161,176 @@ where
 
     fn inverse(&self) -> Option<Self> {
         <Self as Field>::inverse(self)
+    }
+}
+
+#[macro_export]
+macro_rules! test_ring {
+    ($T:ty, $N:expr) => {
+        test_associative_addition!($T, $N);
+        test_associative_multiplication!($T, $N);
+        test_distributive!($T, $N);
+        test_identity_addition!($T, $N);
+        test_identity_multiplication!($T, $N);
+        test_inverse_addition!($T, $N);
+        test_inverse_multiplication!($T, $N);
+        test_canonical_serialize_deserialize_uncompressed!($T, $N);
+        test_canonical_serialize_deserialize_compressed!($T, $N);
+    }
+}
+
+#[macro_export]
+macro_rules! test_distributive {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_distributive() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let b = <$T as UniformRand>::rand(rng);
+                let c = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a * (b + c), a * b + a * c);
+                assert_eq!((a + b) * c, a * c + b * c);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_associative_addition {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_associative_addition() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let b = <$T as UniformRand>::rand(rng);
+                let c = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a + (b + c), (a + b) + c);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_associative_multiplication {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_associative_multiplication() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let b = <$T as UniformRand>::rand(rng);
+                let c = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a * (b * c), (a * b) * c);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_identity_addition {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_identity_addition() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a + <$T as Ring>::ZERO, a);
+                assert_eq!(<$T as Ring>::ZERO + a, a);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_identity_multiplication {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_identity_multiplication() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a * <$T as Ring>::ONE, a);
+                assert_eq!(<$T as Ring>::ONE * a, a);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_inverse_addition {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_inverse_addition() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+
+                assert_eq!(a + -a, <$T as Ring>::ZERO);
+                assert_eq!(-a + a, <$T as Ring>::ZERO);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_inverse_multiplication {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_inverse_multiplication() {
+            let rng = &mut ark_std::test_rng();
+            assert_eq!(<$T as Ring>::inverse(&<$T as Ring>::ONE).unwrap(), <$T as Ring>::ONE);
+            assert_eq!(<$T as Ring>::inverse(&<$T as Ring>::ZERO), None);
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let inv = <$T as Ring>::inverse(&a);
+                if inv.is_some() {
+                    assert_eq!(a * inv.unwrap(), <$T as Ring>::ONE);
+                    assert_eq!(inv.unwrap() * a, <$T as Ring>::ONE);
+                }
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_canonical_serialize_deserialize_compressed {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_canonical_serialize_deserialize_compressed() {
+            let rng = &mut ark_std::test_rng();
+
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let mut bytes = Vec::new();
+                a.serialize_with_mode(&mut bytes, Compress::Yes).unwrap();
+                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(&*bytes, Compress::Yes, Validate::Yes).unwrap();
+                assert_eq!(a, a2);
+            }
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! test_canonical_serialize_deserialize_uncompressed {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_canonical_serialize_deserialize_uncompressed() {
+            let rng = &mut ark_std::test_rng();
+
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let mut bytes = Vec::new();
+                a.serialize_with_mode(&mut bytes, Compress::No).unwrap();
+                let a2 = <$T as CanonicalDeserialize>::deserialize_with_mode(&*bytes, Compress::No, Validate::Yes).unwrap();
+                assert_eq!(a, a2);
+            }
+        }
     }
 }

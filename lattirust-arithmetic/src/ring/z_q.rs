@@ -3,7 +3,7 @@
 
 use std::array;
 use std::convert::Into;
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::{Read, Write};
 use std::iter::Iterator;
@@ -29,12 +29,13 @@ use zeroize::Zeroize;
 
 use crate::balanced_decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
-use crate::ring::{NttRing, Ring};
 use crate::ring::ntt::Ntt;
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::z_q_signed_representative::ZqSignedRepresentative;
+use crate::ring::{NttRing, Ring};
 use crate::traits::{FromRandomBytes, Modulus, WithLinfNorm};
 
+/*
 /// Returns an array containing the prime factors of `n`.
 /// The length of the array is fixed to 64, with remaining slots filled with 0s.
 /// This is necessary since we cannot return a dynamically-sized array in a `const fn`.
@@ -56,7 +57,6 @@ pub const fn prime_factors(mut n: u64) -> [u64; 64] {
     factors
 }
 
-/*
 const fn generator<const Q: u64>() -> u64 {
     assert!(const_primes::is_prime(Q));
 
@@ -99,22 +99,16 @@ const fn generator<const Q: u64>() -> u64 {
 
 pub struct FqConfig<const Q: u64> {}
 
-impl<const Q: u64> FqConfig<Q> {
-    /// If `_IS_ODD_PRIME` is evaluated somewhere, this will cause a compilation error if FqConfig is instantiated with `Q` not an odd prime.
-    const _IS_ODD_PRIME: () = assert!(
+const fn to_bigint_assert_odd_prime<const Q: u64>() -> BigInt<1> {
+    assert!(
         Q > 2 && const_primes::is_prime(Q),
         "You tried to instantiate an FqConfig<Q> with either Q = 2 or Q not a prime"
     );
-}
-
-/// Hacky way to ensure that `_IS_ODD_PRIME` is evaluated at compile time, and that the assertion is actually called.
-const fn to_bigint_assert_odd_prime<const Q: u64>() -> BigInt<1> {
-    let _ = FqConfig::<Q>::_IS_ODD_PRIME;
     BigInt::<1>([Q])
 }
 
 impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
-    const MODULUS: BigInt<1> = to_bigint_assert_odd_prime::<Q>();
+    const MODULUS: BigInt<1> = to_bigint_assert_odd_prime::<Q>(); // Fails at compile time if Q is not an odd prime
 
     // TODO: As far as I can tell, `GENERATOR`and `TWO_ADIC_ROOT_OF_UNITY` are only used for FftField. For our small Fft sizes, we might be able to significantly speed up the finding of a generator.
     const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1>([0u64])); //generator::<Q>()]));
@@ -576,8 +570,7 @@ impl<C: ZqConfig<L>, const L: usize> Modulus for Zq<C, L> {
     }
 }
 
-impl<C: ZqConfig<L>, const L: usize> FromRandomBytes<Zq<C, L>> for Zq<C, L> 
-{
+impl<C: ZqConfig<L>, const L: usize> FromRandomBytes<Zq<C, L>> for Zq<C, L> {
     fn needs_bytes() -> usize {
         C::Limbs::needs_bytes()
     }
@@ -613,13 +606,7 @@ impl<C: ZqConfig<L>, const L: usize> CanonicalDeserialize for Zq<C, L> {
         compress: Compress,
         validate: Validate,
     ) -> Result<Self, SerializationError> {
-       C::Limbs::deserialize_with_mode(reader, compress, validate).map(Self)
-    }
-}
-
-impl<C: ZqConfig<L>, const L: usize> Distribution<Zq<C, L>> for Zq<C, L> {
-    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> Zq<C, L> {
-        todo!()
+        C::Limbs::deserialize_with_mode(reader, compress, validate).map(Self)
     }
 }
 
@@ -681,6 +668,29 @@ impl<C: ZqConfig<L>, const L: usize> WithSignedRepresentative for Zq<C, L> {
     type SignedRepresentative = ZqSignedRepresentative;
 }
 
+const fn all_distinct<const N: usize>(xs: [u64; N]) -> bool {
+    let mut i = 0;
+    while i < N {
+        let mut j = i + 1;
+        while j < N {
+            if xs[i] == xs[j] {
+                return false;
+            }
+            j += 1;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+const fn id_assert_all_distinct<const L: usize>(xs: [u64; L]) -> [u64; L] {
+    assert!(
+        all_distinct(xs),
+        "You tried to instantiate an ZqImpl<Q1, ..., QL, L> with Qi not distinct."
+    );
+    xs
+}
+
 /// To be called as `zq_config_impl!(L, 0, 1, ..., L-1);` for some non-negative number of limbs `L`
 macro_rules! zq_config_impl {
     ($L:literal $(,$i:literal)+) => {
@@ -695,7 +705,7 @@ macro_rules! zq_config_impl {
             }
 
             impl<$(const [< Q $i >]: u64,)*> ZqConfig<$L> for [< Zq $L ConfigImpl >]<$([< Q $i >],)*> {
-                const MODULI: [u64; $L] = [$([< Q $i >],)*];
+                const MODULI: [u64; $L] = id_assert_all_distinct([$([< Q $i >],)*]); // Fails at compile-time if the moduli are not distinct
                 type Limbs = ($(Fq<[< Q $i >]>,)*);
                 const ZERO: Zq<Self, $L> = Zq(($(<Fq::<[< Q $i >]> as AdditiveGroup>::ZERO,)*));
                 const ONE: Zq<Self, $L> = Zq(($(<Fq::<[< Q $i >]> as Field>::ONE,)*));
@@ -721,7 +731,12 @@ macro_rules! zq_config_impl {
                 }
 
                 fn sum_of_products<const T: usize>(a: &[Zq<Self, $L>; T], b: &[Zq<Self, $L>; T]) -> Zq<Self, $L> {
-                    todo!()
+                    Zq::<Self, $L>((
+                        $(<Fq::<[< Q $i >]> as Field>::sum_of_products(
+                            &a.map(|x| x.0.$i),
+                            &b.map(|x| x.0.$i)
+                        ),)*
+                    ))
                 }
 
                 fn square_in_place(a: &mut Zq<Self, $L>) {
@@ -786,6 +801,7 @@ zq_config_impl!(2, 0, 1);
 zq_config_impl!(3, 0, 1, 2);
 zq_config_impl!(4, 0, 1, 2, 3);
 zq_config_impl!(5, 0, 1, 2, 3, 4);
+// TODO: arkworks only automatically derives CanonicalSerialize/CanonicalDeserialize for up to 5-tuples.
 // zq_config_impl!(6, 0, 1, 2, 3, 4, 5);
 // zq_config_impl!(7, 0, 1, 2, 3, 4, 5, 6);
 // zq_config_impl!(8, 0, 1, 2, 3, 4, 5, 6, 7);
@@ -826,7 +842,7 @@ macro_rules! test_zq_config_impl {
                     }
                 }
             }
-            
+
             #[test]
             fn [< test_zq_config_impl_canonical_serialize_deserialize_compressed $L >]() {
                 let modulus: BigUint = Zq::<[< Zq $L ConfigImpl >]<$($Q,)*>, $L>::modulus();
@@ -876,27 +892,63 @@ macro_rules! test_fq {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::*;
 
     // Some primes, big and small. In particular, this tests that the implementation does not rely on any special structure of the prime, nor on the primes being specified in any particular order.
     const Q1: u64 = 3;
-    const Q2: u64 = (1u64 << 31) - 1;
-    const Q3: u64 = ((1u128 << 64) - 59) as u64;
+    const Q2: u64 = (1 << 31) - 1; // Mersenne prime
+    const Q3: u64 = (1 << 31) - (1 << 27) + 1; // BabyBear prime
     const Q4: u64 = ((1u128 << 61) - 1) as u64;
     const Q5: u64 = 7;
-    const Q6: u64 = (1u64 << 19) - 1;
-    const Q7: u64 = (1u64 << 13) - 1;
+    const Q6: u64 = (1 << 19) - 1;
+    const Q7: u64 = (1 << 13) - 1;
     const Q8: u64 = 27644437;
     const Q9: u64 = 200560490131;
-    const Q10: u64 = 87178291199;
+    const Q10: u64 = ((1u128 << 64) - (1u128 << 32) + 1) as u64; // Goldilocks prime
 
-    test_zq_config_impl!(1, Q1);
-    test_zq_config_impl!(2, Q1, Q2);
-    test_zq_config_impl!(3, Q1, Q2, Q3);
-    test_zq_config_impl!(4, Q1, Q2, Q3, Q4);
-    test_zq_config_impl!(5, Q1, Q2, Q3, Q4, Q5);
-    // test_zq_config_impl!(6, Q1, Q2, Q3, Q4, Q5, Q6);
-    // test_zq_config_impl!(7, Q1, Q2, Q3, Q4, Q5, Q6, Q7);
-    // test_zq_config_impl!(8, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8);
-    // test_zq_config_impl!(9, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9);
-    // test_zq_config_impl!(10, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10);
+    type Z1 = Zq1<Q1>;
+    type Z2 = Zq2<Q1, Q2>;
+    type Z3 = Zq3<Q1, Q2, Q3>;
+    type Z4 = Zq4<Q1, Q2, Q3, Q4>;
+    type Z5 = Zq5<Q1, Q2, Q3, Q4, Q5>;
+
+    #[cfg(test)]
+    mod test_1 {
+        use super::*;
+
+        test_ring!(Z1, 100);
+        test_zq_config_impl!(1, Q1);
+    }
+
+    #[cfg(test)]
+    mod test_2 {
+        use super::*;
+
+        test_ring!(Z2, 100);
+        test_zq_config_impl!(2, Q1, Q2);
+    }
+
+    #[cfg(test)]
+    mod test_3 {
+        use super::*;
+
+        test_ring!(Z3, 100);
+        test_zq_config_impl!(3, Q1, Q2, Q3);
+    }
+
+    #[cfg(test)]
+    mod test_4 {
+        use super::*;
+
+        test_ring!(Z4, 100);
+        test_zq_config_impl!(4, Q1, Q2, Q3, Q4);
+    }
+
+    #[cfg(test)]
+    mod test_5 {
+        use super::*;
+
+        test_ring!(Z5, 100);
+        test_zq_config_impl!(5, Q1, Q2, Q3, Q4, Q5);
+    }
 }

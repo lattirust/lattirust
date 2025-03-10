@@ -130,7 +130,7 @@ impl<BaseRing: Ring, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N
     const ONE: Self = Self::const_from_element(BaseRing::ONE);
 
     fn inverse(&self) -> Option<Self> {
-        todo!()
+        unimplemented!()
     }
 }
 
@@ -149,53 +149,6 @@ impl<BaseRing: Ring, const N: usize> FromRandomBytes<Self> for Pow2CyclotomicPol
         Some(Self::from(coeffs))
     }
 }
-
-// impl<BaseRing: ConvertibleField, const N: usize> Serialize for Pow2CyclotomicPolyRing<BaseRing, N> {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         // ark_se(&self.coeffs(), serializer)
-//         // serialize(&self.0, serializer)
-//         todo!()
-//     }
-// }
-
-// impl<BaseRing: ConvertibleField, const N: usize> ToBytes for Pow2CyclotomicPolyRing<BaseRing, N>
-// where
-//     SVector<BaseRing, N>: ToBytes,
-// {
-//     type ToBytesError = <SVector<BaseRing, N> as ToBytes>::ToBytesError;
-//
-//     fn to_bytes(&self) -> Result<Vec<u8>, Self::ToBytesError> {
-//         self.0.to_bytes()
-//     }
-// }
-
-// impl<'de, BaseRing: ConvertibleField, const N: usize> Deserialize<'de>
-//     for Pow2CyclotomicPolyRing<BaseRing, N>
-// {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//         D: Deserializer<'de>,
-//     {
-//         // ark_de(deserializer).map(|v: Vec<BaseRing>| Self::from(v))
-//         // let coeffs: SVector<BaseRing, N> = Deserialize::deserialize(deserializer)?;
-//         // Ok(Self(coeffs))
-//         todo!()
-//     }
-// }
-
-// impl<BaseRing: ConvertibleField, const N: usize> FromBytes for Pow2CyclotomicPolyRing<BaseRing, N>
-// where
-//     SVector<BaseRing, N>: FromBytes,
-// {
-//     type FromBytesError = <SVector<BaseRing, N> as FromBytes>::FromBytesError;
-//
-//     fn from_bytes(bytes: &[u8]) -> Result<Self, Self::FromBytesError> {
-//         Self::Inner::from_bytes(bytes).map(Self)
-//     }
-// }
 
 impl<BaseRing: Ring, const N: usize> Default for Pow2CyclotomicPolyRing<BaseRing, N> {
     #[inline(always)]
@@ -387,7 +340,7 @@ impl<BaseRing: Ring, const N: usize> Mul<BaseRing> for Pow2CyclotomicPolyRing<Ba
 
 impl<BaseRing: Ring, const N: usize> PolyRing for Pow2CyclotomicPolyRing<BaseRing, N> {
     type BaseRing = BaseRing;
-    fn coeffs(&self) -> Vec<Self::BaseRing> {
+    fn coefficients(&self) -> Vec<Self::BaseRing> {
         self.0.into_iter().copied().collect()
     }
     fn dimension() -> usize {
@@ -425,12 +378,25 @@ impl<BaseRing: Ring, const N: usize> WithConjugationAutomorphism
 
 impl<BaseRing: Ring, const N: usize> WithL2Norm for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn l2_norm_squared(&self) -> BigUint {
-        self.coeffs().l2_norm_squared()
+        self.coefficients().l2_norm_squared()
     }
 }
 
 impl<BaseRing: Ring, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRing<BaseRing, N> {
     fn linf_norm(&self) -> BigUint {
-        self.coeffs().linf_norm()
+        self.coefficients().linf_norm()
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::ring::Zq1;
+    use crate::*;
+
+    const Q: u64 = 7;
+    const N: usize = 128;
+    type BaseRing = Zq1<Q>;
+
+    test_ring!(Pow2CyclotomicPolyRing::<BaseRing, N>, 10);
 }

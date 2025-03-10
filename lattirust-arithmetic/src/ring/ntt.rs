@@ -1,10 +1,7 @@
 use std::marker::PhantomData;
-use std::ops::Rem;
 
 use ark_ff::BigInt;
 use ark_ff::Field;
-use num_bigint::BigUint;
-use num_traits::One;
 
 use crate::ring::{fq_zero, Fq, Ring};
 
@@ -68,7 +65,7 @@ const fn primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
     );
     let exp = (Q - 1) / N as u64;
     let n_half = N as u64 / 2;
-    // Ideally, this would be a randomized algorithm, randomness in const functions is hard, so we iterate through all integers mod Q instead.
+    // Ideally, this would be a randomized algorithm. Randomness in const functions is hard, so we iterate through all integers mod Q instead.
     let mut i = 1;
     while i < Q {
         let g = const_pow_mod::<Q>(i, exp);
@@ -139,8 +136,9 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
     where
         Self: Sized,
     {
-        assert!(N.is_power_of_two());
-        assert!(BigUint::from(Q).rem(BigUint::from(2 * N)).is_one());
+        // TODO: figure out a way to assert these conditions at compile-time
+        // assert!(N.is_power_of_two());
+        // assert!(BigUint::from(Q).rem(BigUint::from(2 * N)).is_one());
         let mut t = N;
         let mut m = 1;
         let mut j1: usize;
@@ -167,8 +165,9 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
     where
         Self: Sized,
     {
-        assert!(N.is_power_of_two());
-        assert!(BigUint::from(Q).rem(BigUint::from(2 * N)).is_one());
+        // TODO: figure out a way to assert these conditions at compile-time
+        // assert!(N.is_power_of_two());
+        // assert!(BigUint::from(Q).rem(BigUint::from(2 * N)).is_one());
         let mut t = 1;
         let mut m = N;
         let mut j1: usize;
@@ -206,10 +205,10 @@ mod tests {
     use super::*;
 
     const N: usize = 64;
-    
+
     // 2^16+1 is the 4th Fermat prime, NTT-friendly for N up to 2**15
     const Q65537: u64 = 2u64.pow(16) + 1;
-    
+
     // 274177 and 67280421310721 are the prime factors of the LaBRADOR modulus 2^64 + 1
     const Q274177: u64 = 274177;
     const Q67280421310721: u64 = 67280421310721;
@@ -263,6 +262,41 @@ mod tests {
     }
 
     test_primitive_root_of_unity!(Q65537, Q274177, Q67280421310721, Q16BITS, Q32BITS, Q62BITS);
+
+    macro_rules! test_ntt_prime {
+        ($B: expr, $N: expr) => {
+            paste::expr! {
+                #[test]
+                fn [< test_ntt_prime_ $B _ $N >] () {
+                    let q = ntt_prime::<$N>($B);
+                    assert!(q >= 1 << ($B - 1));
+                    assert!(q < 1 << ($B as usize));
+                    assert!(const_primes::is_prime(q));
+                    assert_eq!(q % (2 * $N as u64), 1);
+                }
+            }
+        };
+    }
+
+    test_ntt_prime!(14, 64);
+    test_ntt_prime!(14, 128);
+    test_ntt_prime!(14, 256);
+    test_ntt_prime!(14, 1024);
+    test_ntt_prime!(14, 2048);
+    test_ntt_prime!(30, 64);
+    test_ntt_prime!(30, 128);
+    test_ntt_prime!(30, 256);
+    test_ntt_prime!(30, 1024);
+    test_ntt_prime!(30, 2048);
+    test_ntt_prime!(30, 4096);
+    test_ntt_prime!(30, 8192);
+    test_ntt_prime!(62, 64);
+    test_ntt_prime!(62, 128);
+    test_ntt_prime!(62, 256);
+    test_ntt_prime!(62, 1024);
+    test_ntt_prime!(62, 2048);
+    test_ntt_prime!(62, 4096);
+    test_ntt_prime!(62, 8192);
 
     macro_rules! test_ntt_intt {
         ($($Q:expr),*) => {

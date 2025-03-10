@@ -12,20 +12,22 @@ pub trait PolyRing:
     + WithL2Norm
     + WithLinfNorm
     + FromRandomBytes<Self>
-
     + From<Self::BaseRing>
 {
     type BaseRing: Ring;
 
-    fn coeffs(&self) -> Vec<Self::BaseRing>;
+    fn coefficients(&self) -> Vec<Self::BaseRing>;
+
     fn flattened(vec: &Vector<Self>) -> Vector<Self::BaseRing> {
         Self::flattened_coeffs(vec).into()
     }
+
     fn flattened_coeffs(vec: &Vector<Self>) -> Vec<Self::BaseRing> {
         vec.into_iter()
-            .flat_map(|x| x.coeffs())
+            .flat_map(|x| x.coefficients())
             .collect::<Vec<Self::BaseRing>>()
     }
+
     fn dimension() -> usize;
 
     fn from_scalar(scalar: Self::BaseRing) -> Self;

@@ -12,8 +12,7 @@ use ark_ff::{
     AdditiveGroup, BigInt, FftField, Field, LegendreSymbol, PrimeField, SqrtPrecomputation,
 };
 use ark_serialize::{
-    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
-    CanonicalSerializeWithFlags, Compress, Flags, SerializationError, Valid, Validate,
+    CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize, CanonicalSerializeWithFlags, Compress, EmptyFlags, Flags, SerializationError, Valid, Validate
 };
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
@@ -173,19 +172,22 @@ impl CanonicalSerialize for Z2 {
         core::mem::size_of::<bool>()
     }
 }
+
 impl CanonicalSerializeWithFlags for Z2 {
     fn serialize_with_flags<W: Write, F: Flags>(
         &self,
         writer: W,
         flags: F,
-    ) -> Result<(), SerializationError> {
-        let _ = writer;
-        let _ = flags;
-        todo!()
+    ) -> Result<(), SerializationError> 
+    {
+        if flags.u8_bitmask() != EmptyFlags.u8_bitmask() {
+            return Err(SerializationError::UnexpectedFlags);
+        }
+        self.serialize_with_mode(writer, Compress::No)
     }
 
     fn serialized_size_with_flags<F: Flags>(&self) -> usize {
-        todo!()
+        self.serialized_size(Compress::No)
     }
 }
 
@@ -206,10 +208,9 @@ impl Valid for Z2 {
 
 impl CanonicalDeserializeWithFlags for Z2 {
     fn deserialize_with_flags<R: Read, F: Flags>(
-        reader: R,
+        _reader: R,
     ) -> Result<(Self, F), SerializationError> {
-        let _ = reader;
-        todo!()
+        unimplemented!();
     }
 }
 
@@ -407,12 +408,11 @@ impl Field for Z2 {
     }
 
     fn from_random_bytes_with_flags<F: Flags>(bytes: &[u8]) -> Option<(Self, F)> {
-        let _ = bytes;
-        todo!()
+        unimplemented!("{:?}", bytes);
     }
 
     fn legendre(&self) -> LegendreSymbol {
-        todo!()
+        unimplemented!("Legendre symbol is not defined for Z2")
     }
 
     fn square(&self) -> Self {
@@ -473,4 +473,12 @@ impl FftField for Z2 {
     const GENERATOR: Self = Self::ONE;
     const TWO_ADICITY: u32 = 0;
     const TWO_ADIC_ROOT_OF_UNITY: Self = Self::ONE;
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::*;
+
+    test_ring!(Z2, 100);
 }

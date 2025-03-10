@@ -144,7 +144,11 @@ impl<BaseRing: NttRing<N>, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Ba
     const ONE: Self = Self(vec_from_element(<BaseRing as Ring>::ONE));
 
     fn inverse(&self) -> Option<Self> {
-        todo!()
+        self.0
+            .iter()
+            .map(|c| c.inverse())
+            .collect::<Option<Vec<BaseRing>>>()
+            .map(Self::from)
     }
 }
 
@@ -334,7 +338,7 @@ impl<BaseRing: NttRing<N>, const N: usize> From<Pow2CyclotomicPolyRing<BaseRing,
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
 {
     fn from(value: Pow2CyclotomicPolyRing<BaseRing, N>) -> Self {
-        let mut coeffs: [BaseRing; N] = value.coeffs().try_into().unwrap();
+        let mut coeffs: [BaseRing; N] = value.coefficients().try_into().unwrap();
         Self::ntt(&mut coeffs);
         Self::from_array(coeffs)
     }
@@ -344,7 +348,7 @@ impl<BaseRing: NttRing<N>, const N: usize> From<Pow2CyclotomicPolyRingNTT<BaseRi
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
     fn from(val: Pow2CyclotomicPolyRingNTT<BaseRing, N>) -> Self {
-        Pow2CyclotomicPolyRing::<BaseRing, N>::from(val.coeffs())
+        Pow2CyclotomicPolyRing::<BaseRing, N>::from(val.coefficients())
     }
 }
 
@@ -417,11 +421,14 @@ impl<'a, BaseRing: NttRing<N>, const N: usize> Product<&'a Self>
 
 impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
     type BaseRing = BaseRing;
-    fn coeffs(&self) -> Vec<Self::BaseRing> {
+
+    /// Return the coefficients of the polynomial in non-NTT form.
+    fn coefficients(&self) -> Vec<Self::BaseRing> {
         let mut coeffs = self.ntt_coeffs().try_into().unwrap();
         Self::intt(&mut coeffs);
         coeffs.to_vec()
     }
+
     fn dimension() -> usize {
         N
     }
@@ -435,6 +442,7 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
 impl<BaseRing: NttRing<N>, const N: usize> From<Vec<BaseRing>>
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
 {
+    /// Construct a polynomial from a vector of coefficients in non-NTT form.
     fn from(value: Vec<BaseRing>) -> Self {
         let n = value.len();
         let mut array = TryInto::<[BaseRing; N]>::try_into(value).expect(
@@ -473,7 +481,7 @@ where
     Vec<BaseRing>: WithL2Norm,
 {
     fn l2_norm_squared(&self) -> BigUint {
-        self.coeffs().l2_norm_squared()
+        self.coefficients().l2_norm_squared()
     }
 }
 
@@ -482,6 +490,20 @@ where
     Vec<BaseRing>: WithLinfNorm,
 {
     fn linf_norm(&self) -> BigUint {
-        self.coeffs().linf_norm()
+        self.coefficients().linf_norm()
     }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ring::ntt::ntt_prime;
+    use crate::ring::Zq1;
+    use crate::*;
+    use super::*;
+
+    const N: usize = 128;
+    const Q: u64 = ntt_prime::<N>(16);
+    type BaseRing = Zq1::<Q>;
+
+    test_ring!(Pow2CyclotomicPolyRingNTT::<BaseRing, N>, 10);
 }
