@@ -239,8 +239,8 @@ mod tests {
         let mut bytes = vec![0u8; LabCS::byte_size()];
         test_rng().fill(bytes.as_mut_slice());
 
-        let c = LabCS::checked_coeffs_from_random_bytes(&bytes.as_slice());
-        let op_norm = LabCS::operator_norm(&c.to_vec());
+        let c = LabCS::checked_coeffs_from_random_bytes(bytes.as_slice());
+        let op_norm = LabCS::operator_norm(c.as_ref());
         assert!(
             op_norm <= LabCS::OPERATOR_NORM_THRESHOLD,
             "||c||_op = {} is not < {}",
@@ -256,7 +256,7 @@ mod tests {
             }
         });
 
-        let c_mat_int = LabCS::challenge_to_matrix(&c.to_vec());
+        let c_mat_int = LabCS::challenge_to_matrix(c.as_ref());
         let c_mat = Matrix::<R>::from_fn(D, D, |i, j| {
             if c_mat_int[(i, j)] >= 0. {
                 R::try_from(c_mat_int[(i, j)] as u32).unwrap()
@@ -276,18 +276,18 @@ mod tests {
 
     #[test]
     fn test_operator_norm() {
-        let norm: f64;
+        
         let z = vec![0i8; D];
-        norm = LabCS::operator_norm(&z);
+        let norm: f64 = LabCS::operator_norm(&z);
         assert_eq!(norm, 0.);
 
         let mut bytes = vec![0u8; LabCS::byte_size()];
         test_rng().fill(bytes.as_mut_slice());
 
-        let c = LabCS::checked_coeffs_from_random_bytes(&bytes.as_slice());
+        let c = LabCS::checked_coeffs_from_random_bytes(bytes.as_slice());
 
         // Check that the operator norm is less than the threshold
-        let op_norm = LabCS::operator_norm(&c.to_vec());
+        let op_norm = LabCS::operator_norm(c.as_ref());
         assert!(
             op_norm <= LabCS::OPERATOR_NORM_THRESHOLD,
             "||c||_op = {} is not < {}",
@@ -297,7 +297,7 @@ mod tests {
 
         // Check that from_random_bytes() is consistent with check_coeffs_from_random_bytes()
         let c_poly =
-            LabradorChallengeSet::<PolyR>::try_from_random_bytes(&bytes.as_slice()).unwrap();
+            LabradorChallengeSet::<PolyR>::try_from_random_bytes(bytes.as_slice()).unwrap();
         assert_eq!(c.len(), c_poly.coefficients().len());
         for i in 0..c.len() {
             let val = if c[i] >= 0 {

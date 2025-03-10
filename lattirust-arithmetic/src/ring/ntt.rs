@@ -50,7 +50,7 @@ pub const fn ntt_prime<const N: usize>(bit_size: usize) -> u64 {
         p = const_primes::next_prime(p + 1).unwrap();
     }
     if p.leading_zeros() >= (64 - bit_size as u32) {
-        return p;
+        p
     } else {
         panic!("No prime found for the given bit_size and N");
     }
@@ -198,6 +198,19 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
     }
 }
 
+pub trait Ntt<const N: usize> {
+    fn ntt(coeffs: &mut [Self; N])
+    where
+        Self: Sized;
+
+    fn intt(evals: &mut [Self; N])
+    where
+        Self: Sized;
+}
+
+pub trait NttRing<const N: usize>: Ntt<N> + Ring {}
+impl<T, const N: usize> NttRing<N> for T where T: Ntt<N> + Ring {}
+
 #[cfg(test)]
 mod tests {
     use num_traits::One;
@@ -317,16 +330,3 @@ mod tests {
 
     test_ntt_intt!(Q65537, Q274177, Q67280421310721, Q16BITS, Q32BITS, Q62BITS);
 }
-
-pub trait Ntt<const N: usize> {
-    fn ntt(coeffs: &mut [Self; N])
-    where
-        Self: Sized;
-
-    fn intt(evals: &mut [Self; N])
-    where
-        Self: Sized;
-}
-
-pub trait NttRing<const N: usize>: Ntt<N> + Ring {}
-impl<T, const N: usize> NttRing<N> for T where T: Ntt<N> + Ring {}

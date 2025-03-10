@@ -53,14 +53,9 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     }
 
     pub fn from_coefficients(coeffs: &[BaseRing]) -> Self {
-        let mut evals_array: [BaseRing; N] = coeffs.try_into().expect(
-            format!(
-                "Invalid number of coefficients: expected {}, got {}",
+        let mut evals_array: [BaseRing; N] = coeffs.try_into().unwrap_or_else(|_| panic!("Invalid number of coefficients: expected {}, got {}",
                 N,
-                coeffs.len()
-            )
-            .as_str(),
-        );
+                coeffs.len()));
         Self::ntt(&mut evals_array);
         Self(Self::Inner::const_from_array(evals_array))
     }
@@ -445,13 +440,8 @@ impl<BaseRing: NttRing<N>, const N: usize> From<Vec<BaseRing>>
     /// Construct a polynomial from a vector of coefficients in non-NTT form.
     fn from(value: Vec<BaseRing>) -> Self {
         let n = value.len();
-        let mut array = TryInto::<[BaseRing; N]>::try_into(value).expect(
-            format!(
-                "Invalid vector length {} for polynomial ring dimension N={}",
-                n, N
-            )
-            .as_str(),
-        );
+        let mut array = TryInto::<[BaseRing; N]>::try_into(value).unwrap_or_else(|_| panic!("Invalid vector length {} for polynomial ring dimension N={}",
+                n, N));
         Self::ntt(&mut array);
         Self::from_array(array)
     }

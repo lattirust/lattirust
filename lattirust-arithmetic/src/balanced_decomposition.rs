@@ -447,7 +447,7 @@ mod tests {
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
                 recomposed +=
-                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), &[i as u64]));
+                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), [i as u64]));
             }
             assert_eq!(v, recomposed);
         }
@@ -504,12 +504,12 @@ mod tests {
             let mat = SymmetricMatrix::<R>::rand(SIZE * decomp_size, rng);
 
             let expected: SymmetricMatrix<R> = recompose_matrix(
-                &recompose_matrix(&mat.clone().into(), &pows_b.as_slice()).transpose(),
-                &pows_b.as_slice(),
+                &recompose_matrix(&mat.clone().into(), pows_b.as_slice()).transpose(),
+                pows_b.as_slice(),
             )
             .into();
 
-            let actual = recompose_left_right_symmetric_matrix(&mat, &pows_b.as_slice());
+            let actual = recompose_left_right_symmetric_matrix(&mat, pows_b.as_slice());
             assert_eq!(expected, actual);
         }
     }

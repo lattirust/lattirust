@@ -82,7 +82,7 @@ impl<R: Ring> Relation for R1CS<R> {
         let z = Vector::<R>::from_vec(
             x.0.clone()
                 .into_iter()
-                .chain(w.0.clone().into_iter())
+                .chain(w.0.clone())
                 .collect::<Vec<R>>(),
         );
 
@@ -204,11 +204,10 @@ pub fn sparse_matrix_from_ark_matrix<R: Scalar + Copy + Zero + AddAssign>(
     let triplets = matrix
         .iter()
         .enumerate()
-        .map(|(row_index, row)| {
+        .flat_map(|(row_index, row)| {
             row.iter()
                 .map(move |(elem, col_index)| (row_index, *col_index, *elem))
         })
-        .flatten()
         .collect();
     SparseMatrix::<R>::try_from_triplets(nrows, ncols, triplets).unwrap()
 }

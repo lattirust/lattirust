@@ -15,7 +15,7 @@ fn powers_of_basis_int<R: Ring + WithSignedRepresentative>(basis: R, length: usi
     let mut pows = Vec::<R>::with_capacity(length);
     pows.push(R::one());
     for i in 1..length {
-        pows.push(pows[i - 1].clone() * basis.clone());
+        pows.push(pows[i - 1] * basis);
     }
     pows
 }

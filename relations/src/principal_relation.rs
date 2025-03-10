@@ -227,26 +227,26 @@ impl<R: PolyRing> Instance<R> {
             .quad_dot_prod_funcs
             .iter()
             .enumerate()
-            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then(|| idx))
+            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then_some(idx))
             .collect::<Vec<_>>();
         let ct_unsat_indices = self
             .ct_quad_dot_prod_funcs
             .iter()
             .enumerate()
-            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then(|| idx))
+            .filter_map(|(idx, c)| (!c.is_valid_witness(witness)).then_some(idx))
             .collect::<Vec<_>>();
 
-        if unsat_indices.len() > 0 && ct_unsat_indices.len() > 0 {
+        if !unsat_indices.is_empty() && !ct_unsat_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Standard constraints {:?} are not satisfied",
                 unsat_indices
             ));
-        } else if unsat_indices.len() > 0 {
+        } else if !unsat_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Standard constraints {:?} are not satisfied",
                 unsat_indices
             ));
-        } else if ct_unsat_indices.len() > 0 {
+        } else if !ct_unsat_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Constant constraints {:?} are not satisfied",
                 ct_unsat_indices
@@ -305,9 +305,9 @@ impl<R: PolyRing> Index<R> {
             .quad_dot_prod_funcs
             .iter()
             .enumerate()
-            .filter_map(|(idx, c)| (!self.is_wellformed_constraint(c)).then(|| idx))
+            .filter_map(|(idx, c)| (!self.is_wellformed_constraint(c)).then_some(idx))
             .collect();
-        if malformed_constraint_indices.len() > 0 {
+        if !malformed_constraint_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Constraints {:?} are not well-formed",
                 malformed_constraint_indices
@@ -318,15 +318,15 @@ impl<R: PolyRing> Index<R> {
             .ct_quad_dot_prod_funcs
             .iter()
             .enumerate()
-            .filter_map(|(idx, c)| (!self.is_wellformed_const_constraint(c)).then(|| idx))
+            .filter_map(|(idx, c)| (!self.is_wellformed_const_constraint(c)).then_some(idx))
             .collect();
-        if malformed_const_constraint_indices.len() > 0 {
+        if !malformed_const_constraint_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Constant constraints {:?} are not well-formed",
                 malformed_const_constraint_indices
             ));
         }
-        return Ok(());
+        Ok(())
     }
 
     pub fn is_wellformed_witness(&self, witness: &Witness<R>) -> anyhow::Result<()> {
@@ -339,9 +339,9 @@ impl<R: PolyRing> Index<R> {
             .s
             .iter()
             .enumerate()
-            .filter_map(|(idx, s)| (s.len() != self.n).then(|| idx))
+            .filter_map(|(idx, s)| (s.len() != self.n).then_some(idx))
             .collect();
-        if malformed_witness_indices.len() > 0 {
+        if !malformed_witness_indices.is_empty() {
             return Err(anyhow::anyhow!(
                 "Witness vectors {:?} have the wrong length",
                 malformed_witness_indices

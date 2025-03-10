@@ -1571,7 +1571,6 @@ dependencies = [
  "ark-relations",
  "ark-std",
  "derive_more",
- "lattice-estimator",
  "lattirust-arithmetic",
  "log",
  "nimue",
@@ -1750,15 +1749,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.89",
-]
-
-[[package]]
-name = "sumcheck"
-version = "0.0.1-alpha"
-dependencies = [
- "ark-ff",
- "lattirust-arithmetic",
- "num-traits",
 ]
 
 [[package]]

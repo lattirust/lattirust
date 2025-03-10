@@ -45,16 +45,16 @@ where
     where
         <RelationOut as Relation>::Instance: std::fmt::Display,
     {
-        let (index_in, instance_in, witness_in) = RelationIn::generate_satisfied_instance(&size);
+        let (index_in, instance_in, witness_in) = RelationIn::generate_satisfied_instance(size);
         debug_assert!(
             RelationIn::is_satisfied(&index_in, &instance_in, &witness_in),
             "generated instance is not satisfied, aborting test"
         );
-        let io = Self::iopattern(&pp, &index_in, &instance_in);
+        let io = Self::iopattern(pp, &index_in, &instance_in);
 
         let mut merlin = io.to_merlin();
 
-        let prover_result = Self::prove(&pp, &index_in, &instance_in, &witness_in, &mut merlin);
+        let prover_result = Self::prove(pp, &index_in, &instance_in, &witness_in, &mut merlin);
 
         let (pp_out_prover, instance_out_prover, witness_out) = match prover_result {
             Ok(result) => result,
@@ -70,7 +70,7 @@ where
 
         let proof = merlin.transcript();
         let mut arthur = io.to_arthur(proof);
-        let verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
+        let verifier_result = Self::verify(pp, &index_in, &instance_in, &mut arthur);
 
         let (pp_out_verifier, instance_out_verifier) = match verifier_result {
             Ok(result) => result,
@@ -90,16 +90,16 @@ where
     }
 
     fn test_soundness(pp: &PublicParameters, size: &RelationIn::Size) -> anyhow::Result<()> {
-        let (index_in, instance_in, witness_in) = RelationIn::generate_unsatisfied_instance(&size);
+        let (index_in, instance_in, witness_in) = RelationIn::generate_unsatisfied_instance(size);
         debug_assert!(
             !RelationIn::is_satisfied(&index_in, &instance_in, &witness_in),
             "generated instance is satisfied, aborting test"
         );
-        let io = Self::iopattern(&pp, &index_in, &instance_in);
+        let io = Self::iopattern(pp, &index_in, &instance_in);
 
         let mut merlin = io.to_merlin();
 
-        let prover_result = Self::prove(&pp, &index_in, &instance_in, &witness_in, &mut merlin);
+        let prover_result = Self::prove(pp, &index_in, &instance_in, &witness_in, &mut merlin);
         let (pp_out_prover, instance_out_prover, witness_out) = match prover_result {
             Ok(result) => result,
             Err(e) => {
@@ -114,7 +114,7 @@ where
 
         let proof = merlin.transcript();
         let mut arthur = io.to_arthur(proof);
-        let _verifier_result = Self::verify(&pp, &index_in, &instance_in, &mut arthur);
+        let _verifier_result = Self::verify(pp, &index_in, &instance_in, &mut arthur);
 
         // TODO: test whether the verifier accepts the proof? In this particular test only we still use the honest prover, so the verifier will accept for most protocols.
 

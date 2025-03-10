@@ -65,10 +65,10 @@ where
     }
 }
 
-impl<R: Scalar + Zero> Into<Matrix<R>> for SparseMatrix<R> {
-    fn into(self) -> Matrix<R> {
-        let mut dense = Matrix::<R>::zeros(self.nrows(), self.ncols());
-        for (row, col, value) in self.0.triplet_iter() {
+impl<R: Scalar + Zero> From<SparseMatrix<R>> for Matrix<R> {
+    fn from(val: SparseMatrix<R>) -> Self {
+        let mut dense = Matrix::<R>::zeros(val.nrows(), val.ncols());
+        for (row, col, value) in val.0.triplet_iter() {
             dense[(row, col)] = value.clone();
         }
         dense
@@ -100,7 +100,7 @@ where
 }
 
 /// SparseMatrix * Vector multiplication
-impl<'a, 'b, Lhs: Scalar, Rhs: Scalar, Out: Scalar> Mul<&'b Vector<Rhs>> for &'a SparseMatrix<Lhs>
+impl<'b, Lhs: Scalar, Rhs: Scalar, Out: Scalar> Mul<&'b Vector<Rhs>> for &SparseMatrix<Lhs>
 where
     Lhs: Mul<Rhs, Output = Out>,
     Out: Zero + AddAssign,

@@ -118,11 +118,11 @@ mod tests {
         let n = 100;
         let dim = (n * (n + 1)) / 2;
         let x = (0..dim).collect::<VecDeque<_>>();
-        let mat = lowertriang_from_vec(x.clone().into(), n);
+        let mat = lowertriang_from_vec(x.clone(), n);
         let mat_ = mat
             .clone()
             .into_iter()
-            .map(|x| VecDeque::from(x))
+            .map(VecDeque::from)
             .collect::<VecDeque<_>>();
 
         assert_eq!(mat_.len(), n);

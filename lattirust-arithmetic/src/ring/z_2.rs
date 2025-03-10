@@ -43,7 +43,7 @@ impl Zero for Z2 {
     }
 
     fn is_zero(&self) -> bool {
-        self.0 == false
+        !self.0
     }
 }
 
@@ -303,7 +303,7 @@ impl WithL2Norm for Z2 {
 //     }
 // }
 
-impl<'a> DivAssign<&'a Self> for Z2 {
+impl DivAssign<&Self> for Z2 {
     fn div_assign(&mut self, other: &Self) {
         self.mul_assign(Field::inverse(other).unwrap());
     }
@@ -321,7 +321,7 @@ impl DivAssign<Self> for Z2 {
     }
 }
 
-impl<'a> Div<&'a Self> for Z2 {
+impl Div<&Self> for Z2 {
     type Output = Self;
 
     fn div(mut self, other: &Self) -> Self {
@@ -330,7 +330,7 @@ impl<'a> Div<&'a Self> for Z2 {
     }
 }
 
-impl<'a> Div<&'a mut Self> for Z2 {
+impl Div<&mut Self> for Z2 {
     type Output = Self;
 
     fn div(mut self, other: &mut Self) -> Self {
