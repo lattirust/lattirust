@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 
 use anyhow::{bail, Ok};
-use ark_serialize::CanonicalSerialize;
 use ark_std::rand::thread_rng;
 use ark_std::UniformRand;
 use derive_more::Display;

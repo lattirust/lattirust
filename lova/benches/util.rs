@@ -39,7 +39,7 @@ impl ValueFormatter for ProofSizeFormatter {
         format_size(value as u64, DECIMAL)
     }
 
-    fn scale_values(&self, typical_value: f64, values: &mut [f64]) -> &'static str {
+    fn scale_values(&self, typical_value: f64, _values: &mut [f64]) -> &'static str {
         // Stupid hack to allow us to return a &'static str
         match format_size(typical_value as u64, DECIMAL)
             .split(' ')
@@ -60,8 +60,8 @@ impl ValueFormatter for ProofSizeFormatter {
     fn scale_throughputs(
         &self,
         typical_value: f64,
-        throughput: &Throughput,
-        values: &mut [f64],
+        _throughput: &Throughput,
+        _values: &mut [f64],
     ) -> &'static str {
         // Stupid hack to allow us to return a &'static str
         match format_size(typical_value as u64, DECIMAL)
@@ -80,7 +80,7 @@ impl ValueFormatter for ProofSizeFormatter {
         }
     }
 
-    fn scale_for_machines(&self, values: &mut [f64]) -> &'static str {
+    fn scale_for_machines(&self, _values: &mut [f64]) -> &'static str {
         "bytes"
     }
 }

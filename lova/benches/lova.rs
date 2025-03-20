@@ -24,6 +24,7 @@ fn pretty_print(param: f64) -> String {
     format!("{param} = 2^{}", param.log2())
 }
 
+#[allow(unreachable_code)]
 pub fn criterion_benchmark(c: &mut Criterion) {
     env_logger::builder().is_test(true).try_init().unwrap();
 
@@ -67,7 +68,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                     b.iter_batched(
                         || {
                             (
-                                <IOPattern as LovaIOPattern<F>>::fold_ivc::<F>(IOPattern::new("lova"), &pp).to_merlin(),
+                                <IOPattern as LovaIOPattern<F>>::fold_ivc::<F>(IOPattern::new("lova"), pp).to_merlin(),
                                 witness_1.clone(),
                                 witness_2.clone(),
                             )
@@ -75,12 +76,12 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                         |(mut merlin, witness_1, witness_2)| {
                             // Prove folding
                             let new_witness =
-                                Prover::<F>::fold_ivc(&mut merlin, &pp, witness_1, witness_2).unwrap();
+                                Prover::<F>::fold_ivc(&mut merlin, pp, witness_1, witness_2).unwrap();
                             black_box(new_witness);
                             let folding_proof = merlin.transcript();
 
                             // Save proof globally for verifier
-                            if proof.len() == 0 {
+                            if proof.is_empty() {
                                 proof.extend_from_slice(folding_proof);
                             }
                         },

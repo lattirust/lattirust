@@ -1,13 +1,10 @@
-use std::io::Write;
-use std::ops::{AddAssign, MulAssign};
-use ark_serialize::{CanonicalSerialize, Compress, SerializationError};
 use log::Level::Debug;
 use log::log_enabled;
 use nimue::{Merlin, ProofResult};
 use tracing::debug;
 
 use lattirust_arithmetic::balanced_decomposition::{
-    decompose_matrix, DecompositionFriendlySignedRepresentative, recompose_matrix,
+    decompose_matrix, recompose_matrix,
 };
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
@@ -227,7 +224,7 @@ impl<F: Ring + WithSignedRepresentative<SignedRepresentative=i64>> Prover<F>
         // Compute inner products (over the integers)
         let decomp_witness_int = &decomp_witness; //&to_integers(&decomp_witness);
         let inner_products_decomp: SymmetricMatrix<_> =
-            inner_products_mat(&decomp_witness_int);
+            inner_products_mat(decomp_witness_int);
         debug_assert_eq!(
             inner_products_decomp.size(),
             witness.ncols() * pp.decomposition_length
