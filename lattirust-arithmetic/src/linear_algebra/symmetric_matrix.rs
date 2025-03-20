@@ -184,7 +184,7 @@ where
 
 impl<F: Clone> Valid for SymmetricMatrix<F>
 where
-    Vec<Vec<F>>: CanonicalDeserialize,
+    Vec<Vec<F>>: Valid,
 {
     fn check(&self) -> Result<(), SerializationError> {
         self.0.check()
