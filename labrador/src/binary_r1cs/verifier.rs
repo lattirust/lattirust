@@ -4,7 +4,7 @@
 use nimue::{Arthur, ProofError, ProofResult};
 use num_traits::Zero;
 
-use lattirust_arithmetic::balanced_decomposition::DecompositionFriendlySignedRepresentative;
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::arthur::SerArthur;
@@ -22,7 +22,7 @@ use crate::verifier::verify_principal_relation;
 
 pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
     arthur: &mut Arthur,
-    pp: &BinaryR1CSCRS<R>,
+    crs: &BinaryR1CSCRS<R>,
     index: &<BinaryR1CS as Relation>::Index,
     instance: &<BinaryR1CS as Relation>::Instance,
 ) -> ProofResult<(Index<R>, Instance<R>)>
@@ -31,18 +31,18 @@ where
 {
     let (A, B, C) = (&index.a, &index.b, &index.c);
 
-    let (k, n) = (pp.num_constraints, pp.num_variables);
+    let (k, n) = (crs.num_constraints, crs.num_variables);
 
-    let t = arthur.next_vector(pp.A.nrows())?;
+    let t = arthur.next_vector(crs.A.nrows())?;
 
-    let alpha = arthur.challenge_binary_matrix(pp.security_parameter, k)?;
-    let beta = arthur.challenge_binary_matrix(pp.security_parameter, n)?;
-    let gamma = arthur.challenge_binary_matrix(pp.security_parameter, n)?;
+    let alpha = arthur.challenge_binary_matrix(crs.security_parameter, k)?;
+    let beta = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
+    let gamma = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
 
     // delta_i is computed mod 2, i.e., over Z2
     let delta = &alpha * A + &beta * B + &gamma * C;
 
-    let g = arthur.next_vector_canonical::<R::BaseRing>(pp.security_parameter)?;
+    let g = arthur.next_vector_canonical::<R::BaseRing>(crs.security_parameter)?;
 
     for g_i in &g {
         // Check that all g_i's are even
@@ -62,13 +62,13 @@ where
         delta,
     };
     
-    let instance_pr = reduce(pp, &transcript);
-    Ok((pp.core_crs.clone(), instance_pr))
+    let (index_pr, instance_pr) = reduce(crs, &transcript);
+    Ok((index_pr, instance_pr))
 }
 
 pub fn verify_binary_r1cs<R: PolyRing>(
     arthur: &mut Arthur,
-    pp: &BinaryR1CSCRS<R>,
+    crs: &BinaryR1CSCRS<R>,
     index: &<BinaryR1CS as Relation>::Index,
     instance: &<BinaryR1CS as Relation>::Instance,
 ) -> Result<(), ProofError>
@@ -82,12 +82,12 @@ where
 
 {
     //TODO: add crs and statement to transcript
-    let (index_pr, instance_pr) =
-        verify_reduction_binaryr1cs_labradorpr(arthur, pp, index, instance)?;
-    
-    debug_assert_eq!(index_pr, pp.core_crs);
+    let (index_pr,  instance_pr) =
+        verify_reduction_binaryr1cs_labradorpr(arthur, crs, index, instance)?;
 
     arthur.ratchet()?;
+    
+    let crs_pr = &crs.core_crs;
 
-    verify_principal_relation(arthur, &index_pr, &instance_pr)
+    verify_principal_relation(arthur, &crs_pr, &index_pr, &instance_pr)
 }

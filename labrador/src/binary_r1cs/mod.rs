@@ -33,8 +33,6 @@ where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
     WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
     <R as PolyRing>::BaseRing: WithSignedRepresentative,
-
-
 {
     fn iopattern(
         pp: &BinaryR1CSCRS<R>,

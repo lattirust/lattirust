@@ -9,13 +9,12 @@ use num_traits::{ToPrimitive, Zero};
 
 use lattice_estimator::msis::{MSIS, msis_h_128_linf};
 use lattice_estimator::norms::Norm;
-use lattirust_arithmetic::linear_algebra::Matrix;
+use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix};
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::{PolyRing, Z2};
-use relations::principal_relation::{
-    ConstantQuadDotProdFunction, Index, Instance, QuadDotProdFunction,
-};
+use relations::principal_relation::{ConstantQuadraticConstraint, Index, Instance, QuadraticConstraint, Size};
 
+use crate::common_reference_string::CommonReferenceString;
 use crate::util::{basis_vector, embed};
 
 const SECURITY_PARAMETER: usize = 128;
@@ -26,14 +25,14 @@ const SECURITY_PARAMETER: usize = 128;
     num_constraints,
     num_variables,
     security_parameter,
-    m
+    commitment_output_size
 )]
 pub struct BinaryR1CSCRS<R: PolyRing> {
     pub A: Matrix<R>,
     pub num_constraints: usize,
     pub num_variables: usize,
-    m: usize,
-    pub core_crs: Index<R>,
+    commitment_output_size: usize,
+    pub core_crs: CommonReferenceString<R>,
     pub security_parameter: usize,
 }
 
@@ -101,27 +100,47 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
 
         let rng = &mut rand::rngs::OsRng;
 
+        let commitment_output_size = h.div_ceil(d);
         Self {
-            A: Matrix::<R>::rand(h.div_ceil(d), (3 * k + n).div_ceil(d), rng),
+            A: Matrix::<R>::rand(commitment_output_size, (3 * k + n).div_ceil(d), rng),
             num_constraints,
             num_variables,
-            m: h,
-            core_crs: Self::pr_crs(num_variables, h),
+            commitment_output_size: commitment_output_size,
+            core_crs: Self::pr_crs(num_variables, commitment_output_size),
             security_parameter: SECURITY_PARAMETER,
         }
     }
 
-    pub fn pr_crs(num_variables: usize, m: usize) -> Index<R> {
+    pub fn pr_index(num_variables: usize, commitment_output_size: usize) -> Index<R> {
         let d = R::dimension();
         let r_pr: usize = 8;
         let n_pr = num_variables.div_ceil(d);
         let norm_bound = R::modulus().to_f64().unwrap().sqrt();
 
-        let num_quad_constraints = m.div_ceil(d) + 3 * n_pr;
+        let num_quad_constraints = commitment_output_size + 3 * n_pr;
+        let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
+        
+        let size = Size{
+            num_witnesses: r_pr,
+            witness_len: n_pr,
+            norm_bound_sq: norm_bound,
+            num_constraints: num_quad_constraints,
+            num_constant_constraints: num_constant_quad_constraints,
+        };
+        Index::<R>::new(&size)
+    }
+
+    pub fn pr_crs(num_variables: usize, commitment_output_size: usize) -> CommonReferenceString<R> {
+        let d = R::dimension();
+        let r_pr: usize = 8;
+        let n_pr = num_variables.div_ceil(d);
+        let norm_bound = R::modulus().to_f64().unwrap().sqrt();
+
+        let num_quad_constraints = commitment_output_size + 3 * n_pr; // m/d + 3n/d
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
 
         let rng = &mut rand::rngs::OsRng;
-        Index::<R>::new(
+        CommonReferenceString::<R>::new(
             r_pr,
             n_pr,
             norm_bound,
@@ -164,7 +183,7 @@ fn embed_Zqlinear_Rqlinear<R: PolyRing>(alpha_i: &Vector<Z2>, k: usize, n_pr: us
 pub fn reduce<R: PolyRing>(
     pp: &BinaryR1CSCRS<R>,
     transcript: &BinaryR1CSTranscript<R>,
-) -> Instance<R>
+) -> (Index<R>, Instance<R>)
 where
 {
     let (k, n) = (pp.num_constraints, pp.num_variables);
@@ -185,7 +204,7 @@ where
     );
 
     // F_1 = {A_i * (a || b || c || w) = t_i}_{i in [m/d]}
-    let mut quad_dot_prod_funcs = Vec::<QuadDotProdFunction<R>>::with_capacity(t.len() + 3 * n_pr);
+    let mut quad_dot_prod_funcs = Vec::<QuadraticConstraint<R>>::with_capacity(pp.commitment_output_size + 3 * n_pr);
     for i in 0..t.len() {
         let mut phi =
             pp.A.row(i)
@@ -195,10 +214,9 @@ where
                 .map(|v| Vector::<R>::from_slice(v))
                 .collect::<Vec<Vector<R>>>();
         phi.append(&mut vec![Vector::<R>::zeros(n_pr); r_pr / 2]); // pad with zeros for "tilde witnesses"
-        quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new_linear(phi, t[i]))
+        quad_dot_prod_funcs.push(QuadraticConstraint::<R>::new_linear(phi, t[i]))
     }
 
-    // TODO: the paper claims that the following constraints should be expressed as a "constant" constraint, but I don't see how this is possible. Added as standard constraints instead
     // ã = sigma_{-1}(a) <=>
     // ã_0 = a_0 and -ã_{n-i} = a_i for i in [n] <=>
     // <e_0, a> - <e_0, ã> = 0 and <e_i, a> + <e_{n-i}, ã> = 0, where e_i denote the i-th standard basis vector
@@ -215,13 +233,13 @@ where
             } else {
                 basis_vector(n_pr - i, n_pr)
             };
-            quad_dot_prod_funcs.push(QuadDotProdFunction::<R>::new_linear(phis, R::zero()));
+            quad_dot_prod_funcs.push(QuadraticConstraint::<R>::new_linear(phis, R::zero()));
         }
     }
 
     // F_2
     let mut ct_quad_dot_prod_funcs =
-        Vec::<ConstantQuadDotProdFunction<R>>::with_capacity(5 + pp.security_parameter);
+        Vec::<ConstantQuadraticConstraint<R>>::with_capacity(5 + pp.security_parameter);
     // <a, ã - 1> = 0 <=>
     // <a, ã> + <ã, a> - <2, a> = 0
     for (idx, tilde_idx) in [
@@ -230,13 +248,12 @@ where
         (c_idx, c_tilde_idx),
         (w_idx, w_tilde_idx),
     ] {
-        let mut A = Matrix::<R>::zeros(r_pr, r_pr);
+        let mut A = SymmetricMatrix::<R>::zero(r_pr);
         A[(idx, tilde_idx)] = R::one();
-        A[(tilde_idx, idx)] = R::one();
         let mut phi = vec![Vector::<R>::zeros(n_pr); r_pr];
         phi[idx] =
             Vector::<R>::from_element(n_pr, -R::from_scalar(R::BaseRing::try_from(2u128).unwrap()));
-        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
+        ct_quad_dot_prod_funcs.push(ConstantQuadraticConstraint::<R>::new(
             A,
             phi,
             R::BaseRing::zero(),
@@ -248,7 +265,7 @@ where
     // <b, ã> + <b, ~b> -2*<b, ~c> + <-1, b> +
     // -2*<c, ã> -2*<c, ~b> +4*<c, ~c> + <2, c> = 0
     // => double everything to make sure a is symmetric
-    let mut A = Matrix::<R>::zeros(r_pr, r_pr);
+    let mut A = SymmetricMatrix::<R>::zero(r_pr);
     let min_two = -R::try_from(2u128).unwrap();
     let vals = [
         (a_idx, a_tilde_idx, R::one()),
@@ -271,7 +288,7 @@ where
     phi[a_idx] = Vector::<R>::from_element(n_pr, min_two);
     phi[b_idx] = Vector::<R>::from_element(n_pr, min_two);
     phi[c_idx] = Vector::<R>::from_element(n_pr, R::try_from(4u128).unwrap());
-    ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new(
+    ct_quad_dot_prod_funcs.push(ConstantQuadraticConstraint::<R>::new(
         A,
         phi,
         R::BaseRing::zero(),
@@ -285,11 +302,15 @@ where
         phi[c_idx] = embed_Zqlinear_Rqlinear(&gamma.row(i).transpose(), k, n_pr);
         phi[w_idx] = -embed_Zqlinear_Rqlinear(&delta.row(i).transpose(), k, n_pr);
 
-        ct_quad_dot_prod_funcs.push(ConstantQuadDotProdFunction::<R>::new_linear(phi, g[i]));
+        ct_quad_dot_prod_funcs.push(ConstantQuadraticConstraint::<R>::new_linear(phi, g[i]));
     }
-
-    Instance::<R> {
+    
+    let new_index = BinaryR1CSCRS::<R>::pr_index(pp.num_variables, pp.commitment_output_size);
+    
+    let new_instance = Instance::<R> {
         quad_dot_prod_funcs,
         ct_quad_dot_prod_funcs,
-    }
+    };
+
+    (new_index, new_instance)
 }

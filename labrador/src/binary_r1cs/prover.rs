@@ -3,7 +3,7 @@
 use nimue::{Merlin, ProofResult};
 use tracing::{event, instrument, Level};
 
-use lattirust_arithmetic::balanced_decomposition::DecompositionFriendlySignedRepresentative;
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
@@ -133,16 +133,10 @@ where
         g,
         delta,
     };
+    
+    let (index_pr, instance_pr) = reduce(pp, &transcript);
 
-    let index_pr = pp.core_crs.clone(); // TODO: this should be derived separately
-
-    let instance_pr = reduce(pp, &transcript);
-    let i =  reduce(pp, &transcript);
-    assert_eq!(i, instance_pr, "reduction should be deterministic");
-
-    let witness_pr = principal_relation::Witness::<R> {
-        s: vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde], // see definition of indices above
-    };
+    let witness_pr = principal_relation::Witness::<R>::new(vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde]);  // see definition of indices above
 
     (index_pr, instance_pr, witness_pr)
 }
@@ -166,5 +160,5 @@ where
 
     merlin.ratchet()?;
 
-    prove_principal_relation(merlin, &index_pr, &instance_pr, &witness_pr, &pp.core_crs)
+    prove_principal_relation(merlin, &pp.core_crs, &index_pr, &instance_pr, &witness_pr)
 }

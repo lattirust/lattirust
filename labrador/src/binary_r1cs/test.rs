@@ -4,7 +4,7 @@ use tracing_subscriber::fmt::format::FmtSpan;
 use lattirust_arithmetic::ring::Zq1;
 use lattirust_arithmetic::ring::ntt::ntt_prime;
 use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
-use relations::{test_completeness, test_soundness};
+use relations::{test_completeness_with_init, test_soundness_with_init};
 use relations::r1cs::Size;
 use relations::reduction::Reduction;
 
@@ -33,14 +33,16 @@ const TEST_SIZE: Size = Size {
     num_witness_variables: D * 3,
 };
 
-test_completeness!(
+test_completeness_with_init!(
     TestReduction,
     BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
-    TEST_SIZE
+    TEST_SIZE,
+    init
 );
 
-test_soundness!(
+test_soundness_with_init!(
     TestReduction,
     BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
-    TEST_SIZE
+    TEST_SIZE,
+    init
 );
