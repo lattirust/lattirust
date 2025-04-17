@@ -1,11 +1,9 @@
 use ark_ff::UniformRand;
 use ark_std::rand;
-use ark_std::rand::Rng;
 use delegate::delegate;
 use nalgebra::allocator::Allocator;
 use nalgebra::{
-    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, Owned, RawStorage, VecStorage,
-    ViewStorage,
+    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, IsContiguous, Owned, RawStorage, VecStorage, ViewStorage
 };
 use num_bigint::BigUint;
 use num_traits::Zero;
@@ -102,7 +100,7 @@ impl<T: UniformRand + Scalar> Vector<T> {
         Self::from_fn(n, |_, _| T::rand(rng))
     }
 
-    pub fn rand_vector_with_bounded_norm(n: usize, norm_bound: i128, rng: &mut impl Rng) -> Self
+    pub fn rand_vector_with_bounded_norm<Rng: rand::Rng + ?Sized>(n: usize, norm_bound: i128, rng: &mut Rng) -> Self
     where
         T: WithSignedRepresentative,
     {
@@ -149,7 +147,7 @@ impl<T: Scalar> From<Vec<T>> for RowVector<T> {
     }
 }
 
-impl<T: Scalar> RowVector<T> {
+impl<T: Scalar, S: RawStorage<T, Const<1>, Dyn> + IsContiguous> GenericRowVector<T, Dyn, S> {
     delegate! {
         to self.0 {
             pub fn len(&self) -> usize;

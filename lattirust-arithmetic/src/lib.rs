@@ -12,8 +12,8 @@
 
 extern crate core;
 
-pub mod balanced_decomposition;
 pub mod challenge_set;
+pub mod decomposition;
 pub mod linear_algebra;
 pub mod nimue;
 pub mod ring;

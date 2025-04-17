@@ -26,6 +26,8 @@ impl<R: PolyRing> LabradorChallengeSet<R> {
     #[allow(dead_code)]
     const NUM_COEFFS: usize = Self::NUM_ZEROS + Self::NUM_PM_ONES + Self::NUM_PM_TWOS; // 64
 
+    pub const LINF_NORM: u128 = 2;
+
     pub const OPERATOR_NORM_THRESHOLD: f64 = 15.;
     pub const L2_NORM_SQUARED: f64 = (Self::NUM_PM_ONES + 2 * 2 * Self::NUM_PM_TWOS) as f64; // 71
 

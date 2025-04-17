@@ -34,10 +34,15 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
         let coeffs = core::array::from_fn(f);
         Self(Self::Inner::const_from_array(coeffs))
     }
+    
     const fn const_from_element(elem: BaseRing) -> Self {
         let mut coeffs = [BaseRing::ZERO; N];
         coeffs[0] = elem;
         Self(Self::Inner::const_from_array(coeffs))
+    }
+    
+    pub(crate) fn coefficient_array(&self) -> [BaseRing; N] {
+        self.0.0.into()
     }
 }
 
@@ -188,12 +193,19 @@ impl<BaseRing: Ring, const N: usize> Mul<Self> for Pow2CyclotomicPolyRing<BaseRi
     fn mul(self, rhs: Self) -> Self::Output {
         let mut out = vec![BaseRing::zero(); N];
         for i in 0..N {
-            for j in 0..N - i {
-                out[i + j] += self.0[i] * rhs.0[j];
+            for j in 0..N {
+                if i + j < N {
+                    out[i + j] += self.0[i] * rhs.0[j];
+                } else {
+                    out[i + j - N] -= self.0[i] * rhs.0[j];
+                }
             }
-            for j in N - i..N {
-                out[i + j - N] -= self.0[i] * rhs.0[j];
-            }
+            // for j in 0..N - i {
+            //     out[i + j] += self.0[i] * rhs.0[j];
+            // }
+            // for j in N - i..N {
+            //     out[i + j - N] -= self.0[i] * rhs.0[j];
+            // }
         }
         Self::from(out)
     }
@@ -340,9 +352,16 @@ impl<BaseRing: Ring, const N: usize> Mul<BaseRing> for Pow2CyclotomicPolyRing<Ba
 
 impl<BaseRing: Ring, const N: usize> PolyRing for Pow2CyclotomicPolyRing<BaseRing, N> {
     type BaseRing = BaseRing;
+
     fn coefficients(&self) -> Vec<Self::BaseRing> {
         self.0.into_iter().copied().collect()
     }
+
+    fn try_from_coefficients(coeffs: &[Self::BaseRing]) -> Option<Self> {
+        let arr: [_; N] = coeffs.try_into().unwrap();
+        Some(Self::from(arr))
+    }
+
     fn dimension() -> usize {
         N
     }
@@ -361,7 +380,7 @@ impl<BaseRing: Ring, const N: usize> From<Vec<BaseRing>> for Pow2CyclotomicPolyR
 impl<BaseRing: Ring, const N: usize> WithConjugationAutomorphism
     for Pow2CyclotomicPolyRing<BaseRing, N>
 {
-    fn sigma(&self) -> Self {
+    fn apply_automorphism(&self) -> Self {
         let coeffs = self.0 .0.as_slice();
         let mut new_coeffs = Vec::<BaseRing>::with_capacity(N);
         new_coeffs.push(coeffs[0]);
@@ -390,13 +409,20 @@ impl<BaseRing: Ring, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRing<Bas
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::ring::Zq1;
     use crate::*;
+    use crate::ring::Zq1;
 
-    const Q: u64 = 7;
-    const N: usize = 128;
-    type BaseRing = Zq1<Q>;
+    use super::*;
 
-    test_ring!(Pow2CyclotomicPolyRing::<BaseRing, N>, 10);
+    const N: usize = 64;
+    const Q: u64 = 65537;
+    type BR = Zq1<Q>;
+    type PR = Pow2CyclotomicPolyRing<BR, N>;
+    const NUM_TEST_REPETITIONS: usize = 10;
+
+    test_ring!(PR, NUM_TEST_REPETITIONS);
+
+    test_polyring!(PR, NUM_TEST_REPETITIONS);
+
+    test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
 }

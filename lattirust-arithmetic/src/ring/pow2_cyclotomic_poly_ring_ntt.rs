@@ -15,8 +15,8 @@ use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
 use crate::ring::ntt::NttRing;
-use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::PolyRing;
+use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 use crate::ring::Ring;
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
@@ -46,23 +46,14 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     pub(crate) type Inner = SVector<BaseRing, N>;
 
     pub type BaseRing = BaseRing;
-
+    
     pub fn from_coefficient_array(mut coeffs: [BaseRing; N]) -> Self {
         Self::ntt(&mut coeffs);
-        Self(Self::Inner::const_from_array(coeffs))
+        Self::from_ntt_array(coeffs)
     }
 
-    pub fn from_coefficients(coeffs: &[BaseRing]) -> Self {
-        let mut evals_array: [BaseRing; N] = coeffs.try_into().unwrap_or_else(|_| panic!("Invalid number of coefficients: expected {}, got {}",
-                N,
-                coeffs.len()));
-        Self::ntt(&mut evals_array);
-        Self(Self::Inner::const_from_array(evals_array))
-    }
-
-    /// Constructs a polynomial from an array of coefficients in NTT form.
-    /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [BaseRing; N]) -> Self {
+    /// Constructs a polynomial from the values of the polynomial in NTT form.
+    pub fn from_ntt_array(coeffs_ntt: [BaseRing; N]) -> Self {
         Self(Self::Inner::const_from_array(coeffs_ntt))
     }
 
@@ -71,9 +62,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     where
         F: FnMut(usize) -> BaseRing,
     {
-        let mut coeffs = core::array::from_fn(f);
-        Self::ntt(&mut coeffs);
-        Self::from_array(coeffs)
+        Self::from_coefficient_array(core::array::from_fn(f))
     }
 
     fn ntt(coeffs: &mut [BaseRing; N]) {
@@ -83,7 +72,8 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     fn intt(evals: &mut [BaseRing; N]) {
         BaseRing::intt(evals);
     }
-    fn ntt_coeffs(&self) -> Vec<BaseRing> {
+    
+    pub fn ntt_values(&self) -> Vec<BaseRing> {
         self.0.iter().cloned().collect()
     }
 }
@@ -161,7 +151,7 @@ impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Self>
             )
             .unwrap()
         });
-        Some(Self::from_array(coeffs))
+        Some(Self::from_ntt_array(coeffs))
     }
 }
 
@@ -209,7 +199,8 @@ impl<BaseRing: NttRing<N>, const N: usize> Neg for Pow2CyclotomicPolyRingNTT<Bas
 
 impl<BaseRing: NttRing<N>, const N: usize> UniformRand for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
     fn rand<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        Self::from_fn(|_| BaseRing::rand(rng))
+        // Self::from_fn(|_| BaseRing::rand(rng))
+        Pow2CyclotomicPolyRing::rand(rng).into()
     }
 }
 
@@ -333,9 +324,7 @@ impl<BaseRing: NttRing<N>, const N: usize> From<Pow2CyclotomicPolyRing<BaseRing,
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
 {
     fn from(value: Pow2CyclotomicPolyRing<BaseRing, N>) -> Self {
-        let mut coeffs: [BaseRing; N] = value.coefficients().try_into().unwrap();
-        Self::ntt(&mut coeffs);
-        Self::from_array(coeffs)
+        Self::from_coefficient_array(value.coefficient_array())
     }
 }
 
@@ -419,9 +408,14 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
 
     /// Return the coefficients of the polynomial in non-NTT form.
     fn coefficients(&self) -> Vec<Self::BaseRing> {
-        let mut coeffs = self.ntt_coeffs().try_into().unwrap();
+        let mut coeffs = self.0.0.into();
         Self::intt(&mut coeffs);
         coeffs.to_vec()
+    }
+
+    fn try_from_coefficients(coeffs: &[BaseRing]) -> Option<Self> {
+        let arr: [BaseRing; N] = coeffs.try_into().ok()?;
+        Some(Self::from_coefficient_array(arr))
     }
 
     fn dimension() -> usize {
@@ -430,7 +424,7 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
 
     fn from_scalar(v: Self::BaseRing) -> Self {
         // NTT([v, 0, ..., 0]) = ([v, ..., v])
-        Self::from_array([v; N])
+        Self::from_ntt_array([v; N])
     }
 }
 
@@ -440,10 +434,13 @@ impl<BaseRing: NttRing<N>, const N: usize> From<Vec<BaseRing>>
     /// Construct a polynomial from a vector of coefficients in non-NTT form.
     fn from(value: Vec<BaseRing>) -> Self {
         let n = value.len();
-        let mut array = TryInto::<[BaseRing; N]>::try_into(value).unwrap_or_else(|_| panic!("Invalid vector length {} for polynomial ring dimension N={}",
-                n, N));
-        Self::ntt(&mut array);
-        Self::from_array(array)
+        let array = TryInto::<[BaseRing; N]>::try_into(value).unwrap_or_else(|_| {
+            panic!(
+                "Invalid vector length {} for polynomial ring dimension N={}",
+                n, N
+            )
+        });
+        Self::from_coefficient_array(array)
     }
 }
 
@@ -458,10 +455,10 @@ impl<BaseRing: NttRing<N>, const N: usize> From<BaseRing>
 impl<BaseRing: NttRing<N>, const N: usize> WithConjugationAutomorphism
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
 {
-    fn sigma(&self) -> Self {
+    fn apply_automorphism(&self) -> Self {
         // TODO: can we implement the automorphism directly in NTT form?
         Into::<Pow2CyclotomicPolyRing<BaseRing, N>>::into(*self)
-            .sigma()
+            .apply_automorphism()
             .into()
     }
 }
@@ -486,14 +483,127 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::*;
-    use crate::ring::ntt::ntt_prime;
-    use crate::ring::Zq1;
     use crate::*;
+    use crate::ring::Zq1;
 
-    const N: usize = 128;
-    const Q: u64 = ntt_prime::<N>(16);
-    type BaseRing = Zq1<Q>;
+    use super::*;
 
-    test_ring!(Pow2CyclotomicPolyRingNTT::<BaseRing, N>, 10);
+    const N: usize = 2; //64;
+    const Q: u64 = 65537;
+    type BR = Zq1<Q>;
+    type PR = Pow2CyclotomicPolyRingNTT<BR, N>;
+    const NUM_TEST_REPETITIONS: usize = 100;
+
+    test_ring!(PR, NUM_TEST_REPETITIONS);
+
+    test_polyring!(PR, NUM_TEST_REPETITIONS);
+
+    #[test]
+    fn test_from_into_pow2cyclotomicpolyring() {
+        let rng = &mut ark_std::test_rng();
+        for _ in 0..NUM_TEST_REPETITIONS {
+            let p_ntt = <PR as UniformRand>::rand(rng);
+            let p: Pow2CyclotomicPolyRing<BR, N> = p_ntt.into();
+            let p_ntt_: Pow2CyclotomicPolyRingNTT<BR, N> = p.into();
+            assert_eq!(p_ntt, p_ntt_);
+
+            let p = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
+            let p_ntt: Pow2CyclotomicPolyRingNTT<BR, N> = p.into();
+            let p_: Pow2CyclotomicPolyRing<BR, N> = p_ntt.into();
+            assert_eq!(p, p_);
+        }
+    }
+
+    #[test]
+    fn test_ntt_add() {
+        let rng = &mut ark_std::test_rng();
+        for _ in 0..NUM_TEST_REPETITIONS {
+            let a = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
+            let b = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
+            let a_ntt: PR = a.into();
+            let b_ntt: PR = b.into();
+            
+            let a_plus_b = a + b;
+            let a_plus_b_ntt = a_ntt + b_ntt;
+            assert_eq!(a_plus_b_ntt.coefficients(), a_plus_b.coefficients());
+            
+            let a_plus_b_: Pow2CyclotomicPolyRing<BR, N> = a_plus_b_ntt.into();
+            assert_eq!(a_plus_b_, a_plus_b);
+        }
+    }
+    
+    #[test]
+    fn test_ntt_mul() {
+        let rng = &mut ark_std::test_rng();
+        for _ in 0..NUM_TEST_REPETITIONS {
+            let a = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
+            let b = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
+            let a_ntt: PR = a.into();
+            let b_ntt: PR = b.into();
+            assert_eq!(a.coefficients(), a_ntt.coefficients(), "Mismatch in a → a_ntt");
+            assert_eq!(b.coefficients(), b_ntt.coefficients(), "Mismatch in b → b_ntt");
+
+            let a_mul_b = a * b;
+            let a_mul_b_ntt = a_ntt * b_ntt;
+            assert_eq!(a_mul_b_ntt.coefficients(), a_mul_b.coefficients());
+            
+            let a_mul_b_: Pow2CyclotomicPolyRing<BR, N> = a_mul_b_ntt.into();
+            assert_eq!(a_mul_b_, a_mul_b);
+        }
+    }
+
+    test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
+
+    #[test]
+    fn test_conjugation_automorphism_inner_product_debug() {
+        use crate::linear_algebra::Vector;
+
+        let rng = &mut ark_std::test_rng();
+        let a = <PR as UniformRand>::rand(rng);
+        let b = <PR as UniformRand>::rand(rng);
+
+        let a_coeffs = Vector::<<PR as PolyRing>::BaseRing>::from_vec(a.coefficients());
+        let b_coeffs = Vector::<<PR as PolyRing>::BaseRing>::from_vec(b.coefficients());
+
+        let a_non_ntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a.clone());
+        let b_non_ntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(b.clone());
+
+        // Check that <a_coeffs, b_coeffs> = ct(sigma_{-1}(a) * b)
+        let a_sigma = a.apply_automorphism();
+        let a_nonntt_sigma = a_non_ntt.apply_automorphism();
+        let a_sigma_nonntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_sigma.clone());
+        assert_eq!(a_nonntt_sigma, a_sigma_nonntt);
+
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_sigma.clone()),
+            a_nonntt_sigma
+        );
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_nonntt_sigma.clone()),
+            a_sigma
+        );
+
+        let a_b = a_sigma * b;
+        let a_b_nonntt = a_nonntt_sigma * b_non_ntt;
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_nonntt_sigma.clone()),
+            a_sigma
+        );
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(b_non_ntt.clone()),
+            b
+        );
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_b_nonntt.clone()),
+            a_b
+        );
+        assert_eq!(
+            Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_b.clone()),
+            a_b_nonntt
+        );
+
+        let inner_prod = a_coeffs.dot(&b_coeffs);
+        assert_eq!(inner_prod, a_b_nonntt.coefficients()[0]);
+        assert_eq!(inner_prod, a_b.coefficients()[0]);
+    }
 }

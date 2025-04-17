@@ -27,7 +27,7 @@ use num_traits::{One, Signed, Zero};
 use rounded_div::RoundedDiv;
 use zeroize::Zeroize;
 
-use crate::balanced_decomposition::DecompositionFriendlySignedRepresentative;
+use crate::decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
 use crate::ring::ntt::Ntt;
 use crate::ring::representatives::WithSignedRepresentative;

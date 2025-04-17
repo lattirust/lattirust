@@ -6,7 +6,7 @@ use rayon::prelude::*;
 use crate::linear_algebra::{
     ClosedAddAssign, ClosedMulAssign, Matrix, Scalar, SymmetricMatrix, Vector,
 };
-use crate::ring::PolyRing;
+use crate::ring::{PolyRing, Ring};
 
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
 #[inline(always)]
@@ -59,7 +59,7 @@ pub fn inner_products_serial<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R>
 }
 
 /// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$ for $s \in R^{n \times m}$
-pub fn inner_products<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
+pub fn inner_products<R: Ring>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
     inner_products2(s, s)
 }
 
@@ -81,7 +81,7 @@ pub fn inner_products_mat<R: Scalar + ClosedAddAssign + ClosedMulAssign + Zero +
 }
 
 /// Compute $(\langle s_i, t_j\rangle)_{i, j \in \[n\]}$ for $s,t \in R^{n \times m}$
-pub fn inner_products2<R: PolyRing>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
+pub fn inner_products2<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
     debug_assert_eq!(s.len(), t.len());
     let ranges = lower_triang_indices(s.len());
 

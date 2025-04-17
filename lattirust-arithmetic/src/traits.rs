@@ -278,11 +278,52 @@ where
 }
 
 pub trait WithConjugationAutomorphism {
-    fn sigma(&self) -> Self;
-    fn sigma_vec(vec: &Vector<Self>) -> Vector<Self>
+    /// Apply the automorphism X -> X^{-1} to self
+    fn apply_automorphism(&self) -> Self where Self: PolyRing;
+
+    /// Apply the automorphism X -> X^{-1} to each element of `vec`
+    fn apply_automorphism_vec(vec: &Vector<Self>) -> Vector<Self>
     where
         Self: PolyRing,
     {
-        Vector::<Self>::from(vec.iter().map(|x| x.sigma()).collect::<Vec<Self>>())
+        Vector::<Self>::from(vec.iter().map(|x| x.apply_automorphism()).collect::<Vec<Self>>())
     }
+}
+
+#[macro_export]
+macro_rules! test_conjugation_automorphism {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_conjugation_automorphism_involutive() {
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+
+                let a_sigma = a.apply_automorphism();
+                let a_ = a_sigma.apply_automorphism();
+                assert_eq!(a, a_);
+            }
+        }
+
+        #[test]
+        fn test_conjugation_automorphism_inner_product() {
+            use crate::linear_algebra::Vector;
+
+            let rng = &mut ark_std::test_rng();
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let b = <$T as UniformRand>::rand(rng);
+
+                let a_coeffs = Vector::<<$T as PolyRing>::BaseRing>::from_vec(a.coefficients());
+                let b_coeffs = Vector::<<$T as PolyRing>::BaseRing>::from_vec(b.coefficients());
+
+                // Check that <a_coeffs, b_coeffs> = ct(sigma_{-1}(a) * b)
+                let inner_prod = a_coeffs.dot(&b_coeffs);
+                let a_sigma = a.apply_automorphism();
+                let a_b = a_sigma * b;
+                
+                assert_eq!(inner_prod, a_b.coefficients()[0]);
+            }
+        }
+    };
 }
