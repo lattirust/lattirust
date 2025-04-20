@@ -12,10 +12,10 @@ ark-serialize = "0.5.0"
 ark-std = "0.5.0"
 bincode = "1.3.3"
 bitter = "0.7.0"
-const-primes = "0.9.5"
+const-primes = "0.10.3"
 delegate = "0.13.1"
 delegate-attr = "0.3.0"
-derive_more = { version = "1.0.0", features = ["full"] }
+derive_more = { version = "2.0.1", features = ["full"] }
 derivative = "2.2.0"
 nalgebra = { version = "0.33.2", features = ["serde-serialize", "rayon"] }
 nalgebra-sparse = "0.10.0"
@@ -28,7 +28,7 @@ serde = { version = "1.0.215", features = ["derive"] }
 serde_with = "3.11.0"
 zeroize = "1.8.1"
 num-bigint = "0.4.6"
-itertools = "0.13.0"
+itertools = "0.14.0"
 i256 = "0.2.2"
-rand = "0.8.5"
+rand = "0.9.0"
 log = "0.4.22"

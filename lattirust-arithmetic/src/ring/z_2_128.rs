@@ -1,5 +1,7 @@
 use std::io::{Read, Write};
+use std::iter::{Product, Sum};
 use std::num::Wrapping;
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
@@ -278,8 +280,9 @@ impl WithSignedRepresentative for Z2_128 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use crate::*;
+
+    use super::*;
 
     test_ring!(Z2_128, 100);
 }

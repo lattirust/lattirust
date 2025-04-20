@@ -1,12 +1,13 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::{Read, Write};
-use std::iter::Product;
-use std::ops::{Mul, MulAssign, Neg};
+use std::iter::{Product, Sum};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
+use ark_std::iterable::Iterable;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, Display, From, Into, Sub, SubAssign, Sum};

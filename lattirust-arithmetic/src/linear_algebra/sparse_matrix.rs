@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Mul};
 
 use delegate::delegate;
 use derive_more::{From, Index, IndexMut, Into, Mul, MulAssign};

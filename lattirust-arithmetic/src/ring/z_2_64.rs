@@ -1,5 +1,7 @@
 use std::io::{Read, Write};
+use std::iter::{Product, Sum};
 use std::num::Wrapping;
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
