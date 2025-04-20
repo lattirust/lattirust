@@ -1,31 +1,24 @@
 #![allow(non_snake_case)]
 
-use std::cmp::max;
-
 use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
-use lattirust_arithmetic::linear_algebra::inner_products::inner_products;
 use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix, Vector};
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
-use lattirust_arithmetic::ring::util::powers_of_basis;
 use lattirust_arithmetic::ring::PolyRing;
 use relations::principal_relation::{Index, Instance, QuadraticConstraint, Size};
 
 use crate::common_reference_string::{CommonReferenceString, FoldedSize};
-use crate::util::{flatten_symmetric_matrix, mul_basescalar_vector, mul_matrix_basescalar};
+use crate::util::{flatten_symmetric_matrix, mul_basescalar_vector};
 
-/// A (subset of a) transcript of one execution of the core Labrador protocol, as needed to compute the next instance/crs/witness for recursion
-pub struct BaseTranscript<R: PolyRing> {
+/// A view of the transcript of one execution of the core Labrador protocol
+pub struct TranscriptView<R: PolyRing> {
     pub(crate) u_1: Vector<R>,
-    // pub(crate) Pi: Vec<Matrix<R>>, // part of the transcript, is handled separately
-    pub(crate) p: Vector<R::BaseRing>,
-    pub(crate) psi: Vec<Vector<R::BaseRing>>,
-    pub(crate) omega: Vec<Vector<R::BaseRing>>,
     pub(crate) b__: Vec<R>,
     pub(crate) alpha: Vector<R>,
     pub(crate) beta: Vector<R>,
     pub(crate) u_2: Vector<R>,
     pub(crate) c: Vec<R>,
-    pub(crate) phi: Vec<Vector<R>>
+    pub(crate) phi: Vec<Vector<R>>,
+    pub(crate) a__: Vec<SymmetricMatrix<R>>,
 }
 
 pub struct Layouter<R: PolyRing> {
@@ -115,7 +108,7 @@ impl<R: PolyRing> Layouter<R> {
 pub fn fold_instance<R: PolyRing>(
     crs: &CommonReferenceString<R>,
     instance: &Instance<R>,
-    transcript: &BaseTranscript<R>,
+    transcript: &TranscriptView<R>,
 ) -> (Index<R>, Instance<R>)
 where
     <R as PolyRing>::BaseRing: WithSignedRepresentative,
@@ -218,7 +211,9 @@ where
     {
         let mut layouter = Layouter::<R>::new(next_size);
 
-        let phi_lc_0: Vector<R> = transcript.phi.clone()
+        let phi_lc_0: Vector<R> = transcript
+            .phi
+            .clone()
             .into_iter()
             .zip(transcript.c.iter())
             .map(|(phi_i, c_i)| (phi_i * -c_i.clone()).into())
@@ -238,8 +233,8 @@ where
     // Constraint for sum_{i,j in [r]} a_ij * g_ij + sum_{i in [r]} h_ii = b
     {
         // Compute a_ij = sum_{k in [K]} alpha_k * a_ij^(k) + sum_{k in [K']} beta_k * a_ij''^(k), where a_ij''^(k) = sum_{l in [L]} psi_l^(k) * a_ij'^(l)
-        let a__ = compute_a__(crs, instance, &transcript.psi);
-        
+        let a__ = &transcript.a__;
+
         let mut A = Matrix::<R>::zeros(crs.r, crs.r);
         for k in 0..crs.num_constraints {
             if let Some(ref A_k) = instance.quad_dot_prod_funcs[k].A {
@@ -267,12 +262,12 @@ where
 
         // Set phis for 1 * h_ii = sum_{k in [t1]} h_ii^(k) * b1^k, i.e.
         let mut indic = vec![R::zero(); next_size.size_h];
-        let h_num_entries =  (crs.r * (crs.r+1)) / 2;
+        let h_num_entries = (crs.r * (crs.r + 1)) / 2;
         for k in 0..crs.t1 {
             let mut idx = 0;
             for i in 0..crs.r {
                 indic[k * h_num_entries + idx] = b1_pows[k];
-                idx += crs.r-i;
+                idx += crs.r - i;
             }
         }
         layouter.set_h(indic.as_slice());
@@ -355,8 +350,9 @@ pub fn compute_phi__<R: PolyRing>(
                     mul_basescalar_vector(psi[k][l], &instance.ct_quad_dot_prod_funcs[l].phi[i]);
             }
             for j in 0..256 {
+                let pi_ij = &Pi[i].row(j).transpose(); // Vector of n elements in R
                 phi__[k][i] +=
-                    mul_basescalar_vector(omega[k][j], &R::sigma_vec(&Pi[i].row(j).transpose()));
+                    mul_basescalar_vector(omega[k][j], &R::apply_automorphism_vec(&pi_ij));
             }
         }
     }
@@ -386,21 +382,27 @@ pub fn compute_phi<R: PolyRing>(
     phi
 }
 
-pub fn compute_a__<R: PolyRing>(_crs: &CommonReferenceString<R>,
+pub fn compute_a__<R: PolyRing>(
+    _crs: &CommonReferenceString<R>,
     instance: &Instance<R>,
-    psi: &Vec<Vector<R::BaseRing>>) -> Vec<SymmetricMatrix::<R>> {
-   psi.into_iter().map(
-        |psi_k| 
-        psi_k.into_iter().zip(instance.ct_quad_dot_prod_funcs.to_owned().into_iter())
-        .filter_map(|(psi_k_j, constraint)| 
-        constraint.A.and_then(|A_j| Some((psi_k_j, A_j))))
-        .fold(None, |acc, (psi_k_j, A_j)| {
-            let prod = A_j * psi_k_j.clone(); 
-            match acc {
-                None => Some(prod),
-                Some(a) => Some(a + prod)
-            }
+    psi: &Vec<Vector<R::BaseRing>>,
+) -> Vec<SymmetricMatrix<R>> {
+    psi.into_iter()
+        .map(|psi_k| {
+            psi_k
+                .into_iter()
+                .zip(instance.ct_quad_dot_prod_funcs.to_owned().into_iter())
+                .filter_map(|(psi_k_j, constraint)| {
+                    constraint.A.and_then(|A_j| Some((psi_k_j, A_j)))
+                })
+                .fold(None, |acc, (psi_k_j, A_j)| {
+                    let prod = A_j * psi_k_j.clone();
+                    match acc {
+                        None => Some(prod),
+                        Some(a) => Some(a + prod),
+                    }
+                })
+                .unwrap()
         })
-        .unwrap()
-    ).collect()
+        .collect()
 }

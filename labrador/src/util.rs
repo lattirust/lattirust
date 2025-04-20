@@ -4,7 +4,6 @@ use lattirust_arithmetic::decomposition::balanced_decomposition::decompose_balan
 use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use num_traits::{One, Zero};
-use tracing::debug;
 
 use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
 use lattirust_arithmetic::ring::Ring;

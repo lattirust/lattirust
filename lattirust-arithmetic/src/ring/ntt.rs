@@ -1,9 +1,9 @@
 use ark_ff::{BigInt, Fp, Fp64, MontBackend};
 
-use crate::ring::{fq_zero, Fq, FqConfig, Ring};
+use crate::ring::{Fq, fq_zero, FqConfig, Ring};
 
 /// Return x^k mod Q
-const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
+pub const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
     let mut res: u128 = 1;
     let mut x: u128 = x as u128;
     let mut k: u128 = k as u128;
@@ -17,7 +17,7 @@ const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
     res as u64
 }
 
-const fn const_pows<const Q: u64, const N: usize>(x: u64) -> [Fq<Q>; N] {
+pub const fn const_pows<const Q: u64, const N: usize>(x: u64) -> [Fq<Q>; N] {
     let mut pows = [0; N];
     let mut pows_fq = [fq_zero(); N];
     pows[0] = 1;
@@ -33,7 +33,7 @@ const fn const_pows<const Q: u64, const N: usize>(x: u64) -> [Fq<Q>; N] {
 }
 
 /// Return inverse of x modulo Q
-const fn const_inv_mod<const Q: u64>(x: u64) -> u64 {
+pub const fn const_inv_mod<const Q: u64>(x: u64) -> u64 {
     let mut t: i128 = 0;
     let mut new_t: i128 = 1;
     let mut r: i128 = Q as i128;
@@ -77,7 +77,7 @@ pub const fn ntt_prime<const N: usize>(bit_size: usize) -> u64 {
 
 // noinspection RsAssertEqual
 #[allow(dead_code)]
-const fn nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
+pub const fn nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
     assert!(N.is_power_of_two());
     assert!(
         Q % (N as u64) == 1,
@@ -101,7 +101,7 @@ const fn nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
 }
 
 // noinspection RsAssertEqual
-const fn two_nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
+pub const fn two_nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 {
     assert!(N.is_power_of_two());
     assert!(
         Q % (2 * N as u64) == 1,
@@ -124,14 +124,14 @@ const fn two_nth_primitive_root_of_unity<const Q: u64, const N: usize>() -> u64 
     panic!("No primitive 2n-th root of unity found");
 }
 
-const fn bit_reversed_index<const N: usize>(i: usize) -> usize {
+pub const fn bit_reversed_index<const N: usize>(i: usize) -> usize {
     let log_n = N.ilog2();
     let iinv = (i as u64).reverse_bits() >> (64 - log_n);
     iinv as usize
 }
 
 //noinspection RsAssertEqual
-const fn pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>; N] {
+pub const fn pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>; N] {
     assert!(N.is_power_of_two());
     assert!(
         Q % (2 * N as u64) == 1,
@@ -147,7 +147,7 @@ const fn pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>; N]
     pows_bit_reversed
 }
 
-const fn const_fq_from<const Q: u64>(x: u64) -> Fp64<MontBackend<FqConfig<Q>, 1>> {
+pub const fn const_fq_from<const Q: u64>(x: u64) -> Fp64<MontBackend<FqConfig<Q>, 1>> {
     if x >= Q {
         panic!("x must be less than Q");
     }
@@ -163,6 +163,88 @@ const fn const_fq_from<const Q: u64>(x: u64) -> Fp64<MontBackend<FqConfig<Q>, 1>
     }
 }
 
+pub const fn is_primitive_root_of_unity<const Q: u64>(x: u64, n: u64) -> bool {
+    assert!(n.is_power_of_two());
+    if (const_pow_mod::<Q>(x, n/2) !=  Q-1) || (const_pow_mod::<Q>(x, n) != 1) {
+        return false;
+    }
+    let mut i = 1;
+    while i < n {
+        if const_pow_mod::<Q>(x, i) == 1{
+            return false;
+        }
+        i += 1;
+    }
+    return true;
+}
+
+pub const fn largest_power_of_two_dividing(mut n: u64) -> u32 {
+    let mut k = 0;
+    while n % 2 == 0 {
+        n /= 2;
+        k += 1;
+    }
+    k
+}
+
+/// Returns the smallest 2-adic root of unity modulo Q.
+/// That is, ω such that ω^(2^k) ≡ 1 mod Q and ω^(2^(k - 1)) ≠ 1 mod Q,
+/// where 2^k is the largest power of two dividing Q - 1.
+pub const fn two_adic_root_of_unity<const Q: u64>() -> u64 {
+    let k = largest_power_of_two_dividing(Q - 1);
+    let generator = generator::<Q>();
+    const_pow_mod::<Q>(generator, (Q - 1) >> k)
+}
+
+pub const fn is_generator<const Q: u64>(g: u64, factors: &[u64; 64]) -> bool {
+    let order = Q - 1;
+    let mut i = 0;
+    while i < 64 {
+        let p = factors[i];
+        if p == 0 {
+            break;
+        }
+        if const_pow_mod::<Q>(g, order / p) == 1 {
+            return false;
+        }
+        i += 1;
+    }
+    true
+}
+
+/// Returns an array containing the prime factors of `n`.
+/// The length of the array is fixed to 64, with remaining slots filled with 0s.
+/// This is necessary since we cannot return a dynamically-sized array in a `const fn`.
+pub const fn prime_factors(mut n: u64) -> [u64; 64] {
+    let mut factors = [0u64; 64];
+    let mut index = 0;
+    let mut divisor = 2;
+
+    while n > 1 {
+        if n % divisor == 0 {
+            factors[index] = divisor;
+            index += 1;
+            n /= divisor;
+        } else {
+            divisor = const_primes::next_prime(divisor + 1).unwrap();
+        }
+    }
+
+    factors
+}
+
+pub const fn generator<const Q: u64>() -> u64 {
+    let factors = prime_factors(Q - 1);
+    let mut g = 2;
+    while g < Q {
+        if is_generator::<Q>(g, &factors) {
+            return g;
+        }
+        g += 1;
+    }
+    panic!("no generator found");
+}
+
 struct RootOfUnity<const Q: u64, const N: usize> {}
 
 impl<const Q: u64, const N: usize> RootOfUnity<Q, N> {
@@ -176,7 +258,7 @@ impl<const Q: u64, const N: usize> RootOfUnity<Q, N> {
 impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
     /// Computes the NTT of the given coefficients in place.
     /// Following Algorithm 1 of https://eprint.iacr.org/2016/504.pdf
-    fn ntt(coeffs: &mut [Self; N])
+    fn ntt_inplace(coeffs: &mut [Self; N])
     where
         Self: Sized,
     {
@@ -203,7 +285,7 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
         }
     }
 
-    fn intt(evals: &mut [Self; N])
+    fn intt_inplace(evals: &mut [Self; N])
     where
         Self: Sized,
     {
@@ -238,13 +320,33 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
 }
 
 pub trait Ntt<const N: usize> {
-    fn ntt(coeffs: &mut [Self; N])
+    fn ntt_inplace(coeffs: &mut [Self; N])
     where
         Self: Sized;
 
-    fn intt(evals: &mut [Self; N])
+    fn intt_inplace(evals: &mut [Self; N])
     where
         Self: Sized;
+
+    #[must_use]
+    fn ntt(coeffs: [Self; N]) -> [Self; N]
+    where
+        Self: Sized + Clone,
+    {
+        let mut evals = coeffs;
+        Self::ntt_inplace(&mut evals);
+        evals
+    }
+
+    #[must_use]
+    fn intt(evals: [Self; N]) -> [Self; N]
+    where
+        Self: Sized + Clone,
+    {
+        let mut coeffs = evals;
+        Self::intt_inplace(&mut coeffs);
+        coeffs
+    }
 }
 
 pub trait NttRing<const N: usize>: Ntt<N> + Ring {}
@@ -383,104 +485,111 @@ mod tests {
     test_ntt_prime!(30, 64, 128, 256, 512);
     test_ntt_prime!(62, 64, 128, 256, 512);
 
+    #[macro_export]
     macro_rules! test_ntt_intt {
-        ($Q:expr,$($N:expr),*) => {
+        ($Tname:ident, $T:ty, $($N:expr),*) => {
             $(
-            paste::expr! {
-                #[test]
-                fn [< test_ntt_intt_ $Q _N $N >] () {
-                    use ark_std::UniformRand;
-                    let rng = &mut ark_std::test_rng();
-                    let mut a: [Fq<$Q>; $N] = core::array::from_fn(|_| Fq::<$Q>::rand(rng));
+                paste::expr! {
+                    #[test]
+                    fn [< test_ntt_intt_ $Tname _N $N >] () {
+                        use ark_std::UniformRand;
+                        let rng = &mut ark_std::test_rng();
+                        let mut a: [$T; $N] = core::array::from_fn(|_| $T::rand(rng));
 
-                    let a_original = a.clone();
-                    Fq::<$Q>::ntt(&mut a);
-                    Fq::<$Q>::intt(&mut a);
-                    assert_eq!(a_original, a);
+                        let a_original = a.clone();
+                        $T::ntt_inplace(&mut a);
+                        $T::intt_inplace(&mut a);
+                        assert_eq!(a_original, a);
+                    }
                 }
-            }
             )*
         };
     }
 
-    test_ntt_intt!(Q65537, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
-    test_ntt_intt!(Q274177, 64, 128);
-    test_ntt_intt!(Q67280421310721, 64, 128);
-    test_ntt_intt!(Q16BITS, 64, 128, 256, 512, 1024);
-    test_ntt_intt!(Q32BITS, 64, 128, 256, 512, 1024, 2048);
-    test_ntt_intt!(Q62BITS, 64, 128, 256, 512, 1024, 2048);
-
+    #[macro_export]
     macro_rules! test_ntt_add{
-        ($Q:expr,$($N:expr),*) => {
+        ($Tname:ident, $T:ty, $($N:expr),*) => {
             $(
-            paste::expr! {
-                #[test]
-                fn [< test_ntt_add_ $Q _N $N >] () {
-                    use ark_std::UniformRand;
+                paste::expr! {
+                    #[test]
+                    fn [< test_ntt_add_ $Tname _N $N >] () {
+                        use ark_std::UniformRand;
 
-                    let rng = &mut ark_std::test_rng();
-                    let mut a: [Fq<$Q>; $N] = core::array::from_fn(|_| Fq::<$Q>::rand(rng));
-                    let mut b: [Fq<$Q>; $N] = core::array::from_fn(|_| Fq::<$Q>::rand(rng));
-                    let a_plus_b: [Fq<$Q>; $N] = core::array::from_fn(|i| a[i] + b[i]);
+                        let rng = &mut ark_std::test_rng();
+                        let a: [$T; $N] = core::array::from_fn(|_| $T::rand(rng));
+                        let b: [$T; $N] = core::array::from_fn(|_| $T::rand(rng));
+                        let a_plus_b_naive: [$T; $N] = core::array::from_fn(|i| a[i] + b[i]);
 
-                    Fq::<$Q>::ntt(&mut a);
-                    Fq::<$Q>::ntt(&mut b);
-                    let mut a_plus_b_: [Fq<$Q>; $N] = core::array::from_fn(|i| a[i] + b[i]);
-                    Fq::<$Q>::intt(&mut a_plus_b_);
+                        let a_ntt = $T::ntt(a);
+                        let b_ntt = $T::ntt(b);
+                        let a_plus_b_ntt: [$T; $N] = core::array::from_fn(|i| a_ntt[i] + b_ntt[i]);
+                        let a_plus_b = $T::intt(a_plus_b_ntt);
 
-                    assert_eq!(a_plus_b, a_plus_b_);
+                        assert_eq!(a_plus_b, a_plus_b_naive);
+                    }
                 }
-            }
             )*
         };
     }
 
-    test_ntt_add!(Q65537, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
-    test_ntt_add!(Q274177, 64, 128);
-    test_ntt_add!(Q67280421310721, 64, 128);
-    test_ntt_add!(Q16BITS, 64, 128, 256, 512, 1024);
-    test_ntt_add!(Q32BITS, 64, 128, 256, 512, 1024, 2048);
-    test_ntt_add!(Q62BITS, 64, 128, 256, 512, 1024, 2048);
-
+    #[macro_export]
     macro_rules! test_ntt_mul{
-        ($Q:expr,$($N:expr),*) => {
+        ($Tname:ident, $T:ty, $($N:expr),*) => {
             $(
-            paste::expr! {
-                #[test]
-                fn [< test_ntt_mul_ $Q _N $N >] () {
-                    use ark_std::UniformRand;
+                paste::expr! {
+                    #[test]
+                    fn [< test_ntt_mul_ $Tname _N $N >] () {
+                        use ark_std::UniformRand;
+                        use num_traits::Zero;
 
-                    let rng = &mut ark_std::test_rng();
-                    let mut a: [Fq<$Q>; $N] = core::array::from_fn(|_| Fq::<$Q>::rand(rng));
-                    let mut b: [Fq<$Q>; $N] = core::array::from_fn(|_| Fq::<$Q>::rand(rng));
+                        let rng = &mut ark_std::test_rng();
+                        let a: [$T; $N] = core::array::from_fn(|_| $T::rand(rng));
+                        let b: [$T; $N] = core::array::from_fn(|_| $T::rand(rng));
 
-                    let mut a_mul_b: [Fq<$Q>; $N] = core::array::from_fn(|_| fq_zero());
-                    for i in 0..$N {
-                        for j in 0..$N {
-                            if i+j < $N {
-                                a_mul_b[i+j] += a[i] * b[j];
-                            } else {
-                                a_mul_b[i+j-$N] -= a[i] * b[j];
+                        let mut a_mul_b_naive: [$T; $N] = core::array::from_fn(|_| $T::zero());
+                        for i in 0..$N {
+                            for j in 0..$N {
+                                if i+j < $N {
+                                    a_mul_b_naive[i+j] += a[i] * b[j];
+                                } else {
+                                    a_mul_b_naive[i+j-$N] -= a[i] * b[j];
+                                }
                             }
                         }
+
+                        let a_ntt = $T::ntt(a);
+                        let b_ntt = $T::ntt(b);
+                        let a_mul_b_ntt: [$T; $N] = core::array::from_fn(|i| a_ntt[i] * b_ntt[i]);
+                        let a_mul_b = $T::intt(a_mul_b_ntt);
+
+                        assert_eq!(a_mul_b, a_mul_b_naive);
                     }
-
-                    Fq::<$Q>::ntt(&mut a);
-                    Fq::<$Q>::ntt(&mut b);
-                    let mut a_mul_b_: [Fq<$Q>; $N] = core::array::from_fn(|i| a[i] * b[i]);
-                    Fq::<$Q>::intt(&mut a_mul_b_);
-
-                    assert_eq!(a_mul_b, a_mul_b_);
                 }
-            }
             )*
         };
     }
 
-    test_ntt_mul!(Q65537, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
-    test_ntt_mul!(Q274177, 32, 64, 128);
-    test_ntt_mul!(Q67280421310721, 32, 64, 128);
-    test_ntt_mul!(Q16BITS, 32, 64, 128, 256, 512, 1024);
-    test_ntt_mul!(Q32BITS, 32, 64, 128, 256, 512, 1024, 2048);
-    test_ntt_mul!(Q62BITS, 32, 64, 128, 256, 512, 1024, 2048);
+    test_ntt_intt!(Fq65537, Fq::<Q65537>, 64, 128, 256, 512, 1024, 2048, 4096);
+    test_ntt_add!(Fq65537, Fq::<Q65537>, 64, 128, 256, 512, 1024, 2048, 4096);
+    test_ntt_mul!(Fq65537, Fq::<Q65537>, 64, 128, 256, 512, 1024, 2048, 4096);
+
+    test_ntt_intt!(Fq274177, Fq::<Q274177>, 64, 128);
+    test_ntt_add!(Fq274177, Fq::<Q274177>, 64, 128);
+    test_ntt_mul!(Fq274177, Fq::<Q274177>, 64, 128);
+
+    test_ntt_intt!(Fq67280421310721, Fq::<Q67280421310721>, 64, 128);
+    test_ntt_add!(Fq67280421310721, Fq::<Q67280421310721>, 64, 128);
+    test_ntt_mul!(Fq67280421310721, Fq::<Q67280421310721>, 64, 128);
+
+    test_ntt_intt!(Fq16bits, Fq::<Q16BITS>, 64, 128, 256, 512, 1024);
+    test_ntt_add!(Fq16bits, Fq::<Q16BITS>, 64, 128, 256, 512, 1024);
+    test_ntt_mul!(Fq16bits, Fq::<Q16BITS>, 64, 128, 256, 512, 1024);
+
+    test_ntt_intt!(Fq32bits, Fq::<Q32BITS>, 64, 128, 256, 512, 1024, 2048);
+    test_ntt_add!(Fq32bits, Fq::<Q32BITS>, 64, 128, 256, 512, 1024, 2048);
+    test_ntt_mul!(Fq32bits, Fq::<Q32BITS>, 64, 128, 256, 512, 1024, 2048);
+
+    test_ntt_intt!(Fq62bits, Fq::<Q62BITS>, 64, 128, 256, 512, 1024, 2048);
+    test_ntt_add!(Fq62bits, Fq::<Q62BITS>, 64, 128, 256, 512, 1024, 2048);
+    test_ntt_mul!(Fq62bits, Fq::<Q62BITS>, 64, 128, 256, 512, 1024, 2048);
 }

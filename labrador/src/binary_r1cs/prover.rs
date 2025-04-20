@@ -1,20 +1,23 @@
 #![allow(non_snake_case)]
 
+use ark_std::rand::thread_rng;
 use nimue::{Merlin, ProofResult};
 use tracing::{event, instrument, Level};
 
-use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
+use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::{principal_relation, Relation};
 
+use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript};
 use crate::binary_r1cs::BinaryR1CS;
-use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce};
+use crate::common_reference_string::CommonReferenceString;
 use crate::prover::prove_principal_relation;
 use crate::util::{concat, embed, lift};
 
@@ -97,9 +100,12 @@ where
 
     // g_i is computed over Zq
     let (a_BR, b_BR, c_BR) = (
-        a.map(embed::<R::BaseRing>),
-        b.map(embed::<R::BaseRing>),
-        c.map(embed::<R::BaseRing>),
+        // a.map(embed::<R::BaseRing>),
+        // b.map(embed::<R::BaseRing>),
+        // c.map(embed::<R::BaseRing>),
+        Vector::<R::BaseRing>::from(R::flattened_coeffs(&a_R)),
+        Vector::<R::BaseRing>::from(R::flattened_coeffs(&b_R)),
+        Vector::<R::BaseRing>::from(R::flattened_coeffs(&c_R)),
     );
     let (alpha_BR, beta_BR, gamma_BR) = (
         alpha.map(embed::<R::BaseRing>),
@@ -107,7 +113,7 @@ where
         gamma.map(embed::<R::BaseRing>),
     );
     let (delta_BR, w_BR) = (delta.map(embed::<R::BaseRing>), w.map(embed::<R::BaseRing>));
-
+    assert_eq!(w_BR, Vector::<R::BaseRing>::from(R::flattened_coeffs(&w_R)));
     let g = &alpha_BR * &a_BR + &beta_BR * &b_BR + &gamma_BR * &c_BR - &delta_BR * &w_BR;
 
     debug_assert_eq!(
@@ -120,10 +126,10 @@ where
     event!(Level::DEBUG, "absorbing g in R_q^{}", pp.security_parameter);
     merlin.absorb_vector_canonical::<R::BaseRing>(&g).unwrap();
 
-    let a_tilde = R::sigma_vec(&a_R);
-    let b_tilde = R::sigma_vec(&b_R);
-    let c_tilde = R::sigma_vec(&c_R);
-    let w_tilde = R::sigma_vec(&w_R);
+    let a_tilde = R::apply_automorphism_vec(&a_R);
+    let b_tilde = R::apply_automorphism_vec(&b_R);
+    let c_tilde = R::apply_automorphism_vec(&c_R);
+    let w_tilde = R::apply_automorphism_vec(&w_R);
 
     let transcript = BinaryR1CSTranscript {
         t,
@@ -133,10 +139,12 @@ where
         g,
         delta,
     };
-    
+
     let (index_pr, instance_pr) = reduce(pp, &transcript);
 
-    let witness_pr = principal_relation::Witness::<R>::new(vec![a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde]);  // see definition of indices above
+    let witness_pr = principal_relation::Witness::<R>::new(vec![
+        a_R, b_R, c_R, w_R, a_tilde, b_tilde, c_tilde, w_tilde,
+    ]); // see definition of indices above
 
     (index_pr, instance_pr, witness_pr)
 }
@@ -160,5 +168,5 @@ where
 
     merlin.ratchet()?;
 
-    prove_principal_relation(merlin, &pp.core_crs, &index_pr, &instance_pr, &witness_pr)
+    prove_principal_relation(merlin, &pp.core_crs.to_owned().unwrap(), &index_pr, &instance_pr, &witness_pr)
 }

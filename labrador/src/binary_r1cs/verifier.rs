@@ -32,7 +32,7 @@ where
     let (A, B, C) = (&index.a, &index.b, &index.c);
 
     let (k, n) = (crs.num_constraints, crs.num_variables);
-
+    
     let t = arthur.next_vector(crs.A.nrows())?;
 
     let alpha = arthur.challenge_binary_matrix(crs.security_parameter, k)?;
@@ -87,7 +87,7 @@ where
 
     arthur.ratchet()?;
     
-    let crs_pr = &crs.core_crs;
+    let crs_pr = &crs.core_crs.to_owned().unwrap();
 
     verify_principal_relation(arthur, &crs_pr, &index_pr, &instance_pr)
 }

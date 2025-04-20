@@ -3,7 +3,7 @@ use log::log_enabled;
 use nimue::{Merlin, ProofResult};
 use tracing::debug;
 
-use lattirust_arithmetic::balanced_decomposition::{
+use lattirust_arithmetic::decomposition::balanced_decomposition::{
     decompose_matrix, recompose_matrix,
 };
 use lattirust_arithmetic::challenge_set::ternary::{mul_f_trit, TernaryChallengeSet, Trit};

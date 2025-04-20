@@ -34,6 +34,7 @@ mod z_2_128;
 mod z_2_64;
 mod z_q;
 pub(crate) mod z_q_signed_representative;
+// pub mod pow2_cyclotomic_poly_ring_ntt_crt;
 
 pub trait Ring:
 'static
@@ -165,6 +166,21 @@ where
 }
 
 #[macro_export]
+macro_rules! test_field {
+    ($T:ty, $N:expr) => {
+        test_associative_addition!($T, $N);
+        test_associative_multiplication!($T, $N);
+        test_distributive!($T, $N);
+        test_identity_addition!($T, $N);
+        test_identity_multiplication!($T, $N);
+        test_inverse_addition!($T, $N);
+        test_inverse_multiplication_field!($T, $N);
+        test_canonical_serialize_deserialize_uncompressed!($T, $N);
+        test_canonical_serialize_deserialize_compressed!($T, $N);
+    };
+}
+
+#[macro_export]
 macro_rules! test_ring {
     ($T:ty, $N:expr) => {
         test_associative_addition!($T, $N);
@@ -173,7 +189,7 @@ macro_rules! test_ring {
         test_identity_addition!($T, $N);
         test_identity_multiplication!($T, $N);
         test_inverse_addition!($T, $N);
-        test_inverse_multiplication!($T, $N);
+        test_inverse_multiplication_ring!($T, $N);
         test_canonical_serialize_deserialize_uncompressed!($T, $N);
         test_canonical_serialize_deserialize_compressed!($T, $N);
     };
@@ -190,8 +206,8 @@ macro_rules! test_distributive {
                 let b = <$T as UniformRand>::rand(rng);
                 let c = <$T as UniformRand>::rand(rng);
 
-                assert_eq!(a * (b + c), a * b + a * c);
-                assert_eq!((a + b) * c, a * c + b * c);
+                assert_eq!(a * (b + c), (a * b) + (a * c));
+                assert_eq!((a + b) * c, (a * c) + (b * c));
             }
         }
     };
@@ -240,8 +256,8 @@ macro_rules! test_identity_addition {
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
 
-                assert_eq!(a + <$T as Ring>::ZERO, a);
-                assert_eq!(<$T as Ring>::ZERO + a, a);
+                assert_eq!(a + <$T>::zero(), a);
+                assert_eq!(<$T>::zero() + a, a);
             }
         }
     };
@@ -256,8 +272,8 @@ macro_rules! test_identity_multiplication {
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
 
-                assert_eq!(a * <$T as Ring>::ONE, a);
-                assert_eq!(<$T as Ring>::ONE * a, a);
+                assert_eq!(a * <$T>::one(), a);
+                assert_eq!(<$T>::one() * a, a);
             }
         }
     };
@@ -272,30 +288,53 @@ macro_rules! test_inverse_addition {
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
 
-                assert_eq!(a + -a, <$T as Ring>::ZERO);
-                assert_eq!(-a + a, <$T as Ring>::ZERO);
+                assert_eq!(a + -a, <$T>::zero());
+                assert_eq!(-a + a, <$T>::zero());
             }
         }
     };
 }
 
 #[macro_export]
-macro_rules! test_inverse_multiplication {
+macro_rules! test_inverse_multiplication_ring {
     ($T:ty, $N:expr) => {
         #[test]
-        fn test_inverse_multiplication() {
+        fn test_inverse_multiplication_ring() {
             let rng = &mut ark_std::test_rng();
             assert_eq!(
-                <$T as Ring>::inverse(&<$T as Ring>::ONE).unwrap(),
-                <$T as Ring>::ONE
+                <$T as Ring>::inverse(&<$T>::one()).unwrap(),
+                <$T>::one()
             );
-            assert_eq!(<$T as Ring>::inverse(&<$T as Ring>::ZERO), None);
+            assert_eq!(<$T as Ring>::inverse(&<$T>::zero()), None);
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
                 let inv = <$T as Ring>::inverse(&a);
                 if inv.is_some() {
-                    assert_eq!(a * inv.unwrap(), <$T as Ring>::ONE);
-                    assert_eq!(inv.unwrap() * a, <$T as Ring>::ONE);
+                    assert_eq!(a * inv.unwrap(), <$T>::one());
+                    assert_eq!(inv.unwrap() * a, <$T>::one());
+                }
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! test_inverse_multiplication_field {
+    ($T:ty, $N:expr) => {
+        #[test]
+        fn test_inverse_multiplication_field() {
+            let rng = &mut ark_std::test_rng();
+            assert_eq!(
+                <$T as Field>::inverse(&<$T>::one()).unwrap(),
+                <$T>::one()
+            );
+            assert_eq!(<$T as Field>::inverse(&<$T>::zero()), None);
+            for _ in 0..$N {
+                let a = <$T as UniformRand>::rand(rng);
+                let inv = <$T as Field>::inverse(&a);
+                if inv.is_some() {
+                    assert_eq!(a * inv.unwrap(), <$T>::one());
+                    assert_eq!(inv.unwrap() * a, <$T>::one());
                 }
             }
         }

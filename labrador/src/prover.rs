@@ -2,28 +2,27 @@
 
 use std::fmt::Debug;
 
-use lattirust_arithmetic::decomposition::decomposition::decompose_vec_polyring;
 use nimue::{Merlin, ProofResult};
 use rayon::prelude::*;
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::decomposition::balanced_decomposition::{
-    decompose_balanced_vec_polyring, decompose_vec_vector_dimfirst, recompose,
-};
+use lattirust_arithmetic::decomposition::balanced_decomposition::decompose_vec_vector_dimfirst;
+use lattirust_arithmetic::decomposition::decomposition::decompose_vec_polyring;
 use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::linear_algebra::inner_products::{inner_products, inner_products2};
-use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix, Vector};
+use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::nimue::merlin::SerMerlin;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::ring::PolyRing;
-use lattirust_arithmetic::traits::{FromRandomBytes, WithLinfNorm};
-use relations::principal_relation::QuadraticConstraint;
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::traits::FromRandomBytes;
 use relations::principal_relation::{Index, Instance, Witness};
 
 use crate::common_reference_string::CommonReferenceString;
-use crate::shared::{compute_phi, compute_phi__, compute_a__, fold_instance, BaseTranscript, Layouter};
+use crate::shared::{
+    compute_a__, compute_phi, compute_phi__, fold_instance, Layouter, TranscriptView,
+};
 use crate::util::*;
 
 pub fn prove_principal_relation_oneround<'a, R: PolyRing>(
@@ -79,16 +78,20 @@ where
         .expect("error absorbing prover message 1");
 
     // Challenge 1
+    let num_projections = 256; // TODO: set in CRS
     let Pi = merlin
-        .challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(256, crs.n, crs.r)
-        .expect("error squeezing verifier message 1");
+        .challenge_matrices::<R, WeightedTernaryChallengeSet<R>>(num_projections, crs.n, crs.r)
+        .expect("error squeezing verifier message 1"); // r matrices in R^{num_projections x n}
 
     // Message 2
-    let mut p = Vector::<R::BaseRing>::zeros(256);
-    for j in 0..256 {
-        for i in 0..crs.r {
-            let pi_ij = &Pi[i].row(j).transpose();
-            p[j] += R::flattened(pi_ij).dot(&R::flattened(&witness.s[i]));
+    let mut p = Vector::<R::BaseRing>::zeros(num_projections);
+    for i in 0..crs.r {
+        let s_i_vec = R::flattened(&witness.s[i]); // in R::BaseRing^{n*d}
+        let pi_i = &Pi[i];
+        for j in 0..num_projections {
+            let pi_ij = &pi_i.row(j).transpose();
+            let pi_ij_vec = R::flattened(pi_ij); // in R::BaseRing^{n*d}
+            p[j] += pi_ij_vec.dot(&s_i_vec);
         }
     }
     merlin
@@ -155,23 +158,19 @@ where
         .expect("error squeezing verifier message 4");
 
     // Compute next instance
-    let transcript = BaseTranscript {
+    let transcript = TranscriptView {
         u_1,
-        // Pi,
-        p,
-        psi,
-        omega,
         b__,
         alpha,
         beta,
         u_2,
         c: c.clone(),
-        phi
+        phi,
+        a__,
     };
     let (index_next, instance_next) = fold_instance(&crs, &instance, &transcript);
     let next_size = crs.next_size();
 
-    let c_ = c.clone();
     // Compute next witnes
     let z: Vector<R> = witness
         .clone()
@@ -181,9 +180,7 @@ where
         .map(|(s_i, c_i)| (s_i * c_i).into())
         .sum();
 
-    assert!(z.linf_norm() <= (crs.b * crs.b).into());
     let z_decomp = decompose_vec_polyring(&z.as_slice(), crs.b, Some(2usize));
-    debug_assert_eq!(z_decomp.len(), 2);
 
     let mut layouter = Layouter::<R>::new(next_size);
 
@@ -201,9 +198,9 @@ where
 pub fn prove_principal_relation<'a, R: PolyRing>(
     merlin: &'a mut Merlin,
     mut crs: &CommonReferenceString<R>,
-    mut index: &Index<R>,
-    mut instance: &Instance<R>,
-    mut witness: &Witness<R>,
+    index: &Index<R>,
+    instance: &Instance<R>,
+    witness: &Witness<R>,
 ) -> ProofResult<&'a [u8]>
 where
     LabradorChallengeSet<R>: FromRandomBytes<R>,
@@ -213,16 +210,20 @@ where
         DecompositionFriendlySignedRepresentative,
     <R as TryFrom<u128>>::Error: Debug,
 {
-    // while crs.next_crs.is_some() {
-    //     let (index_next, instance_next, witness_next) =
-    //         prove_principal_relation_oneround(merlin, crs, index, instance, witness)?;
-    //     index = &index_next.to_owned();
-    //     instance = &instance_next;
-    //     witness = &witness_next;
-    //     crs = crs.next_crs.unwrap().to_owned().as_ref();
-    // }
-    // // TODO: add witness to the transcript
+    let mut index_curr = index.clone();
+    let mut instance_curr = instance.clone();
+    let mut witness_curr = witness.clone();
 
-    // Ok(merlin.transcript())
-    todo!()
+    while crs.next_crs.is_some() {
+        (index_curr, instance_curr, witness_curr) = prove_principal_relation_oneround(
+            merlin,
+            crs,
+            &index_curr,
+            &instance_curr,
+            &witness_curr,
+        )?;
+        crs = crs.next_crs.as_ref().unwrap();
+    }
+    // TODO: add index/instance to the transcript
+    Ok(merlin.transcript())
 }

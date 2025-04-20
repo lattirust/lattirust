@@ -13,13 +13,12 @@ use serde::{Deserialize, Serialize};
 
 use lattice_estimator::norms::Norm::L2;
 use lattice_estimator::sis::SIS;
-use lattirust_arithmetic::balanced_decomposition::{
-    balanced_decomposition_max_length, DecompositionFriendlySignedRepresentative,
-};
 use lattirust_arithmetic::challenge_set::ternary::{TernaryChallengeSet, Trit};
+use lattirust_arithmetic::decomposition::balanced_decomposition::balanced_decomposition_max_length;
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
+use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::linear_algebra::inner_products::inner_products_mat;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::linear_algebra::{Matrix, Scalar, Vector};
 use lattirust_arithmetic::nimue::iopattern::{
     RatchetIOPattern, SerIOPattern, SqueezeFromRandomBytes,
 };
@@ -325,12 +324,12 @@ impl<F: Ring> PublicParameters<F> {
         let decomp_basis_sq_bits = Self::signed_bits(decomp_upper_bound * decomp_upper_bound);
 
         // lambda * 1 matrix, with entries w_2,i^T * w_1,j in [-norm_bound^2, norm_bound^2]
-        let merge_proof_size =
-            self.inner_security_parameter * norm_bound_sq_bits;
+        let merge_proof_size = self.inner_security_parameter * norm_bound_sq_bits;
 
         // k * (lambda + 1) symmetric matrix, with signed entries in [-(b/2)^2, (b/2)^2]
-        let inner_prods_size = (((self.decomposition_length * (self.inner_security_parameter + 1))
-            * ((self.decomposition_length * (self.inner_security_parameter + 1)) + 1)) 
+        let inner_prods_size = (((self.decomposition_length
+            * (self.inner_security_parameter + 1))
+            * ((self.decomposition_length * (self.inner_security_parameter + 1)) + 1))
             / 2)
             * decomp_basis_sq_bits;
 
@@ -383,7 +382,8 @@ pub struct BaseRelation<F: Ring> {
 
 impl<F: Ring + WithSignedRepresentative> Relation for BaseRelation<F>
 where
-    <F as WithSignedRepresentative>::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+    <F as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
 {
     type Size = usize;
     type Index = PublicParameters<F>;
@@ -501,13 +501,8 @@ where
         .ratchet()
     }
 
-    fn merge_ivc<F: Ring + WithSignedRepresentative>(self, pp: &PublicParameters<F>) -> Self
-    {
-        self.absorb_matrix::<F>(
-            pp.inner_security_parameter,
-            1,
-            "cross inner products",
-        )
+    fn merge_ivc<F: Ring + WithSignedRepresentative>(self, pp: &PublicParameters<F>) -> Self {
+        self.absorb_matrix::<F>(pp.inner_security_parameter, 1, "cross inner products")
             .ratchet()
     }
 
@@ -534,29 +529,28 @@ where
     fn reduce_ivc<F: Ring + WithSignedRepresentative>(self, pp: &PublicParameters<F>) -> Self {
         self.absorb_matrix::<F>(
             pp.commitment_mat.nrows(),
-            (1 +  pp.inner_security_parameter) * pp.decomposition_length,
+            (1 + pp.inner_security_parameter) * pp.decomposition_length,
             "commitment",
         )
-            .ratchet()
-            .absorb_symmetric_matrix::<F>(
-                (1 + pp.inner_security_parameter) * pp.decomposition_length,
-                "inner products",
-            )
-            .ratchet()
-            .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(
-                2 * pp.inner_security_parameter * pp.decomposition_length,
-                pp.inner_security_parameter,
-                "challenge",
-            )
-            .ratchet()
+        .ratchet()
+        .absorb_symmetric_matrix::<F>(
+            (1 + pp.inner_security_parameter) * pp.decomposition_length,
+            "inner products",
+        )
+        .ratchet()
+        .squeeze_matrix::<Trit, TernaryChallengeSet<Trit>>(
+            2 * pp.inner_security_parameter * pp.decomposition_length,
+            pp.inner_security_parameter,
+            "challenge",
+        )
+        .ratchet()
     }
-    
+
     fn fold(self, pp: &PublicParameters<R>) -> Self {
         self.merge(pp).reduce(pp)
     }
-    
-    fn fold_ivc<F: Ring + WithSignedRepresentative>(self, pp: &PublicParameters<F>) -> Self
-    {
+
+    fn fold_ivc<F: Ring + WithSignedRepresentative>(self, pp: &PublicParameters<F>) -> Self {
         self.merge_ivc(pp).reduce_ivc(pp)
     }
 }

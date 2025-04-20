@@ -25,8 +25,6 @@ fn init() {
         .try_init();
 }
 
-type TestReduction = ReductionBinaryR1CSPrincipalRelation<R>;
-
 const TEST_SIZE: Size = Size {
     num_constraints: D * 4,
     num_instance_variables: D,
@@ -34,14 +32,14 @@ const TEST_SIZE: Size = Size {
 };
 
 test_completeness_with_init!(
-    TestReduction,
+    ReductionBinaryR1CSPrincipalRelation<R>,
     BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
     TEST_SIZE,
     init
 );
 
 test_soundness_with_init!(
-    TestReduction,
+    ReductionBinaryR1CSPrincipalRelation<R>,
     BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
     TEST_SIZE,
     init

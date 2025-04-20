@@ -175,7 +175,7 @@ impl<R: PolyRing> CommonReferenceString<R> {
         let s = s_sq.sqrt();
         // standard deviation of the Z_q coefficients of the s vectors
         info!("  s={s} (std deviation of coefficients of s-vector)");
-        let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
+        // let tau = LabradorChallengeSet::<R>::VARIANCE_SUM_COEFFS;
 
         // ||z||_∞ <= r * ||c_i||_∞ * ||s_i||_∞  <= r * ||c_i||_∞ * ||s_i||_2
         // b^2 must be < ||z||_∞ to be able to decompose each entry in z into 2 parts using standard (non-balanced) decomposition

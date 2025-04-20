@@ -482,5 +482,6 @@ mod test {
     use super::*;
     use crate::*;
 
-    test_ring!(Z2, 100);
+    test_field!(Z2, 100);
+    test_inverse_multiplication_ring!(Z2, 100);
 }

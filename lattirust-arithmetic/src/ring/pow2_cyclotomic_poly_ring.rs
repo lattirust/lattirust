@@ -34,15 +34,39 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
         let coeffs = core::array::from_fn(f);
         Self(Self::Inner::const_from_array(coeffs))
     }
-    
+
     const fn const_from_element(elem: BaseRing) -> Self {
         let mut coeffs = [BaseRing::ZERO; N];
         coeffs[0] = elem;
         Self(Self::Inner::const_from_array(coeffs))
     }
-    
+
     pub(crate) fn coefficient_array(&self) -> [BaseRing; N] {
-        self.0.0.into()
+        self.0 .0.into()
+    }
+
+    pub fn div_rem(&self, other: &Self) -> (Self, Self) {
+        let mut dividend = self.coefficients();
+        let divisor = other.coefficients();
+        let mut quotient = vec![BaseRing::zero(); N];
+
+        let divisor_deg = divisor.iter().rposition(|c| !c.is_zero()).unwrap_or(0);
+        let divisor_lead_inv = divisor[divisor_deg]
+            .inverse()
+            .expect("Divisor must have invertible leading coefficient");
+
+        for i in (divisor_deg..N).rev() {
+            if dividend[i].is_zero() {
+                continue;
+            }
+            let coeff = dividend[i] * divisor_lead_inv;
+            quotient[i - divisor_deg] = coeff;
+            for j in 0..=divisor_deg {
+                dividend[i - divisor_deg + j] -= coeff * divisor[j];
+            }
+        }
+
+        (Self::from(quotient), Self::from(dividend))
     }
 }
 
@@ -135,7 +159,35 @@ impl<BaseRing: Ring, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N
     const ONE: Self = Self::const_from_element(BaseRing::ONE);
 
     fn inverse(&self) -> Option<Self> {
-        unimplemented!()
+        // Invert self in the cyclotomic ring using the extended Euclidean algorithm.
+        // Let f(X) = self and g(X) = X^N + 1
+        // Goal: find a(X), b(X) such that a(X) * f(X) + b(X) * g(X) = 1
+        // Then a(X) is the inverse of f(X) mod g(X)
+        let mut r0 = Self::from_fn(|i| {
+            if i == N {
+                -BaseRing::ONE
+            } else {
+                BaseRing::ZERO
+            }
+        }); // X^N + 1
+        let mut r1 = *self;
+        let mut s0 = Self::zero();
+        let mut s1 = Self::one();
+
+        while !r1.is_zero() {
+            let (q, r) = r0.div_rem(&r1);
+            let s = s0 - (q * s1);
+            r0 = r1;
+            r1 = r;
+            s0 = s1;
+            s1 = s;
+        }
+
+        if r0 == Self::one() {
+            Some(s0)
+        } else {
+            None
+        }
     }
 }
 
@@ -409,8 +461,8 @@ impl<BaseRing: Ring, const N: usize> WithLinfNorm for Pow2CyclotomicPolyRing<Bas
 
 #[cfg(test)]
 mod test {
-    use crate::*;
     use crate::ring::Zq1;
+    use crate::*;
 
     use super::*;
 

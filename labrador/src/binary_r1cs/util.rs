@@ -12,7 +12,9 @@ use lattice_estimator::norms::Norm;
 use lattirust_arithmetic::linear_algebra::{Matrix, SymmetricMatrix};
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::{PolyRing, Z2};
-use relations::principal_relation::{ConstantQuadraticConstraint, Index, Instance, QuadraticConstraint, Size};
+use relations::principal_relation::{
+    ConstantQuadraticConstraint, Index, Instance, QuadraticConstraint, Size,
+};
 
 use crate::common_reference_string::CommonReferenceString;
 use crate::util::{basis_vector, embed};
@@ -32,7 +34,7 @@ pub struct BinaryR1CSCRS<R: PolyRing> {
     pub num_constraints: usize,
     pub num_variables: usize,
     commitment_output_size: usize,
-    pub core_crs: CommonReferenceString<R>,
+    pub core_crs: Option<CommonReferenceString<R>>,
     pub security_parameter: usize,
 }
 
@@ -105,8 +107,8 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
             A: Matrix::<R>::rand(commitment_output_size, (3 * k + n).div_ceil(d), rng),
             num_constraints,
             num_variables,
-            commitment_output_size: commitment_output_size,
-            core_crs: Self::pr_crs(num_variables, commitment_output_size),
+            commitment_output_size,
+            core_crs: None, //Self::pr_crs(num_variables, commitment_output_size),
             security_parameter: SECURITY_PARAMETER,
         }
     }
@@ -119,8 +121,8 @@ impl<R: PolyRing> BinaryR1CSCRS<R> {
 
         let num_quad_constraints = commitment_output_size + 3 * n_pr;
         let num_constant_quad_constraints = 4 + 1 + SECURITY_PARAMETER;
-        
-        let size = Size{
+
+        let size = Size {
             num_witnesses: r_pr,
             witness_len: n_pr,
             norm_bound_sq: norm_bound,
@@ -204,7 +206,8 @@ where
     );
 
     // F_1 = {A_i * (a || b || c || w) = t_i}_{i in [m/d]}
-    let mut quad_dot_prod_funcs = Vec::<QuadraticConstraint<R>>::with_capacity(pp.commitment_output_size + 3 * n_pr);
+    let mut quad_dot_prod_funcs =
+        Vec::<QuadraticConstraint<R>>::with_capacity(pp.commitment_output_size + 3 * n_pr);
     for i in 0..t.len() {
         let mut phi =
             pp.A.row(i)
@@ -304,9 +307,9 @@ where
 
         ct_quad_dot_prod_funcs.push(ConstantQuadraticConstraint::<R>::new_linear(phi, g[i]));
     }
-    
+
     let new_index = BinaryR1CSCRS::<R>::pr_index(pp.num_variables, pp.commitment_output_size);
-    
+
     let new_instance = Instance::<R> {
         quad_dot_prod_funcs,
         ct_quad_dot_prod_funcs,

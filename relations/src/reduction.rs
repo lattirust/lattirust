@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::bail;
 use nimue::{Arthur, IOPattern, Merlin, ProofResult};
 
 use crate::Relation;
@@ -46,10 +46,12 @@ where
         <RelationOut as Relation>::Instance: std::fmt::Display,
     {
         let (index_in, instance_in, witness_in) = RelationIn::generate_satisfied_instance(size);
-        debug_assert!(
-            RelationIn::is_satisfied(&index_in, &instance_in, &witness_in),
-            "generated instance is not satisfied, aborting test"
-        );
+        match RelationIn::is_satisfied_err(&index_in, &instance_in, &witness_in) {
+            Ok(_) => {}
+            Err(e) => {
+                bail!("generated instance is not satisfied: {}", e)
+            }
+        }
         let io = Self::iopattern(pp, &index_in, &instance_in);
 
         let mut merlin = io.to_merlin();
@@ -100,55 +102,72 @@ where
         let mut merlin = io.to_merlin();
 
         let prover_result = Self::prove(pp, &index_in, &instance_in, &witness_in, &mut merlin);
-        let (pp_out_prover, instance_out_prover, witness_out) = match prover_result {
+        let (_, _, witness_out) = match prover_result {
             Ok(result) => result,
             Err(e) => {
-                bail!("reduction is not complete; prover failed, returned {}", e)
+                bail!("Unable to provide meaningful soundness test, the honest prover failed when run on an unsatisfied statement and returned {}", e)
             }
         };
 
-        let sat = RelationOut::is_satisfied_err(&pp_out_prover, &instance_out_prover, &witness_out);
-        if sat.is_err() {
-            return sat.with_context(|| "reduction is not sound; the output witness is a valid witness for the output instance and public parameters");
-        }
-
         let proof = merlin.transcript();
         let mut arthur = io.to_arthur(proof);
-        let _verifier_result = Self::verify(pp, &index_in, &instance_in, &mut arthur);
-
-        // TODO: test whether the verifier accepts the proof? In this particular test only we still use the honest prover, so the verifier will accept for most protocols.
-
-        Ok(())
+        let verifier_result = Self::verify(pp, &index_in, &instance_in, &mut arthur);
+        match verifier_result {
+            Ok((index_out_verifier, instance_out_verifier)) => {
+                // verifier accepted the proof, check that the output witness is not valid for the verifier's output instance
+                let sat = RelationOut::is_satisfied_err(
+                    &index_out_verifier,
+                    &instance_out_verifier,
+                    &witness_out,
+                );
+                match sat {
+                    Ok(()) => bail!("reduction is not sound; the output witness is a valid witness for the output instance and public parameters"),
+                    Err(_) => Ok(()) // verifier accepted the proof, but the new statement is not in the relation
+                }
+            }
+            Err(_) => Ok(()), // verifier rejected the proof
+        }
     }
 }
 
 #[macro_export]
 macro_rules! test_completeness {
-    ($Reduction:tt, $pp:expr, $size:expr) => {
+    ($Reduction:ty, $pp:expr, $size:expr) => {
         #[test]
         fn test_completeness() {
-            $Reduction::test_completeness(&$pp, &$size).unwrap()
+            <$Reduction>::test_completeness(&$pp, &$size).unwrap()
         }
     };
 }
 
 #[macro_export]
 macro_rules! test_completeness_with_init {
-    ($Reduction:tt, $pp:expr, $size:expr, $init:expr) => {
+    ($Reduction:ty, $pp:expr, $size:expr, $init:expr) => {
         #[test]
         fn test_completeness() {
             $init();
-            $Reduction::test_completeness(&$pp, &$size).unwrap()
+            <$Reduction>::test_completeness(&$pp, &$size).unwrap()
         }
     };
 }
 
 #[macro_export]
 macro_rules! test_soundness {
-    ($Reduction:tt, $pp:expr, $size:expr) => {
+    ($Reduction:ty, $pp:expr, $size:expr) => {
         #[test]
         fn test_soundness() {
-            $Reduction::test_soundness(&$pp, &$size).unwrap()
+            <$Reduction>::test_soundness(&$pp, &$size).unwrap()
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! test_soundness_with_init {
+    ($Reduction:ty, $pp:expr, $size:expr, $init:expr) => {
+        #[test]
+        fn test_soundness() {
+            $init();
+            <$Reduction>::test_soundness(&$pp, &$size).unwrap()
         }
     };
 }

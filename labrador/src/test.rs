@@ -1,22 +1,24 @@
-use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
-use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
-use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::nimue::iopattern::{SerIOPattern, SqueezeFromRandomBytes};
+#![allow(dead_code)]
 use nimue::{Arthur, IOPattern, Merlin, ProofResult};
 use tracing_subscriber::fmt::format;
 use tracing_subscriber::fmt::format::FmtSpan;
 
-use crate::common_reference_string::CommonReferenceString;
-use crate::prover::prove_principal_relation_oneround;
-use crate::verifier::verify_principal_relation_oneround;
+use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
+use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
+use lattirust_arithmetic::nimue::iopattern::{SerIOPattern, SqueezeFromRandomBytes};
+use lattirust_arithmetic::ring::{PolyRing, Pow2CyclotomicPolyRingNTT};
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
 use lattirust_arithmetic::ring::Zq2;
-use lattirust_arithmetic::ring::{PolyRing, Pow2CyclotomicPolyRingNTT};
 use lattirust_arithmetic::traits::FromRandomBytes;
+use relations::{test_completeness_with_init, test_soundness_with_init};
 use relations::principal_relation::PrincipalRelation;
 use relations::principal_relation::Size;
 use relations::reduction::Reduction;
-use relations::{test_completeness_with_init, test_soundness_with_init};
+
+use crate::common_reference_string::CommonReferenceString;
+use crate::prover::prove_principal_relation_oneround;
+use crate::verifier::verify_principal_relation_oneround;
 
 // Q = 2^64+1
 const Q1: u64 = 274177;
@@ -33,8 +35,6 @@ fn init() {
         .with_env_filter("none,labrador=trace")
         .try_init();
 }
-
-type TestReduction = Labrador<R>;
 
 pub struct Labrador<R: PolyRing> {
     _marker: std::marker::PhantomData<R>,
@@ -115,14 +115,14 @@ const TEST_SIZE: Size = Size {
 };
 
 test_completeness_with_init!(
-    TestReduction,
+    Labrador<R>,
     CommonReferenceString::new_for_size(TEST_SIZE),
-    TEST_SIZE, 
+    TEST_SIZE,
     init
 );
 
 test_soundness_with_init!(
-    TestReduction,
+    Labrador<R>,
     CommonReferenceString::new_for_size(TEST_SIZE),
     TEST_SIZE,
     init

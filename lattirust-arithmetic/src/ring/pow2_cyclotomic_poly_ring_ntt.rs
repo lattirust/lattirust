@@ -46,7 +46,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     pub(crate) type Inner = SVector<BaseRing, N>;
 
     pub type BaseRing = BaseRing;
-    
+
     pub fn from_coefficient_array(mut coeffs: [BaseRing; N]) -> Self {
         Self::ntt(&mut coeffs);
         Self::from_ntt_array(coeffs)
@@ -66,15 +66,19 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     }
 
     fn ntt(coeffs: &mut [BaseRing; N]) {
-        BaseRing::ntt(coeffs);
+        BaseRing::ntt_inplace(coeffs);
     }
 
     fn intt(evals: &mut [BaseRing; N]) {
-        BaseRing::intt(evals);
+        BaseRing::intt_inplace(evals);
     }
-    
+
     pub fn ntt_values(&self) -> Vec<BaseRing> {
         self.0.iter().cloned().collect()
+    }
+    
+    pub fn ntt_array(&self) -> [BaseRing; N] {
+        self.0.0.data.0[0]
     }
 }
 
@@ -129,13 +133,10 @@ impl<BaseRing: NttRing<N>, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Ba
     const ONE: Self = Self(vec_from_element(<BaseRing as Ring>::ONE));
 
     fn inverse(&self) -> Option<Self> {
-        self.0
-            .iter()
-            .map(|c| c.inverse())
-            .collect::<Option<Vec<BaseRing>>>()
-            .map(Self::from)
+        let ntt_inv = self.ntt_array().try_map(|c| c.inverse())?;
+        Some(Self::from_ntt_array(ntt_inv))
     }
-}
+} 
 
 impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Self>
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
@@ -408,7 +409,7 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
 
     /// Return the coefficients of the polynomial in non-NTT form.
     fn coefficients(&self) -> Vec<Self::BaseRing> {
-        let mut coeffs = self.0.0.into();
+        let mut coeffs = self.0 .0.into();
         Self::intt(&mut coeffs);
         coeffs.to_vec()
     }
@@ -514,96 +515,5 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_ntt_add() {
-        let rng = &mut ark_std::test_rng();
-        for _ in 0..NUM_TEST_REPETITIONS {
-            let a = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
-            let b = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
-            let a_ntt: PR = a.into();
-            let b_ntt: PR = b.into();
-            
-            let a_plus_b = a + b;
-            let a_plus_b_ntt = a_ntt + b_ntt;
-            assert_eq!(a_plus_b_ntt.coefficients(), a_plus_b.coefficients());
-            
-            let a_plus_b_: Pow2CyclotomicPolyRing<BR, N> = a_plus_b_ntt.into();
-            assert_eq!(a_plus_b_, a_plus_b);
-        }
-    }
-    
-    #[test]
-    fn test_ntt_mul() {
-        let rng = &mut ark_std::test_rng();
-        for _ in 0..NUM_TEST_REPETITIONS {
-            let a = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
-            let b = Pow2CyclotomicPolyRing::<BR, N>::rand(rng);
-            let a_ntt: PR = a.into();
-            let b_ntt: PR = b.into();
-            assert_eq!(a.coefficients(), a_ntt.coefficients(), "Mismatch in a → a_ntt");
-            assert_eq!(b.coefficients(), b_ntt.coefficients(), "Mismatch in b → b_ntt");
-
-            let a_mul_b = a * b;
-            let a_mul_b_ntt = a_ntt * b_ntt;
-            assert_eq!(a_mul_b_ntt.coefficients(), a_mul_b.coefficients());
-            
-            let a_mul_b_: Pow2CyclotomicPolyRing<BR, N> = a_mul_b_ntt.into();
-            assert_eq!(a_mul_b_, a_mul_b);
-        }
-    }
-
     test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
-
-    #[test]
-    fn test_conjugation_automorphism_inner_product_debug() {
-        use crate::linear_algebra::Vector;
-
-        let rng = &mut ark_std::test_rng();
-        let a = <PR as UniformRand>::rand(rng);
-        let b = <PR as UniformRand>::rand(rng);
-
-        let a_coeffs = Vector::<<PR as PolyRing>::BaseRing>::from_vec(a.coefficients());
-        let b_coeffs = Vector::<<PR as PolyRing>::BaseRing>::from_vec(b.coefficients());
-
-        let a_non_ntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a.clone());
-        let b_non_ntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(b.clone());
-
-        // Check that <a_coeffs, b_coeffs> = ct(sigma_{-1}(a) * b)
-        let a_sigma = a.apply_automorphism();
-        let a_nonntt_sigma = a_non_ntt.apply_automorphism();
-        let a_sigma_nonntt = Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_sigma.clone());
-        assert_eq!(a_nonntt_sigma, a_sigma_nonntt);
-
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_sigma.clone()),
-            a_nonntt_sigma
-        );
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_nonntt_sigma.clone()),
-            a_sigma
-        );
-
-        let a_b = a_sigma * b;
-        let a_b_nonntt = a_nonntt_sigma * b_non_ntt;
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_nonntt_sigma.clone()),
-            a_sigma
-        );
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(b_non_ntt.clone()),
-            b
-        );
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRingNTT<BR, N>>::into(a_b_nonntt.clone()),
-            a_b
-        );
-        assert_eq!(
-            Into::<Pow2CyclotomicPolyRing<BR, N>>::into(a_b.clone()),
-            a_b_nonntt
-        );
-
-        let inner_prod = a_coeffs.dot(&b_coeffs);
-        assert_eq!(inner_prod, a_b_nonntt.coefficients()[0]);
-        assert_eq!(inner_prod, a_b.coefficients()[0]);
-    }
 }

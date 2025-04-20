@@ -2,7 +2,7 @@ use std::ops::Mul;
 use log::debug;
 use nimue::{Arthur, ProofError, ProofResult};
 
-use lattirust_arithmetic::balanced_decomposition::{
+use lattirust_arithmetic::decomposition::balanced_decomposition::{
     recompose_left_right_symmetric_matrix, recompose_matrix,
 };
 use lattirust_arithmetic::challenge_set::ternary::{

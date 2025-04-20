@@ -29,73 +29,11 @@ use zeroize::Zeroize;
 
 use crate::decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
-use crate::ring::ntt::Ntt;
+use crate::ring::ntt::{const_fq_from, const_pow_mod, generator, is_primitive_root_of_unity, Ntt, two_adic_root_of_unity};
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::z_q_signed_representative::ZqSignedRepresentative;
 use crate::ring::{NttRing, Ring};
 use crate::traits::{FromRandomBytes, Modulus, WithLinfNorm};
-
-/*
-/// Returns an array containing the prime factors of `n`.
-/// The length of the array is fixed to 64, with remaining slots filled with 0s.
-/// This is necessary since we cannot return a dynamically-sized array in a `const fn`.
-pub const fn prime_factors(mut n: u64) -> [u64; 64] {
-    let mut factors = [0u64; 64];
-    let mut index = 0;
-    let mut divisor = 2;
-
-    while n > 1 {
-        if n % divisor == 0 {
-            factors[index] = divisor;
-            index += 1;
-            n /= divisor;
-        } else {
-            divisor = const_primes::next_prime(divisor + 1).unwrap();
-        }
-    }
-
-    factors
-}
-
-const fn generator<const Q: u64>() -> u64 {
-    assert!(const_primes::is_prime(Q));
-
-    let mut quotients = prime_factors(Q - 1);
-    let mut j: usize = 1;
-    while j < 64 && quotients[0] != 0 {
-        quotients[j] = (Q - 1) / quotients[j];
-    }
-
-    let mut next_pow_2 = 1;
-    // while next_pow_2 * 2 > Q {
-    //     next_pow_2 *= 2;
-    // }
-
-    let mut i = 1;
-    while i < Q {
-        let mut idx = 0;
-        let mut is_generator = true;
-        while quotients[idx] != 0 {
-            if const_pow_mod::<Q>(i, quotients[idx]) == 1 {
-                is_generator = false;
-                break;
-            }
-            idx += 1;
-        }
-        if is_generator {
-            // Check that generator generates primitive roots of unity for 2^k, 0 < k < ceil(log2(Q))
-            for k in 0..next_pow_2 {
-                if !is_primitive_root_of_unity::<Q>(i, k) {
-                    break;
-                }
-            }
-            return i;
-        }
-        i += 1;
-    }
-    panic!("No generator found");
-}
-*/
 
 pub struct FqConfig<const Q: u64> {}
 
@@ -110,9 +48,9 @@ const fn to_bigint_assert_odd_prime<const Q: u64>() -> BigInt<1> {
 impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
     const MODULUS: BigInt<1> = to_bigint_assert_odd_prime::<Q>(); // Fails at compile time if Q is not an odd prime
 
-    // TODO: As far as I can tell, `GENERATOR`and `TWO_ADIC_ROOT_OF_UNITY` are only used for FftField. For our small Fft sizes, we might be able to significantly speed up the finding of a generator.
-    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1>([0u64])); //generator::<Q>()]));
-    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = Fp::new(BigInt::<1>([0u64]));
+    // TODO: As far as I can tell, `GENERATOR`and `TWO_ADIC_ROOT_OF_UNITY` are only used for FftField.
+    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = const_fq_from(generator::<Q>());
+    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = const_fq_from(two_adic_root_of_unity::<Q>());
 }
 
 /// `Fq<Q>` is a prime field with modulus `Q`, where `Q` is less than 64 bits.
@@ -686,12 +624,12 @@ const fn all_distinct<const N: usize>(xs: [u64; N]) -> bool {
 const fn id_assert_all_distinct<const L: usize>(xs: [u64; L]) -> [u64; L] {
     assert!(
         all_distinct(xs),
-        "You tried to instantiate an ZqImpl<Q1, ..., QL, L> with Qi not distinct."
+        "You tried to instantiate an ZqConfigLImpl<Q1, ..., QL> with Qi not distinct."
     );
     xs
 }
 
-/// To be called as `zq_config_impl!(L, 0, 1, ..., L-1);` for some non-negative number of limbs `L`
+/// To be called as `zq_config_impl!(L, 0, 1, ..., L-1);` for some non-zero number of limbs `L`
 macro_rules! zq_config_impl {
     ($L:literal $(,$i:literal)+) => {
         paste::expr! {
@@ -750,7 +688,6 @@ macro_rules! zq_config_impl {
                     Some(Zq::<Self, $L>(($( [< inv_ $i >] ,)+)))
                 }
 
-
                 fn from_bigint(other: BigInt<$L>) -> Option<Zq<Self, $L>> {
                     let biguint = BigUint::from(other);
                     if biguint >= Zq::<Self, $L>::modulus() {
@@ -781,15 +718,24 @@ macro_rules! zq_config_impl {
                 }
             }
 
+            // TODO: this might not be the more efficient implementation, we're using an array-of-structs, and not doing NTTs/INTTs in-place.
             impl<$(const [< Q $i >]: u64,)* const N: usize> Ntt<N> for Zq<[< Zq $L ConfigImpl >]<$([< Q $i >],)*>, $L>
                 where $(Fq<[< Q $i >]>: Ntt<N>,)*
             {
-                fn ntt(coeffs: &mut [Self; N]) {
-                    $(Fq::<[< Q $i >]>::ntt(&mut coeffs.map(|x| x.0 .$i));)*
+                fn ntt_inplace(coeffs: &mut [Self; N]) {
+                    $(
+                    let mut [< arr $i >] = coeffs.map(|x| x.0 .$i);
+                    Fq::<[< Q $i >]>::ntt_inplace(&mut [< arr $i >]);
+                    )*
+                    *coeffs = core::array::from_fn(|j| Self(($([< arr $i >][j],)*)))
                 }
 
-                fn intt(evals: &mut [Self; N]) {
-                    $(Fq::<[< Q $i >]>::intt(&mut evals.map(|x| x.0 .$i));)*
+                fn intt_inplace(evals: &mut [Self; N]) {
+                    $(
+                    let mut [< arr $i >] = evals.map(|x| x.0 .$i);
+                    Fq::<[< Q $i >]>::intt_inplace(&mut [< arr $i >]);
+                    )*
+                    *evals = core::array::from_fn(|j| Self(($([< arr $i >][j],)*)))
                 }
             }
         }
@@ -895,58 +841,104 @@ mod test {
     use crate::*;
 
     // Some primes, big and small. In particular, this tests that the implementation does not rely on any special structure of the prime, nor on the primes being specified in any particular order.
-    const Q1: u64 = 3;
-    const Q2: u64 = (1 << 31) - 1; // Mersenne prime
-    const Q3: u64 = (1 << 31) - (1 << 27) + 1; // BabyBear prime
-    const Q4: u64 = ((1u128 << 61) - 1) as u64;
-    const Q5: u64 = 7;
-    const Q6: u64 = (1 << 19) - 1;
-    const Q7: u64 = (1 << 13) - 1;
-    const Q8: u64 = 27644437;
-    const Q9: u64 = 200560490131;
-    const Q10: u64 = ((1u128 << 64) - (1u128 << 32) + 1) as u64; // Goldilocks prime
-
-    type Z1 = Zq1<Q1>;
-    type Z2 = Zq2<Q1, Q2>;
-    type Z3 = Zq3<Q1, Q2, Q3>;
-    type Z4 = Zq4<Q1, Q2, Q3, Q4>;
-    type Z5 = Zq5<Q1, Q2, Q3, Q4, Q5>;
+    const Q1: u64 = (1 << 31) - (1 << 27) + 1; // BabyBear prime, NTT-friendly up to N=2^26
+    const Q2: u64 = 274177; // LaBRADOR modulus factor 1, NTT-friendly up to N=2^7
+    const Q3: u64 = 67280421310721; // LaBRADOR modulus factor 2, NTT-friendly up to N=2^7
+    const Q4: u64 = ((1u128 << 64) - (1u128 << 32) + 1) as u64; // Goldilocks prime, NTT-friendly up to N=2^31
+    const Q5: u64 = 3; // Not NTT-friendly
+    const Q6: u64 = (1 << 31) - 1; // Mersenne prime, not NTT-friendly
+    const Q7: u64 = (1 << 13) - 1; // Not NTT-friendly
+    const Q8: u64 = 27644437; // Not NTT-friendly
+    const Q9: u64 = 200560490131; // Not NTT-friendly
+    const Q10: u64 = 7; // Not NTT-friendly
 
     #[cfg(test)]
-    mod test_1 {
+    mod test_f1 {
         use super::*;
+        type F = Fq<Q1>;
+        test_field!(F, 100);
+    }
+
+    #[cfg(test)]
+    mod test_f2 {
+        use super::*;
+        type F = Fq<Q2>;
+        test_field!(F, 100);
+    }
+
+    #[cfg(test)]
+    mod test_f3 {
+        use super::*;
+        type F = Fq<Q3>;
+        test_field!(F, 100);
+    }
+
+    #[cfg(test)]
+    mod test_f4 {
+        use super::*;
+        type F = Fq<Q4>;
+        test_field!(F, 100);
+    }
+
+    #[cfg(test)]
+    mod test_f5 {
+        use super::*;
+        type F = Fq<Q5>;
+        test_field!(F, 100);
+    }
+
+    #[cfg(test)]
+    mod test_z1 {
+        use super::*;
+        type Z1 = Zq1<Q1>;
 
         test_ring!(Z1, 100);
         test_zq_config_impl!(1, Q1);
+        test_ntt_intt!(Z1, Z1, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
+        test_ntt_add!(Z1, Z1, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
+        test_ntt_mul!(Z1, Z1, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192);
     }
 
     #[cfg(test)]
-    mod test_2 {
+    mod test_z2 {
         use super::*;
+        type Z2 = Zq2<Q1, Q2>;
 
         test_ring!(Z2, 100);
         test_zq_config_impl!(2, Q1, Q2);
+        test_ntt_intt!(Z2, Z2, 32, 64, 128);
+        test_ntt_add!(Z2, Z2, 32, 64, 128);
+        test_ntt_mul!(Z2, Z2, 32, 64, 128);
     }
 
     #[cfg(test)]
-    mod test_3 {
+    mod test_z3 {
         use super::*;
+        type Z3 = Zq3<Q1, Q2, Q3>;
 
         test_ring!(Z3, 100);
         test_zq_config_impl!(3, Q1, Q2, Q3);
+        test_ntt_intt!(Z3, Z3, 32, 64, 128);
+        test_ntt_add!(Z3, Z3, 32, 64, 128);
+        test_ntt_mul!(Z3, Z3, 32, 64, 128);
     }
 
     #[cfg(test)]
-    mod test_4 {
+    mod test_z4 {
         use super::*;
+        type Z4 = Zq4<Q1, Q2, Q3, Q4>;
 
         test_ring!(Z4, 100);
         test_zq_config_impl!(4, Q1, Q2, Q3, Q4);
+        test_ntt_intt!(Z4, Z4, 32, 64, 128);
+        test_ntt_add!(Z4, Z4, 32, 64, 128);
+        test_ntt_mul!(Z4, Z4, 32, 64, 128);
     }
 
     #[cfg(test)]
-    mod test_5 {
+    mod test_z5 {
         use super::*;
+        type Z5 = Zq5<Q1, Q2, Q3, Q4, Q5>;
 
         test_ring!(Z5, 100);
         test_zq_config_impl!(5, Q1, Q2, Q3, Q4, Q5);
