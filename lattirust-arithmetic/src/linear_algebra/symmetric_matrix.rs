@@ -24,9 +24,9 @@ impl<F: Clone> From<Vec<Vec<F>>> for SymmetricMatrix<F> {
     }
 }
 
-impl<F: Clone> Into<Vec<Vec<F>>> for SymmetricMatrix<F> {
-    fn into(self) -> Vec<Vec<F>> {
-        self.0
+impl<F: Clone> From<SymmetricMatrix<F>> for Vec<Vec<F>> {
+    fn from(value: SymmetricMatrix<F>) -> Self {
+        value.0
     }
 }
 
@@ -118,8 +118,7 @@ impl<F: Clone> SymmetricMatrix<F> {
     {
         Self::from(
             (0..size)
-                .into_iter()
-                .map(|i| (0..i + 1).into_iter().map(|j| func(i, j)).collect())
+                .map(|i| (0..i + 1).map(|j| func(i, j)).collect())
                 .collect::<Vec<Vec<F>>>(),
         )
     }
@@ -203,7 +202,7 @@ impl<F: Clone + UniformRand> SymmetricMatrix<F> {
 
 impl<'a, F: Clone, O: Clone> Mul<&'a F> for &'a SymmetricMatrix<F>
 where
-    &'a F: Mul<&'a F, Output = O>,
+    &'a F: Mul<&'a F, Output=O>,
 {
     type Output = SymmetricMatrix<O>;
 
@@ -219,14 +218,14 @@ where
 
 impl<F: Clone, R: Clone, O: Clone> Mul<R> for SymmetricMatrix<F>
 where
-    F: Mul<R, Output = O>,
+    F: Mul<R, Output=O>,
 {
     type Output = SymmetricMatrix<O>;
 
     fn mul(self, rhs: R) -> Self::Output {
         Self::Output::from(
             self.rows()
-                .into_iter()
+                .iter()
                 .map(|row| row.iter().map(|v| v.clone() * rhs.clone()).collect())
                 .collect::<Vec<Vec<O>>>(),
         )
@@ -236,7 +235,7 @@ where
 // TODO: implement for &
 impl<L: Clone, R: Clone, O: Clone> Add<SymmetricMatrix<R>> for SymmetricMatrix<L>
 where
-    L: Add<R, Output = O>,
+    L: Add<R, Output=O>,
 {
     type Output = SymmetricMatrix<O>;
 
@@ -244,11 +243,11 @@ where
         assert_eq!(self.size(), rhs.size());
         Self::Output::from(
             self.rows()
-                .into_iter()
-                .zip(rhs.rows().into_iter())
+                .iter()
+                .zip(rhs.rows())
                 .map(|(l_i, r_i)| {
-                    l_i.into_iter()
-                        .zip(r_i.into_iter())
+                    l_i.iter()
+                        .zip(r_i)
                         .map(|(l_ij, r_ij)| l_ij.clone() + r_ij.clone())
                         .collect()
                 })

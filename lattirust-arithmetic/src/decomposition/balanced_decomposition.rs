@@ -164,7 +164,7 @@ where
 
 // In: v: m x n; output: k x m x n where k is the decomposition length
 pub fn decompose_vec_vector_dimfirst<PR: PolyRing>(
-    v: &Vec<Vector<PR>>,
+    v: &[Vector<PR>],
     b: u128,
     padding_size: Option<usize>,
 ) -> Vec<Vec<Vector<PR>>>
@@ -173,28 +173,6 @@ where
     <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
         DecompositionFriendlySignedRepresentative,
 {
-    // // v: m x n
-    // let decomp: Vec<Vec<Vector<PR>>> = v
-    //     .as_slice()
-    //     .par_iter()
-    //     .map(|v_i| decompose_balanced_vec_polyring(v_i.as_slice(), b, padding_size))
-    //     .collect(); // m x decomp_size x n
-
-    // let b_ = PR::try_from(b).unwrap();
-    // let m = v.len();
-    // let n = v[0].len();
-    // for i in 0..v.len() {
-    //    let mut res_i = Vector::<PR>::zeros(n);
-    //    for j in 0..decomp[i].len() {
-    //         res_i += decomp[i][j].clone() * b_.pow([j as u64]);
-    //     }
-    //     assert_eq!(res_i, v[i]);
-    // }
-    // pad_and_transpose_vec_vec_vector(decomp, padding_size)
-    //     .into_par_iter()
-    //     .map(|v_i| v_i.into_par_iter().map(Vector::from).collect())
-    //     .collect() // decomp_size x m x n
-
     let decomp: Vec<Vec<Vec<PR>>> = v.iter().map(
         |v_i| v_i.iter().map(
             |v_ij| decompose_balanced_polyring(v_ij, b, padding_size)
@@ -204,67 +182,17 @@ where
     let m = v.len();
     let n = v[0].len();
     let decomp_len = decomp[0][0].len();
-    let mut res = vec![vec![Vector::zeros(n); m]; decomp_len];
+    let mut res: Vec<Vec<Vector<PR>>> = vec![vec![Vector::zeros(n); m]; decomp_len];
     for i in 0..m {
         for j in 0..n {
-            let recomp = recompose(&decomp[i][j], PR::try_from(b).unwrap());
-            assert_eq!(recomp, v[i][j]);
-            for k in 0..decomp_len {
-                res[k][i][j] = decomp[i][j][k];
+            for (k, res_k) in res.iter_mut().enumerate().take(decomp_len) {
+                res_k[i][j] = decomp[i][j][k];
             }
         }
     }
-
-    let mut recomp = vec![Vector::<PR>::zeros(n); m];
-    let b_ring = PR::try_from(b).unwrap();
-    for k in 0..decomp_len {
-        for i in 0..m {
-            for j in 0..n {
-                recomp[i][j] += res[k][i][j] * b_ring.pow([k as u64]);
-            }
-        }
-    }
-    assert_eq!(recomp, *v);
 
     res
 }
-
-// // In: v: m x n; output: k x m x n where k is the decomposition length
-// pub fn decompose_matrix_dimfirst<PR: PolyRing>(
-//     mat: &Matrix<PR>,
-//     b: u128,
-//     padding_size: Option<usize>,
-// ) -> Vec<Matrix<PR>>
-// where
-//     PR::BaseRing: WithSignedRepresentative,
-//     <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
-//         DecompositionFriendlySignedRepresentative,
-// {
-//     let decomp = mat.map(|v_ij| decompose_balanced_polyring(&v_ij, b, padding_size));
-   
-//     // Given a matrix of size m x n x k, output a vec of size k of m x n matrices 
-//     let decomp_vec: Vec<Vec<PR>> = decomp
-//         .as_slice()
-//         .par_iter()
-//         .map(|v_i| v_i.as_slice().to_vec())
-//         .collect(); // m x n x decomp_size
-//     pad_and_transpose_vec_vec_vector(decomp_vec, padding_size)
-// }
-
-// // v: k x m x n; output: m x n
-// pub fn recompose_vec_vector_dimfirst<PR: PolyRing>(
-//     v: &Vec<Vec<Vector<PR>>>,
-//     basis: PR,
-// ) -> Vec<Vector<PR>>
-// where
-//     PR::BaseRing: WithSignedRepresentative,
-//     <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
-//         DecompositionFriendlySignedRepresentative,
-// {
-//     let vec_vector_vector: Vec<Matrix<PR>> = v.iter().map(|v_i| Vector::<Vector<PR>>::from(v_i.clone())).collect();
-//     let recomp_vector_vector: Vector<Vector<PR>> = recompose(&vec_vector_vector, basis);
-//     recomp_vector_vector.as_slice().iter().collect()
-// }
 
 /// Returns the balanced gadget decomposition of a [`Matrix`] of dimensions `m × n` as a matrix of dimensions `m × (k * n)`.
 ///

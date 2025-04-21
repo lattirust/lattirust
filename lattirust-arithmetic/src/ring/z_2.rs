@@ -155,7 +155,7 @@ from_primitive_type!(
     i64,
     i128,
     BigUint,
-    BigInt::<1>
+    BigInt<1>
 );
 
 impl CanonicalSerialize for Z2 {

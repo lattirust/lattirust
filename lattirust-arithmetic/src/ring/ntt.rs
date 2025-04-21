@@ -175,7 +175,7 @@ pub const fn is_primitive_root_of_unity<const Q: u64>(x: u64, n: u64) -> bool {
         }
         i += 1;
     }
-    return true;
+    true
 }
 
 pub const fn largest_power_of_two_dividing(mut n: u64) -> u32 {
@@ -313,8 +313,8 @@ impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
             t *= 2;
             m /= 2;
         }
-        for i in 0..N {
-            evals[i] *= RootOfUnity::<Q, N>::N_INV_MOD_Q;
+        for evals_i in evals.iter_mut() {
+            *evals_i *= RootOfUnity::<Q, N>::N_INV_MOD_Q;
         }
     }
 }

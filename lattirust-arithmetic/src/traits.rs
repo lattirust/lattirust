@@ -307,7 +307,7 @@ macro_rules! test_conjugation_automorphism {
 
         #[test]
         fn test_conjugation_automorphism_inner_product() {
-            use crate::linear_algebra::Vector;
+            use $crate::linear_algebra::Vector;
 
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
