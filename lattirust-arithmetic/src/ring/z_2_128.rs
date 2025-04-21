@@ -11,11 +11,13 @@ use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
+use i256::i256;
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 use zeroize::Zeroize;
 
-use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};
+use crate::ring::representatives::WithSignedRepresentative;
+use crate::ring::Ring;
 use crate::traits::{FromRandomBytes, Modulus};
 
 #[derive(
@@ -47,7 +49,10 @@ use crate::traits::{FromRandomBytes, Modulus};
 #[repr(transparent)]
 pub struct Z2_128(Wrapping<i128>);
 
-impl Z2_128 {}
+impl Z2_128 {
+    // TODO: the following should work, but doesn't
+    // const MODULUS_i256: i256 = <i256 as ConstOne>::ONE << 128;
+}
 
 impl Zero for Z2_128 {
     fn zero() -> Self {
@@ -64,18 +69,52 @@ impl One for Z2_128 {
     }
 }
 
+/// Map `[0, MODULUS_HALF) <-> [0, MODULUS_HALF)` and `[-MODULUS_HALF, 0) <-> [MODULUS_HALF, MODULUS)`
 macro_rules! from_primitive_type {
     ($($t:ty),*) => {
         $(
             impl From<$t> for Z2_128 {
                 fn from(x: $t) -> Self {
-                    Self(Wrapping(x as i128))
+                    let unsigned = x as u128;
+                    let signed: i128 = if unsigned < (1u128<<127) {
+                        unsigned as i128
+                    } else {
+                        let unsigned_256 = i256::from_u128(unsigned);
+                        let modulus = i256::from_u8(1u8) << 128;
+                        let res: i256 = unsigned_256.sub(modulus);
+                        res.as_i128()
+                    };
+                    Self(Wrapping(signed as i128))
+                }
+            }
+        )*
+    }
+}
+
+/// Map `[0, MODULUS_HALF) <-> [0, MODULUS_HALF)` and `[-MODULUS_HALF, 0) <-> [MODULUS_HALF, MODULUS)`
+macro_rules! into_primitive_type {
+    ($($t:ty),*) => {
+        $(
+            impl From<Z2_128> for $t {
+                fn from(x: Z2_128) -> Self {
+                    let signed = x.0 .0;
+                    let unsigned: u128 = if signed >= 0 {
+                        signed as u128
+                    } else {
+                        let signed_256 = i256::from_i128(signed);
+                        let modulus = i256::from_u8(1u8) << 128;
+                        let res: i256 = signed_256.add(modulus);
+                        res.as_u128()
+                    };
+                    unsigned as $t
                 }
             }
         )*
     };
 }
-from_primitive_type!(u8, u16, u32, u64, u128, bool);
+
+from_primitive_type!(bool, u8, u16, u32, u64, u128);
+into_primitive_type!(u8, u16, u32, u64, u128);
 
 impl Modulus for Z2_128 {
     fn modulus() -> BigUint {
@@ -127,11 +166,14 @@ impl CanonicalDeserialize for Z2_128 {
 }
 
 impl FromRandomBytes<Self> for Z2_128 {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+    fn needs_bytes() -> usize {
         8
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
         Some(Self(Wrapping(i128::from_be_bytes(bytes.try_into().ok()?))))
     }
 }
@@ -203,26 +245,44 @@ impl UniformRand for Z2_128 {
 impl Ring for Z2_128 {
     const ZERO: Self = Self(Wrapping(0));
     const ONE: Self = Self(Wrapping(1));
-}
 
-/// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
-impl From<SignedRepresentative> for Z2_128 {
-    fn from(value: SignedRepresentative) -> Self {
-        Self(Wrapping(value.0))
+    fn inverse(&self) -> Option<Self> {
+        if self.0 .0 % 2 == 0 {
+            None
+        } else {
+            let self_unsigned = BigUint::from(Into::<u128>::into(*self));
+            let inv_unsigned_bigint = self_unsigned.modinv(&Self::modulus()).unwrap();
+            let inv_unsigned = inv_unsigned_bigint.to_u128().unwrap();
+            Some(Self::from(inv_unsigned))
+        }
     }
 }
 
-/// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
-impl Into<SignedRepresentative> for Z2_128 {
-    fn into(self) -> SignedRepresentative {
-        SignedRepresentative(self.0 .0)
+impl From<i128> for Z2_128 {
+    fn from(value: i128) -> Self {
+        Self(Wrapping(value))
     }
 }
 
-impl Into<UnsignedRepresentative> for Z2_128 {
-    fn into(self) -> UnsignedRepresentative {
-        unimplemented!()
+impl From<Z2_128> for i128 {
+    fn from(value: Z2_128) -> Self {
+        value.0 .0
     }
 }
 
-impl ConvertibleRing for Z2_128 {}
+impl WithSignedRepresentative for Z2_128 {
+    type SignedRepresentative = i128;
+
+    fn as_signed_representative(&self) -> Self::SignedRepresentative {
+        self.0 .0
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::*;
+
+    use super::*;
+
+    test_ring!(Z2_128, 100);
+}

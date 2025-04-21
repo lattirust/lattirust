@@ -1,10 +1,11 @@
 use ark_std::rand::{CryptoRng, RngCore};
 use nimue::{Arthur, ByteChallenges, DuplexHash, IOPatternError, Merlin};
 
+use crate::challenge_set::binary::BinaryChallengeSet;
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::Scalar;
 use crate::linear_algebra::Vector;
-use crate::ring::Zq;
+use crate::ring::Z2;
 use crate::traits::FromRandomBytes;
 
 pub trait ChallengeFromRandomBytes
@@ -87,11 +88,12 @@ where
         &mut self,
         n_rows: usize,
         n_cols: usize,
-    ) -> Result<Matrix<Zq<2>>, IOPatternError> {
-        todo!("{} {}", n_rows, n_cols)
+    ) -> Result<Matrix<Z2>, IOPatternError> {
+        // TODO: use more efficient sampling, this is currently using one byte where one bit would be enough
+        self.challenge_matrix::<Z2, BinaryChallengeSet<Z2>>(n_rows, n_cols)
     }
 }
 
-impl<H: DuplexHash<u8>> ChallengeFromRandomBytes for Merlin<'_, H, u8> {}
+impl<H: DuplexHash<u8>> ChallengeFromRandomBytes for Arthur<'_, H, u8> {}
 
-impl<H: DuplexHash<u8>, R: RngCore + CryptoRng> ChallengeFromRandomBytes for Arthur<H, u8, R> {}
+impl<H: DuplexHash<u8>, R: RngCore + CryptoRng> ChallengeFromRandomBytes for Merlin<H, u8, R> {}

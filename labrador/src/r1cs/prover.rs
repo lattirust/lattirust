@@ -6,7 +6,7 @@ use nimue::{Arthur, ProofResult};
 
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::nimue::arthur::SerArthur;
+use lattirust_arithmetic::nimue::merlin::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
 use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::Zq;
@@ -16,14 +16,7 @@ use lattirust_arithmetic::linear_algebra::Vector;
 use crate::r1cs::util::{R1CSCRS, R1CSInstance};
 use crate::util::{concat, flatten_vec_vector};
 
-#[derive(MontConfig)]
-#[modulus = "18446744073709551617"] // 2^64+1
-#[generator = "3"]
-pub struct FqConfig;
-
-pub type F64b = Fp<MontBackend<FqConfig, 2>, 2>;
-// pub type Z64 = Fq<18446744073709551617>;
-pub type Z64 = Zq<3>; // TODO
+pub type Z64 = Zq2<274177, 67280421310721>; // Q = 2^64+1
 
 fn enc<R: PolyRing>(vec: &Vector<Z64>) -> Vector<R> {
     todo!()
@@ -40,7 +33,7 @@ struct R1CSTranscript<R: PolyRing> {
 
 pub fn prove_r1cs<'a, R: PolyRing>(
     crs: &R1CSCRS<R>,
-    arthur: &'a mut Arthur,
+    merlin: &'a mut Arthur,
     instance: &R1CSInstance<Z64>,
     witness: &Vector<Z64>,
 ) -> ProofResult<&'a [u8]>
@@ -71,9 +64,9 @@ where
     ]);
     let t = &crs.A * &v;
 
-    arthur.absorb_vector(&t).unwrap();
+    merlin.absorb_vector(&t).unwrap();
 
-    let phi = arthur.challenge_vectors::<Z64, Z64>(l, k)?;
+    let phi = merlin.challenge_vectors::<Z64, Z64>(l, k)?;
 
     let mut d_R = Vec::<Vector<R>>::with_capacity(l);
     for i in 0..l {
@@ -82,10 +75,10 @@ where
     let d_R_flat = flatten_vec_vector(&d_R);
     let t_d = &crs.B * &d_R_flat;
 
-    arthur.absorb_vector(&t_d)?;
+    merlin.absorb_vector(&t_d)?;
 
-    // let alpha = arthur.squeeze_vector::<Z64, Z64>()
-    let c = arthur.challenge_vectors::<Z64, Z64>(l, k * (l + 3) + l);
+    // let alpha = merlin.squeeze_vector::<Z64, Z64>()
+    let c = merlin.challenge_vectors::<Z64, Z64>(l, k * (l + 3) + l);
 
     let g = (0..l)
         .map(|i|
@@ -93,7 +86,7 @@ where
         i)
         .collect::<Vec<_>>();
 
-    // arthur.absorb_vec(&g)?;
+    // merlin.absorb_vec(&g)?;
     todo!();
 
     // let transcript = R1CSTranscript { t, phi, t_d, c, g, r };
@@ -104,7 +97,7 @@ where
     //     s: vec![a_R, b_R, c_R, w_R, d_R] // see definition of indices above
     // };
 
-    // arthur.ratchet()?;
-    // prove_principal_relation(arthur, &instance_pr, &witness_pr, &crs.pr_crs())
-    Ok(arthur.transcript())
+    // merlin.ratchet()?;
+    // prove_principal_relation(merlin, &instance_pr, &witness_pr, &crs.pr_crs())
+    Ok(merlin.transcript())
 }

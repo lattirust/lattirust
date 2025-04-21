@@ -3,7 +3,6 @@ members = [
     "lattirust-arithmetic",
     "lattice-estimator",
     "relations",
-    "sumcheck",
     "labrador",
     "lova"
 ]

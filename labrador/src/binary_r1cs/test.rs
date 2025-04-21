@@ -1,74 +1,46 @@
-use ark_relations::lc;
-use log::{debug};
-use nimue::IOPattern;
-use num_traits::One;
-use pretty_env_logger::env_logger;
+use tracing_subscriber::fmt::format;
+use tracing_subscriber::fmt::format::FmtSpan;
 
-use lattirust_arithmetic::ntt::ntt_modulus;
+use lattirust_arithmetic::ring::Zq1;
+use lattirust_arithmetic::ring::ntt::ntt_prime;
 use lattirust_arithmetic::ring::Pow2CyclotomicPolyRingNTT;
+use relations::{test_completeness_with_init, test_soundness_with_init};
+use relations::r1cs::Size;
+use relations::reduction::Reduction;
 
-use crate::binary_r1cs::prover::prove_binary_r1cs;
-use crate::binary_r1cs::util::{BinaryR1CSCRS, Z2};
-use crate::binary_r1cs::verifier::verify_binary_r1cs;
-use crate::iopattern::LabradorIOPattern;
+use crate::binary_r1cs::ReductionBinaryR1CSPrincipalRelation;
+use crate::binary_r1cs::util::BinaryR1CSCRS;
 
-const Q: u64 = ntt_modulus::<64>(32);
+const Q: u64 = ntt_prime::<64>(32);
 const D: usize = 64;
+type F = Zq1<Q>;
 
-type R = Pow2CyclotomicPolyRingNTT<Q, 64>;
+type R = Pow2CyclotomicPolyRingNTT<F, D>;
 
 fn init() {
-    let _ = env_logger::builder().is_test(true).try_init();
+    let _ = tracing_subscriber::fmt::fmt()
+        .with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE)
+        .event_format(format().compact())
+        .with_env_filter("none,labrador=trace")
+        .try_init();
 }
 
-#[test]
-#[allow(non_snake_case)]
-fn test_prove_binary_r1cs() {
-    init();
+const TEST_SIZE: Size = Size {
+    num_constraints: D * 4,
+    num_instance_variables: D,
+    num_witness_variables: D * 3,
+};
 
-    let m: usize = 1 << 15; //(R::modulus().next_power_of_two().ilog2() * 2) as usize;
-    let k = m * D;
+test_completeness_with_init!(
+    ReductionBinaryR1CSPrincipalRelation<R>,
+    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
+    TEST_SIZE,
+    init
+);
 
-    debug!("Constructing constraint system...");
-    let mut cs = ark_relations::r1cs::ConstraintSystem::<Z2>::new();
-    for _ in 0..k {
-        let v = cs.new_witness_variable(|| Ok(Z2::one())).unwrap();
-        cs.enforce_constraint(lc!() + v, lc!() - v, lc!() + v)
-            .unwrap();
-    }
-    let mats = cs.to_matrices().unwrap();
-    debug!(
-        "\t{} ≈ 2^{} constraints, {}+{} ≈ 2^{} variables, ({}, {}, {}) non-zero entries",
-        cs.num_constraints,
-        cs.num_constraints.next_power_of_two().ilog2(),
-        cs.num_instance_variables,
-        cs.num_witness_variables,
-        (cs.num_instance_variables + cs.num_witness_variables)
-            .next_power_of_two()
-            .ilog2(),
-        mats.a_num_non_zero,
-        mats.b_num_non_zero,
-        mats.c_num_non_zero
-    );
-
-    debug!("Constructing common reference string...");
-    let crs = BinaryR1CSCRS::<R>::new(k, k);
-
-    debug!("Setting IOPattern...");
-    let io = IOPattern::new("labrador_binaryr1cs")
-        .labrador_binaryr1cs_io(&cs, &crs)
-        .ratchet()
-        // .labrador_crs(&crs.pr_crs())
-        // .ratchet()
-        // .labrador_instance(&PrincipalRelation::<R>::new_empty(&crs.pr_crs()))
-        // .ratchet()
-        .labrador_io(&crs.core_crs);
-    let mut arthur = io.to_arthur();
-
-    debug!("Proving...");
-    let proof = prove_binary_r1cs(&crs, &mut arthur, &cs).unwrap();
-    debug!("Finished proving, proof size = {} bytes", proof.len());
-
-    let mut merlin = io.to_merlin(proof);
-    verify_binary_r1cs(&mut merlin, &cs, &crs).unwrap();
-}
+test_soundness_with_init!(
+    ReductionBinaryR1CSPrincipalRelation<R>,
+    BinaryR1CSCRS::new(TEST_SIZE.num_constraints, TEST_SIZE.num_instance_variables+TEST_SIZE.num_witness_variables),
+    TEST_SIZE,
+    init
+);

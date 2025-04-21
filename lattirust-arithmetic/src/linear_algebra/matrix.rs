@@ -5,7 +5,7 @@ use std::ops::Neg;
 use ark_std::rand::prelude::SliceRandom;
 use ark_std::{rand, UniformRand};
 use delegate::delegate;
-use nalgebra::{self, ComplexField, Dyn, VecStorage};
+use nalgebra::{self, ArrayStorage, ComplexField, Dyn, VecStorage};
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
@@ -13,7 +13,10 @@ use crate::linear_algebra::generic_matrix::GenericMatrix;
 use crate::linear_algebra::{RowVector, Vector};
 use crate::linear_algebra::{Scalar, SymmetricMatrix};
 
+pub type Const<const S: usize> = nalgebra::Const<S>;
 pub type Matrix<T> = GenericMatrix<T, Dyn, Dyn, VecStorage<T, Dyn, Dyn>>;
+pub type SMatrix<T, const R: usize, const C: usize> =
+    GenericMatrix<T, Const<R>, Const<C>, ArrayStorage<T, R, C>>;
 
 impl<R: ComplexField> Matrix<R> {
     delegate! {
@@ -35,8 +38,8 @@ impl<T: Scalar> Matrix<T> {
 
     pub fn from_rows(rows: &[RowVector<T>]) -> Self {
         Self::Inner::from_rows(
-            rows.to_owned()
-                .into_iter()
+            rows.iter()
+                .cloned()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()
                 .as_slice(),
@@ -47,8 +50,8 @@ impl<T: Scalar> Matrix<T> {
     pub fn from_columns(columns: &[Vector<T>]) -> Self {
         Self::Inner::from_columns(
             columns
-                .to_owned()
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(|row| row.0)
                 .collect::<Vec<_>>()
                 .as_slice(),
@@ -91,7 +94,7 @@ impl<T: Scalar + UniformRand> Matrix<T> {
     {
         let data = (0..m * n)
             .into_par_iter()
-            .map_init(|| rand::thread_rng(), |mut rng, _| T::rand(&mut rng))
+            .map_init(rand::thread_rng, |mut rng, _| T::rand(&mut rng))
             .collect();
         Self::from_vec(m, n, data)
     }
@@ -112,17 +115,23 @@ impl<T: Scalar + UniformRand + Zero + One + Neg<Output = T>> Matrix<T> {
     }
 }
 
+impl<T: Scalar + UniformRand, const R: usize, const C: usize> UniformRand for SMatrix<T, R, C> {
+    fn rand<Rng: rand::Rng + ?Sized>(rng: &mut Rng) -> Self {
+        nalgebra::SMatrix::<T, R, C>::from_fn(|_, _| T::rand(rng)).into()
+    }
+}
+
 #[allow(non_snake_case)]
 #[cfg(test)]
 mod tests {
     use ark_std::test_rng;
 
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::Zq;
+    use crate::ring::Zq1;
 
     use super::*;
 
-    type R = Pow2CyclotomicPolyRing<Zq<3>, 20>;
+    type R = Pow2CyclotomicPolyRing<Zq1<3>, 20>;
 
     #[test]
     fn test_sample_uniform() {

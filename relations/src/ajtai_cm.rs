@@ -1,5 +1,5 @@
 use ark_std::rand;
-use lattirust_arithmetic::linear_algebra::{Matrix};
+use lattirust_arithmetic::linear_algebra::Matrix;
 use lattirust_arithmetic::linear_algebra::Vector;
 use lattirust_arithmetic::ring::PolyRing;
 
@@ -12,9 +12,19 @@ pub struct Crs<R: PolyRing> {
 }
 
 impl<R: PolyRing> Crs<R> {
-    pub fn new<Rng: rand::Rng + ?Sized>(n: usize, m: usize, norm_bound: usize, rng: &mut Rng) -> Crs<R> {
+    pub fn new<Rng: rand::Rng + ?Sized>(
+        n: usize,
+        m: usize,
+        norm_bound: usize,
+        rng: &mut Rng,
+    ) -> Crs<R> {
         let ck = Matrix::<R>::rand(n, m, rng);
-        Crs { n, m, norm_bound, ck }
+        Crs {
+            n,
+            m,
+            norm_bound,
+            ck,
+        }
     }
 }
 

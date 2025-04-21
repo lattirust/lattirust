@@ -12,10 +12,11 @@ use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
 use num_bigint::BigUint;
-use num_traits::{One, Zero};
+use num_traits::{One, ToPrimitive, Zero};
 use zeroize::Zeroize;
 
-use crate::ring::{ConvertibleRing, Ring, SignedRepresentative, UnsignedRepresentative};
+use crate::ring::representatives::WithSignedRepresentative;
+use crate::ring::Ring;
 use crate::traits::{FromRandomBytes, Modulus};
 
 #[derive(
@@ -47,8 +48,6 @@ use crate::traits::{FromRandomBytes, Modulus};
 #[repr(transparent)]
 pub struct Z2_64(pub(crate) Wrapping<i64>);
 
-impl Z2_64 {}
-
 impl Zero for Z2_64 {
     fn zero() -> Self {
         Self(Wrapping(0))
@@ -64,18 +63,54 @@ impl One for Z2_64 {
     }
 }
 
+impl<'a> Mul<&'a Z2_64> for &'a Z2_64 {
+    type Output = Z2_64;
+
+    fn mul(self, rhs: &'a Z2_64) -> Self::Output {
+        Z2_64(self.0 * rhs.0)
+    }
+}
+
+/// Map `[0, MODULUS_HALF) <-> [0, MODULUS_HALF)` and `[-MODULUS_HALF, 0) <-> [MODULUS_HALF, MODULUS)`
 macro_rules! from_primitive_type {
     ($($t:ty),*) => {
         $(
             impl From<$t> for Z2_64 {
                 fn from(x: $t) -> Self {
-                    Self(Wrapping(x as i64))
+                    let unsigned = x as u64;
+                    let signed = if unsigned < (1u64<<63) {
+                        unsigned as i64
+                    } else {
+                        (unsigned as i128 - (1u128<<64) as i128) as i64
+                    };
+                    Self(Wrapping(signed as i64))
+                }
+            }
+        )*
+    }
+}
+
+/// Map `[0, MODULUS_HALF) <-> [0, MODULUS_HALF)` and `[-MODULUS_HALF, 0) <-> [MODULUS_HALF, MODULUS)`
+macro_rules! into_primitive_type {
+    ($($t:ty),*) => {
+        $(
+            impl From<Z2_64> for $t {
+                fn from(x: Z2_64) -> Self {
+                    let signed = x.0 .0;
+                    let unsigned: u64 = if signed >= 0 {
+                        signed as u64
+                    } else {
+                        (signed as i128 + (1u128<<64) as i128) as u64
+                    };
+                    unsigned as $t
                 }
             }
         )*
     };
 }
-from_primitive_type!(u8, u16, u32, u64, u128, bool);
+
+from_primitive_type!(bool, u8, u16, u32, u64, u128);
+into_primitive_type!(u8, u16, u32, u64, u128);
 
 impl Modulus for Z2_64 {
     fn modulus() -> BigUint {
@@ -127,11 +162,15 @@ impl CanonicalDeserialize for Z2_64 {
 }
 
 impl FromRandomBytes<Self> for Z2_64 {
-    fn byte_size() -> usize {
+    fn has_no_bias() -> bool {
+        true
+    }
+
+    fn needs_bytes() -> usize {
         8
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Self> {
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Self> {
         Some(Self(Wrapping(i64::from_be_bytes(bytes.try_into().ok()?))))
     }
 }
@@ -203,26 +242,44 @@ impl UniformRand for Z2_64 {
 impl Ring for Z2_64 {
     const ZERO: Self = Self(Wrapping(0));
     const ONE: Self = Self(Wrapping(1));
-}
 
-/// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(-MODULUS_HALF, 0) -> (MODULUS_HALF, MODULUS)`
-impl From<SignedRepresentative> for Z2_64 {
-    fn from(value: SignedRepresentative) -> Self {
-        Self(Wrapping(value.0 as i64))
+    fn inverse(&self) -> Option<Self> {
+        if self.0 .0 % 2 == 0 {
+            None
+        } else {
+            let self_unsigned = BigUint::from(Into::<u64>::into(*self));
+            let inv_unsigned_bigint = self_unsigned.modinv(&Self::modulus()).unwrap();
+            let inv_unsigned = inv_unsigned_bigint.to_u64().unwrap();
+            let inv = Self::from(inv_unsigned);
+            Some(inv)
+        }
     }
 }
 
-/// Map `[0, MODULUS_HALF] -> [0, MODULUS_HALF]` and `(MODULUS_HALF, MODULUS) -> (-MODULUS_HALF, 0)`
-impl Into<SignedRepresentative> for Z2_64 {
-    fn into(self) -> SignedRepresentative {
-        SignedRepresentative(self.0 .0 as i128)
+impl From<i64> for Z2_64 {
+    fn from(value: i64) -> Self {
+        Self(Wrapping(value))
     }
 }
 
-impl Into<UnsignedRepresentative> for Z2_64 {
-    fn into(self) -> UnsignedRepresentative {
-        unimplemented!()
+impl From<Z2_64> for i64 {
+    fn from(value: Z2_64) -> Self {
+        value.0 .0
     }
 }
 
-impl ConvertibleRing for Z2_64 {}
+impl WithSignedRepresentative for Z2_64 {
+    type SignedRepresentative = i64;
+
+    fn as_signed_representative(&self) -> Self::SignedRepresentative {
+        self.0 .0
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::*;
+
+    test_ring!(Z2_64, 100);
+}

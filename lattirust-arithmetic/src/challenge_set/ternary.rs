@@ -1,31 +1,31 @@
 use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
-use nalgebra::{ClosedAdd, ClosedSub, Scalar};
+use nalgebra::Scalar;
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
 use crate::linear_algebra::Matrix;
 use crate::linear_algebra::SymmetricMatrix;
-use crate::ring::{ConvertibleRing, SignedRepresentative};
+use crate::ring::Ring;
 use crate::traits::FromRandomBytes;
 
 pub struct TernaryChallengeSet<R> {
     _marker: std::marker::PhantomData<R>,
 }
 
-const SEC_PARAM: usize = 128;
-
-impl<F: ConvertibleRing> FromRandomBytes<F> for TernaryChallengeSet<F> {
-    fn byte_size() -> usize {
-        SEC_PARAM.next_power_of_two().ilog2() as usize + 2
+impl<F: Ring> FromRandomBytes<F> for TernaryChallengeSet<F> {
+    fn needs_bytes() -> usize {
+        1
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<F> {
-        assert_eq!(bytes.len(), Self::byte_size());
-        let v = (bytes.last()? % 3) as i128;
-        let s = SignedRepresentative(v - 1);
-        Some(Into::<F>::into(s))
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<F> {
+        Some(match bytes.last()? % 3 {
+            0 => F::zero(),
+            1 => F::one(),
+            2 => -F::one(),
+            _ => unreachable!(),
+        })
     }
 }
 
@@ -57,12 +57,11 @@ pub fn trit_to_field<F: Zero + One + Neg<Output = F>>(trit: Trit) -> F {
 }
 
 impl FromRandomBytes<Trit> for TernaryChallengeSet<Trit> {
-    fn byte_size() -> usize {
-        SEC_PARAM.next_power_of_two().ilog2() as usize + 2
+    fn needs_bytes() -> usize {
+        1
     }
 
-    fn try_from_random_bytes(bytes: &[u8]) -> Option<Trit> {
-        assert_eq!(bytes.len(), Self::byte_size());
+    fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Trit> {
         let v = (bytes.last()? % 3) as i8;
         let res = match v - 1 {
             -1 => Trit::MinusOne,
@@ -152,7 +151,7 @@ pub fn mul_trit_transpose_sym_trit<F>(
     c: &Matrix<Trit>,
 ) -> SymmetricMatrix<F>
 where
-    F: Clone + Zero + PartialEq + Debug + Send + Sync + ClosedAdd + ClosedSub + 'static,
+    F: Clone + Zero + PartialEq + Debug + Send + Sync + Ring + 'static,
 {
     assert_eq!(a.size(), c.nrows());
 
@@ -191,13 +190,13 @@ where
 mod tests {
     use ark_std::test_rng;
 
-    use crate::ring::Zq;
+    use crate::ring::Zq1;
 
     use super::*;
 
     const Q: u64 = 65537;
 
-    type F = Zq<Q>;
+    type F = Zq1<Q>;
 
     const M: usize = 64;
     const N: usize = 128;

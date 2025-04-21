@@ -1,28 +1,32 @@
+use std::ops::Mul;
 use log::debug;
-use nimue::{Merlin, ProofError, ProofResult};
+use nimue::{Arthur, ProofError, ProofResult};
 
-use lattirust_arithmetic::balanced_decomposition::{
+use lattirust_arithmetic::decomposition::balanced_decomposition::{
     recompose_left_right_symmetric_matrix, recompose_matrix,
 };
 use lattirust_arithmetic::challenge_set::ternary::{
     mul_f_trit, mul_trit_transpose_sym_trit, TernaryChallengeSet, Trit,
 };
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
-use lattirust_arithmetic::nimue::merlin::SerMerlin;
+use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::{ConvertibleRing, SignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::Ring;
 use lattirust_util::{check, check_eq};
 
 use crate::util::{Instance, PublicParameters};
 
-pub struct Verifier<F: ConvertibleRing> {
+pub struct Verifier<F: Ring> {
     _marker: std::marker::PhantomData<F>,
 }
 
-impl<F: ConvertibleRing> Verifier<F> {
+impl<F: Ring + WithSignedRepresentative> Verifier<F>
+where for<'a> &'a F: Mul<&'a F, Output = F>,
+{
     #[tracing::instrument]
     pub fn merge(
-        merlin: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
@@ -31,13 +35,13 @@ impl<F: ConvertibleRing> Verifier<F> {
         debug_assert_eq!(instance_1.commitment.ncols(), pp.inner_security_parameter);
         debug_assert_eq!(instance_2.commitment.ncols(), pp.inner_security_parameter);
 
-        let cross_terms = merlin
-            .next_matrix::<SignedRepresentative>(
+        let cross_terms = arthur
+            .next_matrix::<F>(
                 pp.inner_security_parameter,
                 pp.inner_security_parameter,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
         let mut commitment = instance_1.commitment;
         commitment.extend(instance_2.commitment.column_iter());
@@ -56,40 +60,40 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn reduce(
-        merlin: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance: Instance<F>,
     ) -> Result<Instance<F>, ProofError> {
         debug!("┌ Verifier::reduce");
         debug_assert_eq!(instance.commitment.ncols(), 2 * pp.inner_security_parameter);
-        let committed_decomp_witness = merlin
+        let committed_decomp_witness = arthur
             .next_matrix(
                 pp.commitment_mat.nrows(),
                 2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
-        let inner_products_decomp = merlin
-            .next_symmetric_matrix::<SignedRepresentative>(
+        let inner_products_decomp = arthur
+            .next_symmetric_matrix::<F>(
                 2 * pp.inner_security_parameter * pp.decomposition_length,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
-        let challenge = merlin
+        let challenge = arthur
             .challenge_matrix::<Trit, TernaryChallengeSet<Trit>>(
                 2 * pp.inner_security_parameter * pp.decomposition_length,
                 pp.inner_security_parameter,
             )
             .unwrap();
-        merlin.ratchet().unwrap();
+        arthur.ratchet().unwrap();
 
         // Check G^T * inner_products_decomp * G == instance.inner_products (over the integers)
-        let inner_products_recomp: SymmetricMatrix<SignedRepresentative> =
+        let inner_products_recomp: SymmetricMatrix<F> =
             recompose_left_right_symmetric_matrix(
                 &inner_products_decomp,
-                pp.powers_of_basis_int().as_slice(),
+                pp.powers_of_basis().as_slice(),
             );
 
         check_eq!(
@@ -99,7 +103,7 @@ impl<F: ConvertibleRing> Verifier<F> {
         );
 
         check_eq!(
-            recompose_matrix(&committed_decomp_witness, &pp.powers_of_basis().as_slice()),
+            recompose_matrix(&committed_decomp_witness, pp.powers_of_basis().as_slice()),
             instance.commitment,
             "commitments match"
         );
@@ -115,13 +119,13 @@ impl<F: ConvertibleRing> Verifier<F> {
 
     #[tracing::instrument]
     pub fn fold(
-        merlin: &mut Merlin,
+        arthur: &mut Arthur,
         pp: &PublicParameters<F>,
         instance_1: Instance<F>,
         instance_2: Instance<F>,
     ) -> ProofResult<Instance<F>> {
-        let merged_instance = Self::merge(merlin, pp, instance_1, instance_2).unwrap();
-        let folded_instance = Self::reduce(merlin, pp, merged_instance).unwrap();
+        let merged_instance = Self::merge(arthur, pp, instance_1, instance_2).unwrap();
+        let folded_instance = Self::reduce(arthur, pp, merged_instance).unwrap();
         Ok(folded_instance)
     }
 }

@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
@@ -9,23 +10,17 @@ use derive_more::{Display, From, Index, IndexMut, Into};
 use nalgebra::allocator::Allocator;
 use nalgebra::constraint::{DimEq, ShapeConstraint};
 use nalgebra::{
-    self, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned, RawStorage, Scalar,
-    Storage, StorageMut, ViewStorage,
+    self, ClosedMulAssign, Const, DefaultAllocator, Dim, DimMul, DimProd, DimRange, Owned,
+    RawStorage, Scalar, Storage, StorageMut, ViewStorage,
 };
 use num_traits::{One, Zero};
 use rayon::prelude::*;
 
 use crate::linear_algebra::vector::{GenericRowVector, GenericVector};
+use crate::linear_algebra::ClosedAddAssign;
 
-pub trait ClosedAdd: nalgebra::ClosedAdd {}
-impl<T> ClosedAdd for T where T: nalgebra::ClosedAdd {}
-#[allow(dead_code)]
-pub trait ClosedSub: nalgebra::ClosedSub {}
-impl<T> ClosedSub for T where T: nalgebra::ClosedSub {}
-pub trait ClosedMul: nalgebra::ClosedMul {}
-impl<T> ClosedMul for T where T: nalgebra::ClosedMul {}
-
-#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut, Hash)]
+#[derive(Clone, Copy, Debug, Display, From, Into, Index, IndexMut)]
+#[display("{}", _0)]
 pub struct GenericMatrix<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>>(
     pub(crate) nalgebra::Matrix<T, R, C, S>,
 );
@@ -59,7 +54,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
         to self.0 {
             #[into]
             pub fn map<O: Scalar, F: FnMut(T) -> O>(&self, f: F) -> GenericMatrix<O, R, C, Owned<O, R, C>>
-            where DefaultAllocator: Allocator<O, R, C>;
+            where DefaultAllocator: Allocator<R, C>;
         }
     }
 
@@ -103,7 +98,7 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 
     pub fn transpose(&self) -> GenericMatrix<T, C, R, Owned<T, C, R>>
     where
-        DefaultAllocator: nalgebra::allocator::Allocator<T, C, R>,
+        DefaultAllocator: Allocator<C, R>,
     {
         self.0.transpose().into()
     }
@@ -111,15 +106,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
 
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S> {
     pub type RowViewStorage<'b> = ViewStorage<'b, T, Const<1>, C, S::RStride, S::CStride>;
-    pub fn row_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a {
+    pub fn row_iter(
+        &self,
+    ) -> impl Iterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> {
         self.0.row_iter().map(|r| r.into())
     }
 
-    pub fn par_row_iter<'a>(
-        &'a self,
-    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>> + 'a
+    pub fn par_row_iter(
+        &self,
+    ) -> impl IndexedParallelIterator<Item = GenericRowVector<T, C, Self::RowViewStorage<'_>>>
     where
         T: Send + Sync,
     {
@@ -128,15 +123,15 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 
     pub type ColumnViewStorage<'b> = ViewStorage<'b, T, R, Const<1>, S::RStride, S::CStride>;
-    pub fn column_iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a {
+    pub fn column_iter(
+        &self,
+    ) -> impl Iterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> {
         self.0.column_iter().map(|c| c.into())
     }
 
-    pub fn par_column_iter<'a>(
-        &'a self,
-    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>> + 'a
+    pub fn par_column_iter(
+        &self,
+    ) -> impl ParallelIterator<Item = GenericVector<T, R, Self::ColumnViewStorage<'_>>>
     where
         T: Send + Sync,
         S: Sync,
@@ -145,24 +140,27 @@ impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> GenericMatrix<T, R, C, S
     }
 }
 
-impl<T: Scalar + ClosedAdd + ClosedMul + Zero, R: Dim, C: Dim, S: RawStorage<T, R, C>>
-    GenericMatrix<T, R, C, S>
+impl<
+        T: Scalar + ClosedAddAssign + ClosedMulAssign + Zero,
+        R: Dim,
+        C: Dim,
+        S: RawStorage<T, R, C>,
+    > GenericMatrix<T, R, C, S>
 {
     pub fn dot<R2: Dim, C2: Dim, S2: RawStorage<T, R2, C2>>(
         &self,
         rhs: &GenericMatrix<T, R2, C2, S2>,
     ) -> T
     where
-        S2: RawStorage<T, R2, C2>,
         ShapeConstraint: DimEq<R, R2> + DimEq<C, C2>,
     {
         self.0.dot(&rhs.0)
     }
 }
 
-impl<T: Scalar + ClosedMul, R: Dim, C: Dim, S: Storage<T, R, C>> GenericMatrix<T, R, C, S>
+impl<T: Scalar + ClosedMulAssign, R: Dim, C: Dim, S: Storage<T, R, C>> GenericMatrix<T, R, C, S>
 where
-    DefaultAllocator: Allocator<T, R, C>,
+    DefaultAllocator: Allocator<R, C>,
 {
     pub fn component_mul(&self, rhs: &Self) -> GenericMatrix<T, R, C, Owned<T, R, C>> {
         self.0.component_mul(&rhs.0).into()
@@ -188,6 +186,15 @@ where
 impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Eq for GenericMatrix<T, R, C, S> where
     nalgebra::Matrix<T, R, C, S>: Eq
 {
+}
+
+impl<T: Scalar, R: Dim, C: Dim, S: RawStorage<T, R, C>> Hash for GenericMatrix<T, R, C, S>
+where
+    nalgebra::Matrix<T, R, C, S>: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
 }
 
 /// Implement unary operation `GenericMatrix<T>` -> `GenericMatrix<TO>`
@@ -411,8 +418,12 @@ where
 //     }
 // }
 
-impl<T: Scalar + Zero + One + ClosedAdd + ClosedMul, R: Dim, C: Dim, S: Storage<T, R, C>>
-    GenericMatrix<T, R, C, S>
+impl<
+        T: Scalar + Zero + One + ClosedAddAssign + ClosedMulAssign,
+        R: Dim,
+        C: Dim,
+        S: Storage<T, R, C>,
+    > GenericMatrix<T, R, C, S>
 {
     pub fn kronecker<R2: Dim, C2: Dim, S2>(
         &self,
@@ -422,7 +433,7 @@ impl<T: Scalar + Zero + One + ClosedAdd + ClosedMul, R: Dim, C: Dim, S: Storage<
         R: DimMul<R2>,
         C: DimMul<C2>,
         S2: Storage<T, R2, C2>,
-        DefaultAllocator: Allocator<T, <R as DimMul<R2>>::Output, <C as DimMul<C2>>::Output>,
+        DefaultAllocator: Allocator<<R as DimMul<R2>>::Output, <C as DimMul<C2>>::Output>,
     {
         self.0.kronecker(&rhs.0).into()
     }

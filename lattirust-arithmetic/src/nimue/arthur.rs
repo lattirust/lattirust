@@ -1,85 +1,116 @@
-use ark_serialize::CanonicalSerialize;
-use ark_std::rand::{CryptoRng, RngCore};
-use nimue::{Arthur, ByteWriter, DuplexHash, IOPatternError};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use nimue::{Arthur, ByteReader, DuplexHash, IOPatternError};
+use num_traits::Zero;
 
 use crate::linear_algebra::{Matrix, Scalar, SymmetricMatrix, Vector};
-use crate::nimue::serialization::ToBytes;
+use crate::nimue::serialization::{FromBytes, ToBytes};
 
-pub trait SerArthur<H, R>
+pub trait SerArthur<H>
 where
     H: DuplexHash<u8>,
-    R: RngCore + CryptoRng,
-    Self: ByteWriter,
+    Self: ByteReader,
 {
-    fn absorb_serializable<S: ToBytes>(&mut self, msg: &S) -> Result<(), IOPatternError> {
-        match &msg.to_bytes() {
-            Ok(bytes) => self.add_bytes(bytes.as_slice()),
-            Err(e) => Err(IOPatternError::from(format! {"{:?}", e})),
-        }
+    fn err_to_io_pattern_error<E>(e: E) -> IOPatternError
+    where
+        E: std::fmt::Debug,
+    {
+        IOPatternError::from(format!("{:?}", e))
+    }
+    fn next_with_size<S: FromBytes>(&mut self, size: usize) -> Result<S, IOPatternError> {
+        let mut buf = vec![0u8; size];
+        self.fill_next_bytes(&mut buf)?;
+        S::from_bytes(buf.as_slice()).map_err(Self::err_to_io_pattern_error)
     }
 
-    fn absorb_canonical_serializable<S: CanonicalSerialize>(
+    fn next_like<S: FromBytes + ToBytes>(&mut self, like: &S) -> Result<S, IOPatternError> {
+        let size = like
+            .to_bytes()
+            .map_err(Self::err_to_io_pattern_error)?
+            .len();
+        self.next_with_size(size)
+    }
+
+    fn next_canonical_serializable_size<S: CanonicalSerialize + CanonicalDeserialize>(
         &mut self,
-        msg: &S,
-    ) -> Result<(), IOPatternError> {
-        let mut bytes = vec![];
-        match msg.serialize_compressed(&mut bytes) {
-            Ok(()) => self.add_bytes(bytes.as_slice()),
-            Err(e) => Err(IOPatternError::from(e.to_string())),
-        }
+        size: usize,
+    ) -> Result<S, IOPatternError> {
+        let mut buf = vec![0u8; size];
+        self.fill_next_bytes(&mut buf)?;
+        S::deserialize_compressed(buf.as_slice()).map_err(Self::err_to_io_pattern_error)
     }
 
-    fn absorb_vector<F: Scalar>(&mut self, vec: &Vector<F>) -> Result<(), IOPatternError>
-    where
-        Vector<F>: ToBytes,
-    {
-        self.absorb_serializable(vec)
-    }
-
-    fn absorb_vec<F: Scalar>(&mut self, vec: &Vec<F>) -> Result<(), IOPatternError>
-    where
-        Vec<F>: ToBytes,
-    {
-        self.absorb_serializable(vec)
-    }
-
-    fn absorb_vector_canonical<F: Scalar>(&mut self, vec: &Vector<F>) -> Result<(), IOPatternError>
-    where
-        Vector<F>: CanonicalSerialize,
-    {
-        self.absorb_canonical_serializable(vec)
-    }
-
-    fn absorb_vectors<F: Scalar>(&mut self, vecs: &Vec<Vector<F>>) -> Result<(), IOPatternError>
-    where
-        Vec<Vector<F>>: ToBytes,
-    {
-        self.absorb_serializable(vecs)
-    }
-
-    fn absorb_symmetric_matrix<F: Clone>(
+    fn next_like_canonical_serializable<S: CanonicalSerialize + CanonicalDeserialize>(
         &mut self,
-        mat: &SymmetricMatrix<F>,
-    ) -> Result<(), IOPatternError>
-    where
-        SymmetricMatrix<F>: ToBytes,
-    {
-        self.absorb_serializable(mat)
+        like: &S,
+    ) -> Result<S, IOPatternError> {
+        self.next_canonical_serializable_size(like.compressed_size())
     }
 
-    fn absorb_matrix<F: Scalar>(&mut self, mat: &Matrix<F>) -> Result<(), IOPatternError>
+    fn next_vec<F: Zero + Clone>(&mut self, n: usize) -> Result<Vec<F>, IOPatternError>
     where
-        Matrix<F>: CanonicalSerialize,
+        Vec<F>: ToBytes + FromBytes,
     {
-        self.absorb_canonical_serializable(mat)
+        self.next_like(&vec![F::zero(); n])
+    }
+    fn next_vector<F: Scalar + Zero>(&mut self, n: usize) -> Result<Vector<F>, IOPatternError>
+    where
+        Vector<F>: ToBytes + FromBytes,
+    {
+        self.next_like(&Vector::<F>::zeros(n))
     }
 
-    fn absorb_matrix_ser<F: Scalar>(&mut self, mat: &Matrix<F>) -> Result<(), IOPatternError>
+    fn next_vector_canonical<F: Scalar + Zero>(
+        &mut self,
+        n: usize,
+    ) -> Result<Vector<F>, IOPatternError>
     where
-        Matrix<F>: ToBytes,
+        Vector<F>: CanonicalSerialize + CanonicalDeserialize,
     {
-        self.absorb_serializable(mat)
+        self.next_like_canonical_serializable(&Vector::<F>::zeros(n))
+    }
+
+    fn next_vectors<F: Scalar + Zero>(
+        &mut self,
+        n: usize,
+        num_vectors: usize,
+    ) -> Result<Vec<Vector<F>>, IOPatternError>
+    where
+        Vec<Vector<F>>: ToBytes + FromBytes,
+    {
+        self.next_like(&vec![Vector::<F>::zeros(n); num_vectors])
+    }
+
+    fn next_symmetric_matrix<F: Zero + Clone>(
+        &mut self,
+        size: usize,
+    ) -> Result<SymmetricMatrix<F>, IOPatternError>
+    where
+        SymmetricMatrix<F>: ToBytes + FromBytes,
+    {
+        self.next_like(&SymmetricMatrix::<F>::zero(size))
+    }
+
+    fn next_matrix<F: Scalar + Zero>(
+        &mut self,
+        m: usize,
+        n: usize,
+    ) -> Result<Matrix<F>, IOPatternError>
+    where
+        Matrix<F>: CanonicalSerialize + CanonicalDeserialize,
+    {
+        self.next_like_canonical_serializable(&Matrix::<F>::zeros(m, n))
+    }
+
+    fn next_matrix_ser<F: Scalar + Zero>(
+        &mut self,
+        m: usize,
+        n: usize,
+    ) -> Result<Matrix<F>, IOPatternError>
+    where
+        Matrix<F>: FromBytes + ToBytes,
+    {
+        self.next_like(&Matrix::<F>::zeros(m, n))
     }
 }
 
-impl<H: DuplexHash<u8>, R: RngCore + CryptoRng> SerArthur<H, R> for Arthur<H, u8, R> {}
+impl<H> SerArthur<H> for Arthur<'_, H, u8> where H: DuplexHash<u8> {}

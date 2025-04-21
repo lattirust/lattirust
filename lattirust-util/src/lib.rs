@@ -20,7 +20,13 @@ macro_rules! check_eq {
         check!($a == $b);
     };
     ($a: expr, $b: expr, $arg: expr) => {
-        debug!("check_eq!(\n\t{:?}, \n\t{:?}, \n\t{}\n) => {}", $a, $b, $arg, $a == $b);
+        debug!(
+            "check_eq!(\n\t{:?}, \n\t{:?}, \n\t{}\n) => {}",
+            $a,
+            $b,
+            $arg,
+            $a == $b
+        );
         check!($a == $b);
     };
 }

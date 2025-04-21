@@ -1,56 +1,58 @@
 #![allow(non_snake_case)]
 
-use log::debug;
-use ark_relations::r1cs::ConstraintSystem;
-use nimue::{Merlin, ProofError};
 
+use nimue::{Arthur, ProofError, ProofResult};
+use num_traits::Zero;
+
+use lattirust_arithmetic::decomposition::DecompositionFriendlySignedRepresentative;
 use lattirust_arithmetic::challenge_set::labrador_challenge_set::LabradorChallengeSet;
 use lattirust_arithmetic::challenge_set::weighted_ternary::WeightedTernaryChallengeSet;
-use lattirust_arithmetic::nimue::merlin::SerMerlin;
+use lattirust_arithmetic::nimue::arthur::SerArthur;
 use lattirust_arithmetic::nimue::traits::ChallengeFromRandomBytes;
-use lattirust_arithmetic::ring::{PolyRing, UnsignedRepresentative};
+use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::FromRandomBytes;
-use lattirust_util::{check, check_eq};
+use lattirust_util::check;
+use relations::principal_relation::{Index, Instance};
+use relations::Relation;
 
-use crate::binary_r1cs::util::{BinaryR1CSCRS, BinaryR1CSTranscript, reduce, Z2};
-use crate::util::ark_sparse_matrices;
+use crate::binary_r1cs::util::{reduce, BinaryR1CSCRS, BinaryR1CSTranscript};
+use crate::binary_r1cs::BinaryR1CS;
 use crate::verifier::verify_principal_relation;
 
-pub fn verify_binary_r1cs<R: PolyRing>(
-    merlin: &mut Merlin,
-    cs: &ConstraintSystem<Z2>,
+pub fn verify_reduction_binaryr1cs_labradorpr<R: PolyRing>(
+    arthur: &mut Arthur,
     crs: &BinaryR1CSCRS<R>,
-) -> Result<(), ProofError>
+    index: &<BinaryR1CS as Relation>::Index,
+    instance: &<BinaryR1CS as Relation>::Instance,
+) -> ProofResult<(Index<R>, Instance<R>)>
 where
-    LabradorChallengeSet<R>: FromRandomBytes<R>,
-    WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
 {
-    //TODO: add crs and statement to transcript
+    let (A, B, C) = (&index.a, &index.b, &index.c);
 
-    let (A, B, C) = ark_sparse_matrices(cs);
+    let (k, n) = (crs.num_constraints, crs.num_variables);
+    
+    let t = arthur.next_vector(crs.A.nrows())?;
 
-    let d = R::dimension();
-    let (k, n) = (
-        cs.num_constraints,
-        cs.num_instance_variables + 1 + cs.num_witness_variables,
-    );
-
-    let t = merlin.next_vector(crs.m.div_ceil(d))?;
-
-    let alpha = merlin.challenge_binary_matrix(crs.security_parameter, k)?;
-    let beta = merlin.challenge_binary_matrix(crs.security_parameter, n)?;
-    let gamma = merlin.challenge_binary_matrix(crs.security_parameter, n)?;
+    let alpha = arthur.challenge_binary_matrix(crs.security_parameter, k)?;
+    let beta = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
+    let gamma = arthur.challenge_binary_matrix(crs.security_parameter, n)?;
 
     // delta_i is computed mod 2, i.e., over Z2
-    let delta = &alpha * &A + &beta * &B + &gamma * &C;
+    let delta = &alpha * A + &beta * B + &gamma * C;
 
-    let g = merlin.next_vector_canonical::<R::BaseRing>(crs.security_parameter)?;
+    let g = arthur.next_vector_canonical::<R::BaseRing>(crs.security_parameter)?;
 
-    for i in 0..g.len() {
+    for g_i in &g {
         // Check that all g_i's are even
-        check_eq!(Into::<UnsignedRepresentative>::into(g[i]).0 % 2, 0);
+        let two = R::BaseRing::try_from(2u128).unwrap().as_signed_representative();
+        check!(
+            (g_i.as_signed_representative() % two).is_zero()
+        );
     }
 
+    // TODO: ratchet to make sure we consumed everything?
     let transcript = BinaryR1CSTranscript {
         t,
         alpha,
@@ -59,9 +61,33 @@ where
         g,
         delta,
     };
-    let instance_pr = reduce(&crs, &cs, &transcript);
+    
+    let (index_pr, instance_pr) = reduce(crs, &transcript);
+    Ok((index_pr, instance_pr))
+}
 
-    merlin.ratchet()?;
+pub fn verify_binary_r1cs<R: PolyRing>(
+    arthur: &mut Arthur,
+    crs: &BinaryR1CSCRS<R>,
+    index: &<BinaryR1CS as Relation>::Index,
+    instance: &<BinaryR1CS as Relation>::Instance,
+) -> Result<(), ProofError>
+where
+    LabradorChallengeSet<R>: FromRandomBytes<R>,
+    WeightedTernaryChallengeSet<R>: FromRandomBytes<R>,
+    <R as PolyRing>::BaseRing: WithSignedRepresentative,
+    <<R as PolyRing>::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
 
-    verify_principal_relation(merlin, &instance_pr, &crs.core_crs)
+
+{
+    //TODO: add crs and statement to transcript
+    let (index_pr,  instance_pr) =
+        verify_reduction_binaryr1cs_labradorpr(arthur, crs, index, instance)?;
+
+    arthur.ratchet()?;
+    
+    let crs_pr = &crs.core_crs.to_owned().unwrap();
+
+    verify_principal_relation(arthur, &crs_pr, &index_pr, &instance_pr)
 }
