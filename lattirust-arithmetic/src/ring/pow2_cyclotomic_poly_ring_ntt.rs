@@ -77,7 +77,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     pub fn ntt_values(&self) -> Vec<BaseRing> {
         self.0.iter().cloned().collect()
     }
-    
+
     pub fn ntt_array(&self) -> [BaseRing; N] {
         self.0.0.data.0[0]
     }
@@ -137,7 +137,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Ring for Pow2CyclotomicPolyRingNTT<Ba
         let ntt_inv = self.ntt_array().try_map(|c| c.inverse())?;
         Some(Self::from_ntt_array(ntt_inv))
     }
-} 
+}
 
 impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Self>
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>

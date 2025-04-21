@@ -1,17 +1,18 @@
 #![allow(non_snake_case)]
 
-use std::fmt::{Debug, Display};
+use std::fmt::{ Debug, Display };
 use std::hash::Hash;
-use std::iter::{Product, Sum};
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::iter::{ Product, Sum };
+use std::ops::{ Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign };
 
-use ark_ff::{AdditiveGroup, BitIteratorBE, BitIteratorLE, Field};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_ff::{ AdditiveGroup, BitIteratorBE, BitIteratorLE, Field};
+use ark_serialize::{ CanonicalDeserialize, CanonicalSerialize };
 use ark_std::UniformRand;
-use num_traits::{One, Zero};
+use num_traits::{ One, Zero };
 
 pub use ntt::NttRing;
 // Exports
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 pub use poly_ring::PolyRing;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
@@ -20,8 +21,8 @@ pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::*;
 
-use crate::nimue::serialization::{FromBytes, ToBytes};
-use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
+use crate::nimue::serialization::{ FromBytes, ToBytes };
+use crate::traits::{ FromRandomBytes, Modulus , WithL2Norm, WithLinfNorm};
 
 pub mod ntt;
 mod poly_ring;
@@ -130,7 +131,6 @@ pub trait Ring:
         }
         res
     }
-
 
     /// Exponentiates a field element `f` by a number represented with `u64`
     /// limbs, using a precomputed table containing as many powers of 2 of

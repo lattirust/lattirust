@@ -33,6 +33,11 @@ pub trait PolyRing:
     fn dimension() -> usize;
 
     fn from_scalar(scalar: Self::BaseRing) -> Self;
+
+    #[inline]
+    fn x() -> Self {
+        Self::from(vec![Self::BaseRing::ZERO, Self::BaseRing::ONE])
+    }
 }
 
 #[macro_export]
