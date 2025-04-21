@@ -60,20 +60,19 @@ where
     S: RawStorage<T, Dyn, Const<1>>,
     DefaultAllocator: Allocator<Dyn, Const<1>>,
 {
-    pub type VectorBuffer = <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>;
     pub fn from_fn<F: FnMut(usize, usize) -> T>(
         n: usize,
         f: F,
-    ) -> GenericVector<T, Dyn, Self::VectorBuffer> {
-        nalgebra::Vector::<T, Dyn, Self::VectorBuffer>::from_fn(n, f).into()
+    ) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
+        nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_fn(n, f).into()
     }
 
-    pub fn from_vec(v: Vec<T>) -> GenericVector<T, Dyn, Self::VectorBuffer> {
-        nalgebra::Vector::<T, Dyn, Self::VectorBuffer>::from_vec(v).into()
+    pub fn from_vec(v: Vec<T>) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
+        nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_vec(v).into()
     }
 
-    pub fn from_element(n: usize, element: T) -> GenericVector<T, Dyn, Self::VectorBuffer> {
-        nalgebra::Vector::<T, Dyn, Self::VectorBuffer>::from_element(n, element).into()
+    pub fn from_element(n: usize, element: T) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
+        nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_element(n, element).into()
     }
 
     pub fn from_slice(data: &[T]) -> GenericVector<T, Dyn, Owned<T, Dyn, Const<1>>> {

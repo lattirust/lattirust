@@ -673,6 +673,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "displaydoc"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "educe"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -682,17 +693,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
-]
-
-[[package]]
-name = "displaydoc"
-version = "0.2.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97369cbbc041bc366949bc74d34658d6cda5621039731c6310521892a3a20ae0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.66",
 ]
 
 [[package]]
@@ -1105,10 +1105,10 @@ dependencies = [
  "delegate-attr",
  "derivative",
  "derive_more",
+ "displaydoc",
  "i256",
  "itertools 0.14.0",
  "log",
- "displaydoc",
  "nalgebra",
  "nalgebra-sparse",
  "nimue",
@@ -1128,7 +1128,6 @@ name = "lattirust-util"
 version = "0.0.1-alpha"
 dependencies = [
  "log",
- "nimue",
 ]
 
 [[package]]

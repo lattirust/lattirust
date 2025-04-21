@@ -10,9 +10,8 @@ use ark_serialize::{ CanonicalDeserialize, CanonicalSerialize };
 use ark_std::UniformRand;
 use num_traits::{ One, Zero };
 
-pub use ntt::NttRing;
 // Exports
-pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
+pub use ntt::NttRing;
 pub use poly_ring::PolyRing;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
