@@ -14,6 +14,7 @@ use crate::linear_algebra::{
 use crate::ring::Ring;
 
 pub mod balanced_decomposition;
+#[allow(clippy::module_inception)]
 pub mod decomposition;
 
 pub trait DecompositionFriendlySignedRepresentative:

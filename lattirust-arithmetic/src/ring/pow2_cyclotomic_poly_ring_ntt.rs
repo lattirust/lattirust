@@ -7,7 +7,6 @@ use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
 };
-use ark_std::iterable::Iterable;
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
 use derive_more::{Add, AddAssign, Display, From, Into, Sub, SubAssign, Sum};
@@ -409,7 +408,7 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
     type BaseRing = BaseRing;
 
     /// Return the coefficients of the polynomial in non-NTT form.
-    fn coefficients(&self) -> Vec<Self::BaseRing> {
+    fn coefficients(&self) -> Vec<BaseRing> {
         let mut coeffs = self.0 .0.into();
         Self::intt(&mut coeffs);
         coeffs.to_vec()
@@ -424,7 +423,7 @@ impl<BaseRing: NttRing<N>, const N: usize> PolyRing for Pow2CyclotomicPolyRingNT
         N
     }
 
-    fn from_scalar(v: Self::BaseRing) -> Self {
+    fn from_scalar(v: BaseRing) -> Self {
         // NTT([v, 0, ..., 0]) = ([v, ..., v])
         Self::from_ntt_array([v; N])
     }

@@ -4,7 +4,7 @@ use crate::traits::FromRandomBytes;
 
 impl<C: FpConfig<N>, const N: usize> FromRandomBytes<Fp<C, N>> for Fp<C, N> {
     fn needs_bytes() -> usize {
-        (<Self as PrimeField>::MODULUS_BIT_SIZE as usize + 7) / 8
+        <Self as PrimeField>::MODULUS_BIT_SIZE.div_ceil(8) as usize
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Fp<C, N>> {
