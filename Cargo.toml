@@ -3,8 +3,6 @@ members = [
     "lattirust-arithmetic",
     "lattice-estimator",
     "relations",
-    "labrador",
-    "lova"
 ]
 resolver = "2"
 
