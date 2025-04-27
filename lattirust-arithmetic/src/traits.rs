@@ -279,14 +279,20 @@ where
 
 pub trait WithConjugationAutomorphism {
     /// Apply the automorphism X -> X^{-1} to self
-    fn apply_automorphism(&self) -> Self where Self: PolyRing;
+    fn apply_automorphism(&self) -> Self
+    where
+        Self: PolyRing;
 
     /// Apply the automorphism X -> X^{-1} to each element of `vec`
     fn apply_automorphism_vec(vec: &Vector<Self>) -> Vector<Self>
     where
         Self: PolyRing,
     {
-        Vector::<Self>::from(vec.iter().map(|x| x.apply_automorphism()).collect::<Vec<Self>>())
+        Vector::<Self>::from(
+            vec.iter()
+                .map(|x| x.apply_automorphism())
+                .collect::<Vec<Self>>(),
+        )
     }
 }
 
@@ -321,7 +327,7 @@ macro_rules! test_conjugation_automorphism {
                 let inner_prod = a_coeffs.dot(&b_coeffs);
                 let a_sigma = a.apply_automorphism();
                 let a_b = a_sigma * b;
-                
+
                 assert_eq!(inner_prod, a_b.coefficients()[0]);
             }
         }

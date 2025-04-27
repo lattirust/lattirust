@@ -1,5 +1,5 @@
 use std::iter::Sum;
-use std::ops::{Add, Div, Mul, Rem, Sub};
+use std::ops::Mul;
 
 use nalgebra::Scalar;
 use num_traits::{Signed, Zero};
@@ -18,28 +18,12 @@ pub mod balanced_decomposition;
 pub mod decomposition;
 
 pub trait DecompositionFriendlySignedRepresentative:
-    Clone
-    + Zero
-    + Signed
-    + RoundedDiv<Output = Self>
-    + Div<Self, Output = Self>
-    + Rem<Self, Output = Self>
-    + Add<Self, Output = Self>
-    + Sub<Self, Output = Self>
-    + PartialOrd
+    Clone + Zero + Signed + RoundedDiv<Output = Self> + PartialOrd
 {
 }
 
 impl<T> DecompositionFriendlySignedRepresentative for T where
-    T: Clone
-        + Zero
-        + Signed
-        + RoundedDiv<Output = Self>
-        + Div<Self, Output = Self>
-        + Rem<Self, Output = Self>
-        + Add<Self, Output = Self>
-        + Sub<Self, Output = Self>
-        + PartialOrd
+    T: Clone + Zero + Signed + RoundedDiv<Output = Self> + PartialOrd
 {
 }
 
@@ -144,7 +128,7 @@ where
 {
     vec.par_iter()
         .enumerate()
-        .map(|(i, v_i)| *v_i * basis.pow([i as u64]))
+        .map(|(i, v_i)| *v_i * basis.pow(i as u64))
         .sum()
 }
 

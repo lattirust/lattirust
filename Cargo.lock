@@ -627,6 +627,7 @@ dependencies = [
  "nalgebra-sparse",
  "nimue",
  "num-bigint",
+ "num-integer",
  "num-traits",
  "paste",
  "rand 0.9.1",

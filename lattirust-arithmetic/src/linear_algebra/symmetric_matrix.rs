@@ -202,7 +202,7 @@ impl<F: Clone + UniformRand> SymmetricMatrix<F> {
 
 impl<'a, F: Clone, O: Clone> Mul<&'a F> for &'a SymmetricMatrix<F>
 where
-    &'a F: Mul<&'a F, Output=O>,
+    &'a F: Mul<&'a F, Output = O>,
 {
     type Output = SymmetricMatrix<O>;
 
@@ -218,7 +218,7 @@ where
 
 impl<F: Clone, R: Clone, O: Clone> Mul<R> for SymmetricMatrix<F>
 where
-    F: Mul<R, Output=O>,
+    F: Mul<R, Output = O>,
 {
     type Output = SymmetricMatrix<O>;
 
@@ -235,7 +235,7 @@ where
 // TODO: implement for &
 impl<L: Clone, R: Clone, O: Clone> Add<SymmetricMatrix<R>> for SymmetricMatrix<L>
 where
-    L: Add<R, Output=O>,
+    L: Add<R, Output = O>,
 {
     type Output = SymmetricMatrix<O>;
 

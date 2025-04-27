@@ -15,8 +15,8 @@ use num_traits::{One, Zero};
 
 use crate::linear_algebra::SVector;
 use crate::ring::ntt::NttRing;
-use crate::ring::PolyRing;
 use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
+use crate::ring::PolyRing;
 use crate::ring::Ring;
 use crate::traits::{
     FromRandomBytes, Modulus, WithConjugationAutomorphism, WithL2Norm, WithLinfNorm,
@@ -78,7 +78,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     }
 
     pub fn ntt_array(&self) -> [BaseRing; N] {
-        self.0.0.data.0[0]
+        self.0 .0.data.0[0]
     }
 }
 
@@ -484,8 +484,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::*;
     use crate::ring::Zq1;
+    use crate::*;
 
     use super::*;
 

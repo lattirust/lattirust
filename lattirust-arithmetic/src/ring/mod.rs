@@ -1,14 +1,14 @@
 #![allow(non_snake_case)]
 
-use std::fmt::{ Debug, Display };
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
-use std::iter::{ Product, Sum };
-use std::ops::{ Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign };
+use std::iter::{Product, Sum};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{ AdditiveGroup, BitIteratorBE, BitIteratorLE, Field};
-use ark_serialize::{ CanonicalDeserialize, CanonicalSerialize };
+use ark_ff::{AdditiveGroup, BitIteratorBE, BitIteratorLE, Field};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
-use num_traits::{ One, Zero };
+use num_traits::{One, Zero};
 
 // Exports
 pub use ntt::NttRing;
@@ -20,9 +20,10 @@ pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::*;
 
-use crate::nimue::serialization::{ FromBytes, ToBytes };
-use crate::traits::{ FromRandomBytes, Modulus , WithL2Norm, WithLinfNorm};
+use crate::nimue::serialization::{FromBytes, ToBytes};
+use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
 
+mod f_p;
 pub mod ntt;
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
@@ -33,7 +34,6 @@ mod z_2;
 mod z_2_128;
 mod z_2_64;
 mod z_q;
-pub(crate) mod z_q_signed_representative;
 // pub mod pow2_cyclotomic_poly_ring_ntt_crt;
 
 pub trait Ring:
@@ -81,6 +81,7 @@ pub trait Ring:
 + Product<Self>
 + for<'a> Product<&'a Self>
 + Sum<Self>
+// + Pow<u64>
 + TryFrom<u128, Error: Debug>
 + TryFrom<u64, Error: Debug>
 + TryFrom<u32, Error: Debug>
@@ -103,11 +104,7 @@ pub trait Ring:
     /// Returns `sum([a_i * b_i])`.
     #[inline]
     fn sum_of_products<const T: usize>(a: &[Self; T], b: &[Self; T]) -> Self {
-        let mut sum = Self::zero();
-        for i in 0..a.len() {
-            sum += a[i] * b[i];
-        }
-        sum
+        a.iter().zip(b.iter()).map(|(a, b)| *a * *b).sum()
     }
 
     fn square_in_place(&mut self) -> &mut Self {
@@ -115,10 +112,16 @@ pub trait Ring:
         self
     }
 
+    /// Returns `self^exp`
+    fn pow<N: Into<u64>>(&self, exp: N) -> Self {
+        self.pow_limbs([Into::into(exp)])
+    }
+
+    // TODO: replace with a bound `Ring: Pow`
     /// Returns `self^exp`, where `exp` is an integer represented with `u64` limbs,
     /// least significant limb first.
     #[must_use]
-    fn pow<S: AsRef<[u64]>>(&self, exp: S) -> Self {
+    fn pow_limbs<S: AsRef<[u64]>>(&self, exp: S) -> Self {
         let mut res = Self::one();
 
         for i in BitIteratorBE::without_leading_zeros(exp) {
@@ -195,10 +198,28 @@ macro_rules! test_ring {
 }
 
 #[macro_export]
+macro_rules! test_field_ring {
+    ($T:ty, $N:expr) => {
+        test_associative_addition!($T, $N);
+        test_associative_multiplication!($T, $N);
+        test_distributive!($T, $N);
+        test_identity_addition!($T, $N);
+        test_identity_multiplication!($T, $N);
+        test_inverse_addition!($T, $N);
+        test_inverse_multiplication_field!($T, $N);
+        test_inverse_multiplication_ring!($T, $N);
+        test_canonical_serialize_deserialize_uncompressed!($T, $N);
+        test_canonical_serialize_deserialize_compressed!($T, $N);
+    };
+}
+
+#[macro_export]
 macro_rules! test_distributive {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_distributive() {
+            use ark_std::UniformRand;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -217,6 +238,8 @@ macro_rules! test_associative_addition {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_associative_addition() {
+            use ark_std::UniformRand;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -234,6 +257,8 @@ macro_rules! test_associative_multiplication {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_associative_multiplication() {
+            use ark_std::UniformRand;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -251,6 +276,9 @@ macro_rules! test_identity_addition {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_identity_addition() {
+            use ark_std::UniformRand;
+            use num_traits::Zero;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -267,6 +295,9 @@ macro_rules! test_identity_multiplication {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_identity_multiplication() {
+            use ark_std::UniformRand;
+            use num_traits::One;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -283,6 +314,9 @@ macro_rules! test_inverse_addition {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_inverse_addition() {
+            use ark_std::UniformRand;
+            use num_traits::Zero;
+
             let rng = &mut ark_std::test_rng();
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -299,11 +333,12 @@ macro_rules! test_inverse_multiplication_ring {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_inverse_multiplication_ring() {
+            use $crate::ring::Ring;
+            use ark_std::UniformRand;
+            use num_traits::{One, Zero};
+
             let rng = &mut ark_std::test_rng();
-            assert_eq!(
-                <$T as Ring>::inverse(&<$T>::one()).unwrap(),
-                <$T>::one()
-            );
+            assert_eq!(<$T as Ring>::inverse(&<$T>::one()).unwrap(), <$T>::one());
             assert_eq!(<$T as Ring>::inverse(&<$T>::zero()), None);
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -322,11 +357,12 @@ macro_rules! test_inverse_multiplication_field {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_inverse_multiplication_field() {
+            use ark_ff::Field;
+            use ark_std::UniformRand;
+            use num_traits::{One, Zero};
+
             let rng = &mut ark_std::test_rng();
-            assert_eq!(
-                <$T as Field>::inverse(&<$T>::one()).unwrap(),
-                <$T>::one()
-            );
+            assert_eq!(<$T as Field>::inverse(&<$T>::one()).unwrap(), <$T>::one());
             assert_eq!(<$T as Field>::inverse(&<$T>::zero()), None);
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
@@ -345,6 +381,9 @@ macro_rules! test_canonical_serialize_deserialize_compressed {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_canonical_serialize_deserialize_compressed() {
+            use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
+            use ark_std::UniformRand;
+
             let rng = &mut ark_std::test_rng();
 
             for _ in 0..$N {
@@ -368,6 +407,9 @@ macro_rules! test_canonical_serialize_deserialize_uncompressed {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_canonical_serialize_deserialize_uncompressed() {
+            use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Compress, Validate};
+            use ark_std::UniformRand;
+
             let rng = &mut ark_std::test_rng();
 
             for _ in 0..$N {

@@ -1,6 +1,7 @@
 use ark_ff::{BigInt, Fp, Fp64, MontBackend};
 
-use crate::ring::{Fq, fq_zero, FqConfig, Ring};
+use crate::ring::f_p::{fq_zero, Fq, FqConfig};
+use crate::ring::Ring;
 
 /// Return x^k mod Q
 pub const fn const_pow_mod<const Q: u64>(x: u64, k: u64) -> u64 {
@@ -165,12 +166,12 @@ pub const fn const_fq_from<const Q: u64>(x: u64) -> Fp64<MontBackend<FqConfig<Q>
 
 pub const fn is_primitive_root_of_unity<const Q: u64>(x: u64, n: u64) -> bool {
     assert!(n.is_power_of_two());
-    if (const_pow_mod::<Q>(x, n/2) !=  Q-1) || (const_pow_mod::<Q>(x, n) != 1) {
+    if (const_pow_mod::<Q>(x, n / 2) != Q - 1) || (const_pow_mod::<Q>(x, n) != 1) {
         return false;
     }
     let mut i = 1;
     while i < n {
-        if const_pow_mod::<Q>(x, i) == 1{
+        if const_pow_mod::<Q>(x, i) == 1 {
             return false;
         }
         i += 1;
@@ -437,19 +438,17 @@ mod tests {
             paste::expr! {
                 #[test]
                 fn [< test_two_nth_primitive_root_of_unity_ $Q _ $N >] () {
-                    use ark_ff::Field;
-
                     let psi = Fq::<$Q>::from(two_nth_primitive_root_of_unity::<$Q, $N>());
-                    assert_eq!(psi.pow([($N) as u64]), -Fq::<$Q>::one());
-                    assert_eq!(psi.pow([(2 * $N) as u64]), Fq::<$Q>::one());
+                    assert_eq!(Ring::pow(&psi, ($N) as u64), -Fq::<$Q>::one());
+                    assert_eq!(Ring::pow(&psi, (2 * $N) as u64), Fq::<$Q>::one());
                     for i in 1..(2 * $N) {
                         assert_ne!(
-                            psi.pow([i as u64]),
+                            psi.pow(i as u64),
                             Fq::<$Q>::one(),
                             "psi^i = {}^{} = {} should not be 1",
                             psi,
                             i,
-                            psi.pow([i as u64])
+                            psi.pow(i as u64)
                         );
                     }
                 }

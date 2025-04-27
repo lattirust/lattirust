@@ -14,9 +14,7 @@ use crate::linear_algebra::{
 use crate::ring::representatives::WithSignedRepresentative;
 use crate::ring::{PolyRing, Ring};
 
-use super::{
-    pad_and_transpose, DecompositionFriendlySignedRepresentative,
-};
+use super::{pad_and_transpose, DecompositionFriendlySignedRepresentative};
 
 /// Returns the maximum number of terms in the balanced decomposition in basis `b` of any `x` with $|\textt{x}| \leq \textt{max}$.
 pub fn balanced_decomposition_max_length(b: u128, max: BigUint) -> usize {
@@ -173,11 +171,14 @@ where
     <PR::BaseRing as WithSignedRepresentative>::SignedRepresentative:
         DecompositionFriendlySignedRepresentative,
 {
-    let decomp: Vec<Vec<Vec<PR>>> = v.iter().map(
-        |v_i| v_i.iter().map(
-            |v_ij| decompose_balanced_polyring(v_ij, b, padding_size)
-        ).collect()
-    ).collect(); // m x n x k
+    let decomp: Vec<Vec<Vec<PR>>> = v
+        .iter()
+        .map(|v_i| {
+            v_i.iter()
+                .map(|v_ij| decompose_balanced_polyring(v_ij, b, padding_size))
+                .collect()
+        })
+        .collect(); // m x n x k
 
     let m = v.len();
     let n = v[0].len();
@@ -236,7 +237,7 @@ where
 {
     vec.par_iter()
         .enumerate()
-        .map(|(i, v_i)| *v_i * basis.pow([i as u64]))
+        .map(|(i, v_i)| *v_i * basis.pow(i as u64))
         .sum()
 }
 
@@ -398,7 +399,8 @@ mod tests {
                     .map(|v| v + R::try_from(i as u64).unwrap())
                     .collect::<Vec<_>>()
                     .as_slice(),
-            ).unwrap()
+            )
+            .unwrap()
         });
         for b in BASIS_TEST_RANGE {
             let b_half = b / 2;
@@ -415,7 +417,7 @@ mod tests {
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
                 recomposed +=
-                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), [i as u64]));
+                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), i as u64));
             }
             assert_eq!(v, recomposed);
         }

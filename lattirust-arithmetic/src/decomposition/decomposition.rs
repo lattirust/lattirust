@@ -168,10 +168,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ark_std::test_rng;
     use crate::decomposition::balanced_decomposition::recompose;
     use crate::decomposition::{recompose_left_right_symmetric_matrix, recompose_matrix};
     use crate::linear_algebra::SymmetricMatrix;
+    use ark_std::test_rng;
 
     use crate::ring;
     use crate::ring::ntt::ntt_prime;
@@ -268,7 +268,8 @@ mod tests {
                     .map(|v| v + R::try_from(i as u64).unwrap())
                     .collect::<Vec<_>>()
                     .as_slice(),
-            ).unwrap()
+            )
+            .unwrap()
         });
         for b in BASIS_TEST_RANGE {
             let decomp = decompose_vec_polyring::<PolyR>(&v.as_slice(), b, None);
@@ -284,7 +285,7 @@ mod tests {
             let mut recomposed = Vector::<PolyR>::zeros(v.len());
             for (i, v_i) in decomp.iter().enumerate() {
                 recomposed +=
-                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), [i as u64]));
+                    v_i * PolyR::from_scalar(Ring::pow(&R::try_from(b).unwrap(), i as u64));
             }
             assert_eq!(v, recomposed);
         }
@@ -293,7 +294,7 @@ mod tests {
     #[test]
     pub fn test_decompose_matrix() {
         use num_traits::Signed;
-        
+
         const NROWS: usize = 101;
         const NCOLS: usize = 42;
 

@@ -3,7 +3,8 @@ use ark_std::rand;
 use delegate::delegate;
 use nalgebra::allocator::Allocator;
 use nalgebra::{
-    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, IsContiguous, Owned, RawStorage, VecStorage, ViewStorage
+    self, ArrayStorage, Const, DefaultAllocator, Dim, Dyn, IsContiguous, Owned, RawStorage,
+    VecStorage, ViewStorage,
 };
 use num_bigint::BigUint;
 use num_traits::Zero;
@@ -67,11 +68,16 @@ where
         nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_fn(n, f).into()
     }
 
-    pub fn from_vec(v: Vec<T>) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
+    pub fn from_vec(
+        v: Vec<T>,
+    ) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
         nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_vec(v).into()
     }
 
-    pub fn from_element(n: usize, element: T) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
+    pub fn from_element(
+        n: usize,
+        element: T,
+    ) -> GenericVector<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>> {
         nalgebra::Vector::<T, Dyn, <DefaultAllocator as Allocator<Dyn, Const<1>>>::Buffer<T>>::from_element(n, element).into()
     }
 
@@ -99,7 +105,11 @@ impl<T: UniformRand + Scalar> Vector<T> {
         Self::from_fn(n, |_, _| T::rand(rng))
     }
 
-    pub fn rand_vector_with_bounded_norm<Rng: rand::Rng + ?Sized>(n: usize, norm_bound: i128, rng: &mut Rng) -> Self
+    pub fn rand_vector_with_bounded_norm<Rng: rand::Rng + ?Sized>(
+        n: usize,
+        norm_bound: i128,
+        rng: &mut Rng,
+    ) -> Self
     where
         T: WithSignedRepresentative,
     {

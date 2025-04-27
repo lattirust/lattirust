@@ -29,13 +29,15 @@ use zeroize::Zeroize;
 
 use crate::decomposition::DecompositionFriendlySignedRepresentative;
 use crate::impl_try_from_primitive_type;
-use crate::ring::ntt::{const_fq_from, const_pow_mod, generator, is_primitive_root_of_unity, Ntt, two_adic_root_of_unity};
-use crate::ring::representatives::WithSignedRepresentative;
-use crate::ring::z_q_signed_representative::ZqSignedRepresentative;
+use crate::ring::ntt::{
+    const_fq_from, const_pow_mod, generator, is_primitive_root_of_unity, two_adic_root_of_unity,
+    Ntt,
+};
+use crate::ring::representatives::{SignedRepresentative, WithSignedRepresentative};
 use crate::ring::{NttRing, Ring};
 use crate::traits::{FromRandomBytes, Modulus, WithLinfNorm};
 
-pub struct FqConfig<const Q: u64> {}
+use crate::ring::f_p::{fq_zero, Fq, FqConfig};
 
 const fn to_bigint_assert_odd_prime<const Q: u64>() -> BigInt<1> {
     assert!(
@@ -43,21 +45,6 @@ const fn to_bigint_assert_odd_prime<const Q: u64>() -> BigInt<1> {
         "You tried to instantiate an FqConfig<Q> with either Q = 2 or Q not a prime"
     );
     BigInt::<1>([Q])
-}
-
-impl<const Q: u64> MontConfig<1> for FqConfig<Q> {
-    const MODULUS: BigInt<1> = to_bigint_assert_odd_prime::<Q>(); // Fails at compile time if Q is not an odd prime
-
-    // TODO: As far as I can tell, `GENERATOR`and `TWO_ADIC_ROOT_OF_UNITY` are only used for FftField.
-    const GENERATOR: Fp<MontBackend<Self, 1>, 1> = const_fq_from(generator::<Q>());
-    const TWO_ADIC_ROOT_OF_UNITY: Fp<MontBackend<Self, 1>, 1> = const_fq_from(two_adic_root_of_unity::<Q>());
-}
-
-/// `Fq<Q>` is a prime field with modulus `Q`, where `Q` is less than 64 bits.
-pub type Fq<const Q: u64> = Fp64<MontBackend<FqConfig<Q>, 1>>;
-
-pub const fn fq_zero<const Q: u64>() -> Fq<Q> {
-    MontBackend::<FqConfig<Q>, 1>::ZERO
 }
 
 pub trait ZqConfig<const L: usize>: Send + Sync + 'static + Sized {
@@ -573,37 +560,34 @@ fn rns_coeffs<const L: usize>(qs: [u64; L]) -> [BigUint; L] {
     res
 }
 
-/// Map (-h, h] to [0, q) using [0, h] -> [0, h] and (-h, 0) -> (h, q), where h = floor((q-1)/2)
-impl<C: ZqConfig<L>, const L: usize> From<ZqSignedRepresentative> for Zq<C, L> {
-    fn from(value: ZqSignedRepresentative) -> Self {
-        if value.0.is_negative() {
-            C::from_bigint(
-                BigInt::<L>::try_from(Zq::<C, L>::modulus() - BigUint::try_from(-value.0).unwrap())
-                    .unwrap(),
-            )
-            .unwrap()
-        } else {
-            C::from_bigint(BigInt::<L>::try_from(BigUint::try_from(value.0).unwrap()).unwrap())
-                .unwrap()
-        }
-    }
-}
-
-/// Map [0, q) to (-h, h] using [0, h] -> [0, h] and (h, q) -> (-h, 0), where h = floor((q-1)/2)
-impl<C: ZqConfig<L>, const L: usize> From<Zq<C, L>> for ZqSignedRepresentative {
+impl<C: ZqConfig<L>, const L: usize> From<Zq<C, L>> for BigUint {
     fn from(value: Zq<C, L>) -> Self {
-        let q_half = (Zq::<C, L>::modulus() - BigUint::one()) / BigUint::from(2u8);
-        let v = num_bigint::BigInt::from(BigUint::from(C::into_bigint(value)));
-        if v > num_bigint::BigInt::from(q_half) {
-            ZqSignedRepresentative(v - num_bigint::BigInt::from(Zq::<C, L>::modulus()))
-        } else {
-            ZqSignedRepresentative(v)
-        }
+        C::into_bigint(value).into()
     }
 }
 
+impl<M: Modulus, C: ZqConfig<L>, const L: usize> From<SignedRepresentative<M>> for Zq<C, L> {
+    fn from(value: SignedRepresentative<M>) -> Self {
+        if Self::modulus() < M::modulus() {
+            panic!("Cannot convert signed representative to {}, as the signed representative modulus {} is larger than the modulus {}.", M::modulus(), std::any::type_name::<Self>(),  Self::modulus());
+        }
+        let mut bigint = value.0;
+        if bigint.is_negative() {
+            let modulus: num_bigint::BigInt = Self::modulus().into();
+            bigint = bigint + modulus;
+        }
+        let biguint: BigUint = bigint.to_biguint().unwrap();
+        Self::try_from(biguint).unwrap()
+    }
+}
+
+// TODO: more efficient implementation based on CRT decomposition and signed Fp implementation?
 impl<C: ZqConfig<L>, const L: usize> WithSignedRepresentative for Zq<C, L> {
-    type SignedRepresentative = ZqSignedRepresentative;
+    type SignedRepresentative = SignedRepresentative<Zq<C, L>>;
+
+    fn as_signed_representative(&self) -> Self::SignedRepresentative {
+        (*self).clone().into()
+    }
 }
 
 const fn all_distinct<const N: usize>(xs: [u64; N]) -> bool {
@@ -816,25 +800,6 @@ macro_rules! test_zq_config_impl {
     }
 }
 
-macro_rules! test_fq {
-    ($($q:expr,)*) => {
-        paste::expr! {
-            $(
-                #[test]
-                fn [< test_f $q >]() {
-                    let biguint = BigUint::from(1u64);
-                    let x = BigInt::<1>::try_from(&biguint % &BigUint::from($q as u64)).unwrap();
-                    let f = Fq::<$q>::new(x);
-                    let y = f.into_bigint();
-                    assert_eq!(x, y);
-                    assert!(f.is_one());
-                    assert!(!f.is_zero());
-                }
-            )*
-        }
-    };
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -851,41 +816,6 @@ mod test {
     const Q8: u64 = 27644437; // Not NTT-friendly
     const Q9: u64 = 200560490131; // Not NTT-friendly
     const Q10: u64 = 7; // Not NTT-friendly
-
-    #[cfg(test)]
-    mod test_f1 {
-        use super::*;
-        type F = Fq<Q1>;
-        test_field!(F, 100);
-    }
-
-    #[cfg(test)]
-    mod test_f2 {
-        use super::*;
-        type F = Fq<Q2>;
-        test_field!(F, 100);
-    }
-
-    #[cfg(test)]
-    mod test_f3 {
-        use super::*;
-        type F = Fq<Q3>;
-        test_field!(F, 100);
-    }
-
-    #[cfg(test)]
-    mod test_f4 {
-        use super::*;
-        type F = Fq<Q4>;
-        test_field!(F, 100);
-    }
-
-    #[cfg(test)]
-    mod test_f5 {
-        use super::*;
-        type F = Fq<Q5>;
-        test_field!(F, 100);
-    }
 
     #[cfg(test)]
     mod test_z1 {

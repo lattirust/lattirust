@@ -278,7 +278,6 @@ mod tests {
 
     #[test]
     fn test_operator_norm() {
-
         let z = vec![0i8; D];
         let norm: f64 = LabCS::operator_norm(&z);
         assert_eq!(norm, 0.);

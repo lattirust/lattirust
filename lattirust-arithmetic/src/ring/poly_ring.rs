@@ -54,5 +54,5 @@ macro_rules! test_polyring {
                 assert_eq!(poly, poly_);
             }
         }
-    }
+    };
 }
