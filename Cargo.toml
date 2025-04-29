@@ -1,15 +1,41 @@
-[workspace]
-members = [
-    "lattirust-arithmetic",
-    "lattice-estimator",
-    "relations",
-    "sumcheck",
-    "labrador",
-    "lova"
-]
-resolver = "2"
+[package]
+name = "lattirust-arithmetic"
+version = "0.0.1-alpha"
+edition = "2021"
+rust-version = "1.80"
 
-[workspace.metadata.docs.rs]
-# To build locally, use 
-# RUSTDOCFLAGS="--html-in-header docs-header.html" cargo doc --no-deps --document-private-items --open
-rustdoc-args = ["--html-in-header", "docs-header.html"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[dependencies]
+ark-ff = "0.4.2"
+ark-serialize = { version = "0.4.2", features = ["derive"] }
+ark-std = "0.4.0"
+bincode = "1.3.3"
+bitter = "0.6.2"
+delegate = "0.12.0"
+delegate-attr = "0.3.0"
+derive_more = "0.99.17"
+nalgebra = { version = "0.32.5", features = ["serde-serialize", "rayon"] }
+nalgebra-sparse = "0.9.0"
+nimue = { version = "0.0.1", git = "https://github.com/cknabs/nimue", branch = "absorb_unchecked-non-recursive" }
+num-traits = "0.2.18"
+rayon = "1.10.0"
+rounded-div = "0.1.2"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_with = "3.7.0"
+zeroize = "1.7.0"
+num-bigint = "0.4.4"
+rand = "0.8.5"
+displaydoc = "0.2.5"
+icicle-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+icicle-babybear = { git = "https://github.com/ingonyama-zk/icicle.git", rev="3b4b6a0a9adfc3e4fad8d6422cef3f92a7bf339d" }
+pretty_env_logger = "0.5.0"
+log = "0.4.21"
+
+clap = { version = "<=4.4.12", features = ["derive"] }
+
+[features]
+GPU = []
+cuda = ["icicle-runtime/cuda_backend"]
