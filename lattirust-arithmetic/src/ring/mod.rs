@@ -23,7 +23,7 @@ pub use z_q::*;
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
 
-mod f_p;
+pub mod f_p;
 pub mod ntt;
 mod poly_ring;
 pub(crate) mod pow2_cyclotomic_poly_ring;
