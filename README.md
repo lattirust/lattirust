@@ -36,9 +36,9 @@ An implementation of the Lova lattice folding scheme.
 Lattirust is provided for research and prototyping purposes, and has not been audited nor is fit for real-world deployment. Always consult your trusted cryptographer before using lattirust in security-critical protocols. 
 
 ## Planned implementations
-[] Proof-of-encryption / Proof-of-decryption for LWE/RLWE encryption (e.g., for FHE)
-[] Fully integrated GPU backend
-[] in-tree Rust estimator for SIS/MSIS/vSIS/k-R-ISIS/BASIS/Power-BASIS
-[] Greyhound proof system
-[] LatticeFold folding scheme backported from [https://github.com/NethermindEth/latticefold]()
-[] hax specification of core arithmetic available
+- [ ] Proof-of-encryption / Proof-of-decryption for LWE/RLWE encryption (e.g., for FHE)
+- [ ] Fully integrated GPU backend
+- [ ] In-tree Rust estimator for SIS/MSIS/vSIS/k-R-ISIS/BASIS/Power-BASIS
+- [ ] Greyhound proof system
+- [ ] LatticeFold folding scheme backported from [https://github.com/NethermindEth/latticefold]()
+- [ ] Hax specification of core arithmetic available
