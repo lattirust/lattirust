@@ -272,6 +272,39 @@ impl<M: Modulus> TryFrom<i128> for SignedRepresentative<M> {
     }
 }
 
+macro_rules! signed_rep_to_primitive_signed {
+    ($($t:ty),*) => {
+        $(
+            paste::paste! {
+                fn [<to_ $t>](&self) -> Option<$t> {
+                    self.0.[<to_ $t>]()
+                }
+            }
+        )*
+    };
+}
+
+macro_rules! signed_rep_to_primitive_unsigned {
+    ($($t:ty),*) => {
+        $(
+            paste::paste! {
+                fn [<to_ $t>](&self) -> Option<$t> {
+                    if self.0.is_negative() {
+                        None
+                    } else {
+                        self.0.[<to_ $t>]()
+                    }
+                }
+            }
+        )*
+    };
+}
+
+impl<M: Modulus> ToPrimitive for SignedRepresentative<M> {
+    signed_rep_to_primitive_signed!(i8, i16, i32, i64, i128, isize);
+    signed_rep_to_primitive_unsigned!(u8, u16, u32, u64, u128, usize);
+}
+
 #[macro_export]
 macro_rules! test_signed_representative {
     ($t:ty, $n:expr) => {

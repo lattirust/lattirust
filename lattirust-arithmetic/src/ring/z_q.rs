@@ -23,7 +23,7 @@ use ark_std::UniformRand;
 use derivative::Derivative;
 use derive_more::Display;
 use num_bigint::BigUint;
-use num_traits::{One, Signed, Zero};
+use num_traits::{One, Signed, ToPrimitive, Zero};
 use rounded_div::RoundedDiv;
 use zeroize::Zeroize;
 
@@ -183,6 +183,52 @@ impl_try_from_primitive_type!(u16);
 impl_try_from_primitive_type!(u32);
 impl_try_from_primitive_type!(u64);
 impl_try_from_primitive_type!(u128);
+
+
+/// Map `[0, MODULUS_HALF) <-> [0, MODULUS_HALF)` and `[MODULUS_HALF, MODULUS) <-> [-MODULUS_HALF, 0)`
+macro_rules! to_primitive_signed {
+    ($($t:ty),*) => {
+        $(
+            paste::paste! {
+                fn [<to_ $t>](&self) -> Option<$t> {
+                    let bigint = C::into_bigint(*self);
+                    let biguint: BigUint = bigint.into();
+                    
+                    let modulus = Self::modulus();
+                    let modulus_half = &modulus >> 1;
+                    
+                    if biguint <= modulus_half {
+                        biguint.[<to_ $t>]()
+                    } else {
+                        let diff = &modulus - &biguint;
+                        let positive = diff.[<to_ $t>]()?;
+                        Some(-positive)
+                    }
+                }
+            }
+        )*
+    };
+}
+
+/// Map `[0, MODULUS) <-> [0, MODULUS)` for unsigned types  
+macro_rules! to_primitive_unsigned {
+    ($($t:ty),*) => {
+        $(
+            paste::paste! {
+                fn [<to_ $t>](&self) -> Option<$t> {
+                    let bigint = C::into_bigint(*self);
+                    let biguint: BigUint = bigint.into();
+                    biguint.[<to_ $t>]()
+                }
+            }
+        )*
+    };
+}
+
+impl<C: ZqConfig<L>, const L: usize> ToPrimitive for Zq<C, L> {
+    to_primitive_signed!(i8, i16, i32, i64, i128, isize);
+    to_primitive_unsigned!(u8, u16, u32, u64, u128, usize);
+}
 
 impl<C: ZqConfig<L>, const L: usize> Neg for Zq<C, L> {
     type Output = Self;
@@ -580,6 +626,8 @@ impl<M: Modulus, C: ZqConfig<L>, const L: usize> From<SignedRepresentative<M>> f
         Self::try_from(biguint).unwrap()
     }
 }
+
+
 
 // TODO: more efficient implementation based on CRT decomposition and signed Fp implementation?
 impl<C: ZqConfig<L>, const L: usize> WithSignedRepresentative for Zq<C, L> {
