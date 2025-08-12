@@ -35,7 +35,7 @@ mod z_2;
 mod z_2_128;
 mod z_2_64;
 mod z_q;
-mod z_2_k;
+pub mod z_2_k;
 // pub mod pow2_cyclotomic_poly_ring_ntt_crt;
 
 pub trait Ring:
