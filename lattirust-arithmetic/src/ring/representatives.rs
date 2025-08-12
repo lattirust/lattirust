@@ -28,6 +28,9 @@ pub trait WithSignedRepresentative: Sized + Clone {
     fn as_signed_representative(&self) -> Self::SignedRepresentative {
         (*self).clone().into()
     }
+
+    fn signed_representative_to_bigint(repr: &Self::SignedRepresentative) -> BigInt;
+    fn signed_representative_from_bigint(value: BigInt) -> Option<Self::SignedRepresentative>;
 }
 
 /// For an odd prime [P], the signed representative of an element in Z_P is an integer in the range `[-floor(P/2), floor(P/2)]`.
@@ -270,39 +273,6 @@ impl<M: Modulus> TryFrom<i128> for SignedRepresentative<M> {
         }
         Ok(Self::new(BigInt::from(value)))
     }
-}
-
-macro_rules! signed_rep_to_primitive_signed {
-    ($($t:ty),*) => {
-        $(
-            paste::paste! {
-                fn [<to_ $t>](&self) -> Option<$t> {
-                    self.0.[<to_ $t>]()
-                }
-            }
-        )*
-    };
-}
-
-macro_rules! signed_rep_to_primitive_unsigned {
-    ($($t:ty),*) => {
-        $(
-            paste::paste! {
-                fn [<to_ $t>](&self) -> Option<$t> {
-                    if self.0.is_negative() {
-                        None
-                    } else {
-                        self.0.[<to_ $t>]()
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl<M: Modulus> ToPrimitive for SignedRepresentative<M> {
-    signed_rep_to_primitive_signed!(i8, i16, i32, i64, i128, isize);
-    signed_rep_to_primitive_unsigned!(u8, u16, u32, u64, u128, usize);
 }
 
 #[macro_export]

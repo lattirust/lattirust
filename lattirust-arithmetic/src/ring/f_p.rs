@@ -62,6 +62,14 @@ impl<C: FpConfig<N>, const N: usize> WithSignedRepresentative for Fp<C, N> {
     fn as_signed_representative(&self) -> Self::SignedRepresentative {
         (*self).into()
     }
+
+    fn signed_representative_to_bigint(repr: &Self::SignedRepresentative) ->num_bigint::BigInt {
+        repr.0.clone()  
+    }
+    
+    fn signed_representative_from_bigint(value: num_bigint::BigInt) -> Option<Self::SignedRepresentative> {
+        Some(SignedRepresentative::new(value))
+    }
 }
 
 #[cfg(test)]
