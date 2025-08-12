@@ -8,8 +8,7 @@ use ark_serialize::{
 };
 use ark_std::rand::Rng;
 use ark_std::UniformRand;
-use derive_more::{
-    Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
+use derive_more::{ Display, From, Into, Neg, Product, Sum,
 };
 use i256::i256;
 use num_bigint::BigUint;
@@ -41,14 +40,14 @@ pub struct Z2_k<const K: u32>(Wrapping<i128>);
 
 impl<const K: u32> Z2_k<K> {
     //ensures values don't exceed the modulus
-    const ASSERT_K_VALID: () = {
+    const _ASSERT_K_VALID: () = {
         assert!(K > 0 && K <= 128, "K must be between 1 and 128");
     };
-    const _VALIDATE: () = Self::ASSERT_K_VALID;
+    const _VALIDATE: () = Self::_ASSERT_K_VALID;
 
     const MODULUS_HALF: u128 = 1u128 << (K - 1);
 
-    /// Reduce the value to fit within the range of the ring. Ensures: a * 1/a mod 2^k = 1
+    // Reduce the value to fit within the range of the ring
     fn reduce(value: i128) -> i128 {
         if K >= 128 {
             value
