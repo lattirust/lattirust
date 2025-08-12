@@ -19,7 +19,7 @@ pub use z_2::*;
 pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::*;
-//pub use z_2_k::*;
+pub use z_2_k::*;
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
