@@ -6,6 +6,7 @@ use num_traits::Signed;
 
 use crate::ring::ntt::{const_fq_from, generator, two_adic_root_of_unity};
 use crate::ring::representatives::{SignedRepresentative, WithSignedRepresentative};
+use crate::ring::{Zq, Zq1, ZqConfig};
 use crate::traits::Modulus;
 
 pub struct FqConfig<const Q: u64> {}
@@ -41,11 +42,33 @@ impl<P: FpConfig<N>, const N: usize> Modulus for Fp<P, N> {
     }
 }
 
-impl<M: Modulus, P: FpConfig<N>, const N: usize> From<SignedRepresentative<M>> for Fp<P, N> {
-    fn from(value: SignedRepresentative<M>) -> Self {
-        if Self::modulus() < M::modulus() {
-            panic!("Cannot convert signed representative to {}, as the signed representative modulus {} is larger than the modulus {}.", M::modulus(), std::any::type_name::<Self>(),  Self::modulus());
+
+pub trait FromZqSignedRepresentative<T> {
+    fn from_zq_signed_representative(value: T) -> Self;
+}
+
+impl<C: ZqConfig<1>, P: FpConfig<N>, const N: usize> FromZqSignedRepresentative<SignedRepresentative<Zq<C, 1>>> for Fp<P, N> {
+    fn from_zq_signed_representative(value: SignedRepresentative<Zq<C, 1>>) -> Self {
+        let zq_modulus = Zq::<C, 1>::modulus();
+        let fp_modulus = Self::modulus();
+        
+        if fp_modulus < zq_modulus {
+            panic!("Cannot convert signed representative to {}, as the signed representative modulus {} is larger than the modulus {}.", 
+                   zq_modulus, std::any::type_name::<Self>(), fp_modulus);
         }
+        
+        let mut bigint = value.0;
+        if bigint.is_negative() {
+            let modulus: BigInt = zq_modulus.into();
+            bigint += modulus;
+        }
+        let biguint: BigUint = bigint.to_biguint().unwrap();
+        Self::from(biguint)
+    }
+}
+
+impl<P: FpConfig<N>, const N: usize> From<SignedRepresentative<Fp<P, N>>> for Fp<P, N> {
+    fn from(value: SignedRepresentative<Fp<P, N>>) -> Self {
         let mut bigint = value.0;
         if bigint.is_negative() {
             let modulus: BigInt = Self::modulus().into();
