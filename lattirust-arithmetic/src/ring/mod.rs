@@ -20,6 +20,7 @@ pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::*;
 pub use z_2_k::*;
+pub use f_p::FromZqSignedRepresentative;
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
