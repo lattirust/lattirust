@@ -11,7 +11,7 @@ use ark_std::UniformRand;
 use derive_more::{
     Add, AddAssign, Display, From, Into, Mul, MulAssign, Neg, Product, Sub, SubAssign, Sum,
 };
-use num_bigint::BigUint;
+use num_bigint::{BigInt, BigUint};
 use num_traits::{One, ToPrimitive, Zero};
 use zeroize::Zeroize;
 
@@ -273,6 +273,14 @@ impl WithSignedRepresentative for Z2_64 {
 
     fn as_signed_representative(&self) -> Self::SignedRepresentative {
         self.0 .0
+    }
+
+    fn signed_representative_to_bigint(repr: &Self::SignedRepresentative) -> BigInt {
+        BigInt::from(*repr)
+    }
+    
+    fn signed_representative_from_bigint(value: BigInt) -> Option<Self::SignedRepresentative> {
+        value.to_i64()
     }
 }
 

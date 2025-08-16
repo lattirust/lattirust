@@ -41,7 +41,7 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
         Self(Self::Inner::const_from_array(coeffs))
     }
 
-    pub(crate) fn coefficient_array(&self) -> [BaseRing; N] {
+    pub fn coefficient_array(&self) -> [BaseRing; N] {
         self.0 .0.into()
     }
 
