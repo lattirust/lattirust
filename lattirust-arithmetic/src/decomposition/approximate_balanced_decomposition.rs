@@ -46,14 +46,14 @@ where
     // approximate gadget decomposition is used; the first digit is ignored
     let mut rem = curr.clone() % b.clone();
     if rem.is_negative() { rem = rem + b.clone(); }
-    let r0 = if rem >= b_half_floor.clone() { rem - b.clone() } else { rem };
+    let r0 = if rem > b_half_floor.clone() { rem - b.clone() } else { rem };
     curr = (curr - r0) / b.clone(); 
 
     let mut decomp_bal_signed = Vec::<R>::new();
     while !curr.is_zero() {
         let mut rem = curr.clone() % b.clone();
         if rem.is_negative() { rem = rem + b.clone(); }
-        let digit = if rem >= b_half_floor.clone() { rem - b.clone() } else { rem };
+        let digit = if rem > b_half_floor.clone() { rem - b.clone() } else { rem };
 
         decomp_bal_signed.push(R::try_from(digit.clone()).unwrap());
         curr = (curr - digit) / b.clone();
@@ -167,7 +167,7 @@ mod tests {
         let bh  = R::SignedRepresentative::try_from((b/2) as i128).unwrap();
         let mut rem = Into::<R::SignedRepresentative>::into(*v) % bs.clone();
         if rem.is_negative() { rem = rem + bs.clone(); }
-        let r0s = if rem >= bh { rem - bs } else { rem };
+        let r0s = if rem > bh { rem - bs } else { rem };
         R::try_from(r0s).unwrap()
     }
 
