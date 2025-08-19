@@ -23,7 +23,7 @@ use ark_std::UniformRand;
 use derivative::Derivative;
 use derive_more::Display;
 use num_bigint::BigUint;
-use num_traits::{One, Signed, Zero};
+use num_traits::{One, Signed, ToPrimitive, Zero};
 use rounded_div::RoundedDiv;
 use zeroize::Zeroize;
 
@@ -183,6 +183,7 @@ impl_try_from_primitive_type!(u16);
 impl_try_from_primitive_type!(u32);
 impl_try_from_primitive_type!(u64);
 impl_try_from_primitive_type!(u128);
+
 
 impl<C: ZqConfig<L>, const L: usize> Neg for Zq<C, L> {
     type Output = Self;
@@ -581,12 +582,22 @@ impl<M: Modulus, C: ZqConfig<L>, const L: usize> From<SignedRepresentative<M>> f
     }
 }
 
+
+
 // TODO: more efficient implementation based on CRT decomposition and signed Fp implementation?
 impl<C: ZqConfig<L>, const L: usize> WithSignedRepresentative for Zq<C, L> {
     type SignedRepresentative = SignedRepresentative<Zq<C, L>>;
 
     fn as_signed_representative(&self) -> Self::SignedRepresentative {
         (*self).clone().into()
+    }
+
+    fn signed_representative_to_bigint(repr: &Self::SignedRepresentative) ->num_bigint::BigInt {
+        repr.0.clone()  
+    }
+    
+    fn signed_representative_from_bigint(value: num_bigint::BigInt) -> Option<Self::SignedRepresentative> {
+        Some(SignedRepresentative::new(value))
     }
 }
 

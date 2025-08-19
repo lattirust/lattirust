@@ -28,6 +28,9 @@ pub trait WithSignedRepresentative: Sized + Clone {
     fn as_signed_representative(&self) -> Self::SignedRepresentative {
         (*self).clone().into()
     }
+
+    fn signed_representative_to_bigint(repr: &Self::SignedRepresentative) -> BigInt;
+    fn signed_representative_from_bigint(value: BigInt) -> Option<Self::SignedRepresentative>;
 }
 
 /// For an odd prime [P], the signed representative of an element in Z_P is an integer in the range `[-floor(P/2), floor(P/2)]`.

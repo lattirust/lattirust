@@ -19,6 +19,8 @@ pub use z_2::*;
 pub use z_2_128::*;
 pub use z_2_64::*;
 pub use z_q::*;
+pub use z_2_k::*;
+pub use f_p::FromZqSignedRepresentative;
 
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
@@ -34,6 +36,7 @@ mod z_2;
 mod z_2_128;
 mod z_2_64;
 mod z_q;
+pub mod z_2_k;
 // pub mod pow2_cyclotomic_poly_ring_ntt_crt;
 
 pub trait Ring:
@@ -226,6 +229,9 @@ macro_rules! test_distributive {
                 let b = <$T as UniformRand>::rand(rng);
                 let c = <$T as UniformRand>::rand(rng);
 
+                println!("Testing distributive property for {:?}", a);
+                print!("b: {:?}", b);
+                print!("c: {:?}", c);
                 assert_eq!(a * (b + c), (a * b) + (a * c));
                 assert_eq!((a + b) * c, (a * c) + (b * c));
             }
@@ -343,6 +349,8 @@ macro_rules! test_inverse_multiplication_ring {
             for _ in 0..$N {
                 let a = <$T as UniformRand>::rand(rng);
                 let inv = <$T as Ring>::inverse(&a);
+                println!("Testing inverse multiplication for {:?}", a);
+                println!("Inverse: {:?}", inv);
                 if inv.is_some() {
                     assert_eq!(a * inv.unwrap(), <$T>::one());
                     assert_eq!(inv.unwrap() * a, <$T>::one());
