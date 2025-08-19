@@ -49,6 +49,20 @@ where
     let r0 = if rem > b_half_floor.clone() { rem - b.clone() } else { rem };
     curr = (curr - r0) / b.clone(); 
 
+    // we want a decomposition exactly of size `padding_size`
+    if let Some(k) = padding_size {
+        let mut decomp_bal_signed = Vec::<R>::with_capacity(k);
+        for _ in 0..k {
+            let mut rem = curr.clone() % b.clone();
+            if rem.is_negative() { rem = rem + b.clone(); }
+            let digit = if rem > b_half_floor.clone() { rem - b.clone() } else { rem };
+            decomp_bal_signed.push(R::try_from(digit.clone()).unwrap());
+            curr = (curr - digit) / b.clone();
+        }
+        return decomp_bal_signed
+    }
+
+    // no padding size given, so we will not pad the result. decomposition will be as long as needed
     let mut decomp_bal_signed = Vec::<R>::new();
     while !curr.is_zero() {
         let mut rem = curr.clone() % b.clone();
@@ -58,8 +72,6 @@ where
         decomp_bal_signed.push(R::try_from(digit.clone()).unwrap());
         curr = (curr - digit) / b.clone();
     }
-
-    pad_zeros(&mut decomp_bal_signed, padding_size);
     decomp_bal_signed
 }
 
@@ -191,6 +203,40 @@ mod tests {
                 // Check that the decomposition is 
                 let r0 = first_digit_r0(v, b);
                 assert_eq!(*v, r0 + approximate_recompose(&decomp, R::try_from(b).unwrap(), 1));
+            }
+        }
+    }
+
+    #[test]
+    fn test_decompose_balanced_exact_k() {
+        let vs: Vec<R> = (0..Q).map(|v| R::try_from(v).unwrap()).collect();
+
+        let k = 3;
+        for b in BASIS_TEST_RANGE {
+            for v in &vs { 
+                let d_fixed = approximate_decompose_balanced(v, b, Some(k));  
+                let d_full  = approximate_decompose_balanced(v, b, None);     
+
+                assert_eq!(d_fixed.len(), k);
+                for di in &d_fixed {assert!(di.linf_norm() <= BigUint::from(b / 2));}
+
+                // prefix property: fixed-k equals first k digits of full decomposition
+                for i in 0..k {
+                    let expected = if i < d_full.len() { d_full[i].clone() } else { R::zero() };
+                    assert_eq!(d_fixed[i], expected);
+                }
+
+                let r0 = first_digit_r0(v, b);
+                let bR = R::try_from(b).unwrap();
+
+                let v_full = r0.clone() + approximate_recompose(&d_full, bR.clone(), 1);
+                assert_eq!(v_full, *v);
+
+                // Fixed-k is a truncation: v = r0 + sum_{i<k} d_i b^i + tail * b^k
+                let v_fixed = r0 + approximate_recompose(&d_fixed, bR.clone(), 1);
+                let tail    = if d_full.len() > k { d_full[k..].to_vec() } else { vec![] };
+                let tail_val = approximate_recompose(&tail, bR, k as u64 + 1) * R::one(); // starts at b^k
+                assert_eq!(v_full, v_fixed + tail_val);
             }
         }
     }
