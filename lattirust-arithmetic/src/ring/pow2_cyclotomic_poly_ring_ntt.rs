@@ -80,6 +80,7 @@ impl<BaseRing: NttRing<N>, const N: usize> Pow2CyclotomicPolyRingNTT<BaseRing, N
     pub fn ntt_array(&self) -> [BaseRing; N] {
         self.0 .0.data.0[0]
     }
+
 }
 
 impl<BaseRing: NttRing<N>, const N: usize> Modulus for Pow2CyclotomicPolyRingNTT<BaseRing, N> {
@@ -451,7 +452,7 @@ impl<BaseRing: NttRing<N>, const N: usize> From<BaseRing>
     fn from(value: BaseRing) -> Self {
         Self::from_scalar(value)
     }
-}
+} 
 
 impl<BaseRing: NttRing<N>, const N: usize> WithConjugationAutomorphism
     for Pow2CyclotomicPolyRingNTT<BaseRing, N>
@@ -514,6 +515,15 @@ mod test {
             assert_eq!(p, p_);
         }
     }
+    fn reverse_ntt(ntt_poly: &PR) -> PR {
+        let evals = ntt_poly.ntt_array();
+        let mut reversed = [BR::ZERO; N];
+        for i in 0..N {
+            reversed[i] = evals[N - 1 - i];
+        }
+        PR::from_ntt_array(reversed)
+    }
+    
 
     test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
 }

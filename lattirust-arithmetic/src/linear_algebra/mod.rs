@@ -1,6 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 
-mod generic_matrix;
+pub mod generic_matrix;
 pub mod inner_products;
 mod matrix;
 pub mod serialization;

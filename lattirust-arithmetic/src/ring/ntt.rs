@@ -246,14 +246,19 @@ pub const fn generator<const Q: u64>() -> u64 {
     panic!("no generator found");
 }
 
-struct RootOfUnity<const Q: u64, const N: usize> {}
+//Special case for interoperability with Openfhe
+pub const fn selected_two_nth_root<const Q: u64, const N: usize>() -> u64 {
+    if Q == 134_215_681 && N == 512 { 78_074 } else if Q == 134_215_681 && N==1024 {282_116} else { two_nth_primitive_root_of_unity::<Q, N>() }
+}
+
+pub struct RootOfUnity<const Q: u64, const N: usize> {}
 
 impl<const Q: u64, const N: usize> RootOfUnity<Q, N> {
-    const ROOT_OF_UNITY: u64 = two_nth_primitive_root_of_unity::<Q, N>();
-    const POWS_ROOT_OF_UNITY_BIT_REVERSED: [Fq<Q>; N] = pows_bit_reversed(Self::ROOT_OF_UNITY);
-    const NEG_POWS_ROOT_OF_UNITY_BIT_REVERSED: [Fq<Q>; N] =
+    pub const ROOT_OF_UNITY: u64 = selected_two_nth_root::<Q, N>();
+    pub const POWS_ROOT_OF_UNITY_BIT_REVERSED: [Fq<Q>; N] = pows_bit_reversed(Self::ROOT_OF_UNITY);
+    pub const NEG_POWS_ROOT_OF_UNITY_BIT_REVERSED: [Fq<Q>; N] =
         pows_bit_reversed(const_inv_mod::<Q>(Self::ROOT_OF_UNITY));
-    const N_INV_MOD_Q: Fq<Q> = const_fq_from(const_inv_mod::<Q>(N as u64));
+    pub const N_INV_MOD_Q: Fq<Q> = const_fq_from(const_inv_mod::<Q>(N as u64));
 }
 
 impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {

@@ -41,7 +41,7 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
         Self(Self::Inner::const_from_array(coeffs))
     }
 
-    pub(crate) fn coefficient_array(&self) -> [BaseRing; N] {
+    pub fn coefficient_array(&self) -> [BaseRing; N] {
         self.0 .0.into()
     }
 
@@ -68,6 +68,7 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
 
         (Self::from(quotient), Self::from(dividend))
     }
+
 }
 
 impl<BaseRing: Ring, const N: usize> From<[BaseRing; N]> for Pow2CyclotomicPolyRing<BaseRing, N> {
@@ -477,4 +478,5 @@ mod test {
     test_polyring!(PR, NUM_TEST_REPETITIONS);
 
     test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
+
 }
