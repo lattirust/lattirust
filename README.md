@@ -27,18 +27,18 @@ Also contains wrappers and helper traits around the excellent [nimue](https://gi
 Wrappers around the [lattice-estimator](https://github.com/malb/lattice-estimator) (for SIS) and [pq-crystals/security-estimates](https://github.com/pq-crystals/security-estimates) for MSIS).
 
 ### Protocols
-- [labrador](labrador/):
+- [labrador](https://github.com/lattirust/labrador):
 An implementation of the [LaBRADOR protocol](https://eprint.iacr.org/2022/1341) (concretely small proof sizes, linear verifier). 
-- [lova](lova/):
+- [lova](https://github.com/lattirust/lova):
 An implementation of the Lova lattice folding scheme.
 
 ## Security
 Lattirust is provided for research and prototyping purposes, and has not been audited nor is fit for real-world deployment. Always consult your trusted cryptographer before using lattirust in security-critical protocols. 
 
 ## Planned implementations
-[] Proof-of-encryption / Proof-of-decryption for LWE/RLWE encryption (e.g., for FHE)
-[] Fully integrated GPU backend
-[] in-tree Rust estimator for SIS/MSIS/vSIS/k-R-ISIS/BASIS/Power-BASIS
-[] Greyhound proof system
-[] LatticeFold folding scheme backported from [https://github.com/NethermindEth/latticefold]()
-[] hax specification of core arithmetic available
+- [ ] Proof-of-encryption / Proof-of-decryption for LWE/RLWE encryption (e.g., for FHE)
+- [ ] Fully integrated GPU backend
+- [ ] in-tree Rust estimator for SIS/MSIS/vSIS/k-R-ISIS/BASIS/Power-BASIS
+- [ ] Greyhound proof system
+- [ ] LatticeFold folding scheme backported from [https://github.com/NethermindEth/latticefold]()
+- [ ] hax specification of core arithmetic available
