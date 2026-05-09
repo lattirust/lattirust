@@ -13,6 +13,7 @@ use num_traits::{One, Zero};
 // Exports
 pub use ntt::NttRing;
 pub use poly_ring::PolyRing;
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 pub use z_2::*;
@@ -23,6 +24,7 @@ pub use z_q::*;
 use crate::nimue::serialization::{FromBytes, ToBytes};
 use crate::traits::{FromRandomBytes, Modulus, WithL2Norm, WithLinfNorm};
 
+pub mod cyclotomic_poly_ring_splitted_ntt;
 pub mod f_p;
 pub mod ntt;
 mod poly_ring;

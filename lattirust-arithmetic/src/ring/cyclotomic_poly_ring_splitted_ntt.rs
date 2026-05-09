@@ -1,231 +1,217 @@
-use std::{fmt::Display, ops::Add};
+use std::fmt::{Display, Formatter};
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
-use num_bigint::BigUint;
+use crate::linear_algebra::SVector;
+use crate::partial_ntt::{coprimes_set, PartialNTT};
+use crate::ring::{Ring, Zq1};
 
-use crate::{linear_algebra::SVector, partial_ntt::PartialNTT, traits::Modulus};
-
-use super::{Ring, Zq};
-
-/// For an m-th cyclotomic ring its minimal polynomail has the form
-/// `Phi_m = Prod_{j=1}^phi(m)(x - r_j)`
-/// Where `ord_p(r_j) = m` and `r_j = w^i` where `i \in {i: gcd(i,m) = 1}`
-/// and `j` is its enumaration
-/// Note that this requires that `p = 1 mod m`
+/// Transform-domain representation for rings that split only into factors
+/// `x^D - r_j` instead of linear factors.
 ///
-/// Another option is to split the minimal polynomial as
-/// `Phi_m = Prod_{j = 1}^phi(z) (x^{m/z} - r_j)`
-/// Where `ord_p(r_j) = z` and `r_j = w^i` where `i \in {i: gcd(i,z) = 1}`
-/// this requires that `p = q mod z` so `m` doesn't have to divide `p-1` but
-/// z has to share the prime factorizations with diferent powers
-/// For more see:
-///     Short invertible elements in partially splitting cyclotomic rings
-///
-/// We have that:
-/// R = DirProd R_j and R_j \in Z_p[X]/ (X^{m/z} - r_j)
-/// This struct can be thought as the concatenation of R_j elements
-/// where the operations over each R_j are element-wise
-/// let `D` = m/z so we have phi(z) R_j components each with D components
-/// also phi(z) = N/D
-#[derive(PartialEq, Eq, Debug)]
+/// For power-of-two cyclotomics this corresponds to the factorization
+/// `x^N + 1 = \prod_j (x^D - r_j)` where the `r_j` are the primitive
+/// `Z`-th roots of unity and `N = D * phi(Z)`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct CyclotomicPolyRingSplittedNTT<
     const Q: u64,
     const N: usize,
     const D: usize,
     const Z: usize,
     const PHI_Z: usize,
->(SVector<Zq<Q>, N>);
+>(SVector<Zq1<Q>, N>);
 
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Display
     for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.0, f)
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize>
     CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
 {
-    #[allow(dead_code)]
-    pub(crate) type Inner = SVector<Zq<Q>, N>;
+    pub fn primitive_zth_root() -> Zq1<Q> {
+        assert!(Z.is_power_of_two(), "Z must be a power of two");
+        assert_eq!(Q % Z as u64, 1, "Q must be congruent to 1 modulo Z");
 
-    /// Constructs a polynomial from an array of coefficients in NTT form.
-    /// This function is private since we can't enforce coeffs being in NTT form if called from outside.
-    fn from_array(coeffs_ntt: [Zq<Q>; N]) -> Self {
-        Self(Self::Inner::const_from_array(coeffs_ntt))
-    }
+        let two_adicity = (Q - 1).trailing_zeros();
+        let z_adicity = Z.trailing_zeros();
+        let odd_part = (Q - 1) >> two_adicity;
 
-    pub fn from_fn<F>(f: F, rou: Zq<Q>) -> Self
-    where
-        F: FnMut(usize) -> Zq<Q>,
-    {
-        let mut coeffs = core::array::from_fn(f);
-        Self::ntt(&mut coeffs, rou);
-        Self::from_array(coeffs)
-    }
+        for candidate in 2..Q {
+            let candidate = Zq1::<Q>::try_from(candidate).unwrap();
+            let two_adic_root = candidate.pow(odd_part);
 
-    pub fn ntt_mul(&self, rhs: &Self, rou: Zq<Q>) -> Self {
-        let mut temp = [Zq::<Q>::from(0); N];
-        let components = coprimes_set::<Z, PHI_Z>();
-        let num_chunks = N / D;
-        for k in 0..num_chunks {
-            for i in 0..D {
-                for j in 0..D - i {
-                    temp[k * D + i + j] += self.0[i + k * D] * rhs.0[j + k * D];
-                }
+            if two_adic_root.pow(1u64 << (two_adicity - 1)) != Zq1::<Q>::ONE {
+                return two_adic_root.pow(1u64 << (two_adicity - z_adicity));
             }
-            let rj_power = components[k] as u64;
-            let rj = rou.pow([rj_power]);
-            for i in 1..D {
-                for j in D - i..D {
-                    temp[k * D + i + j - D] += self.0[i + k * D] * rhs.0[j + k * D] * rj;
+        }
+
+        panic!("could not find a primitive Z-th root of unity");
+    }
+
+    pub fn from_coefficient_array(mut coeffs: [Zq1<Q>; N], primitive_zth_root: Zq1<Q>) -> Self {
+        Self::ntt(&mut coeffs, primitive_zth_root);
+        Self::from_ntt_array(coeffs)
+    }
+
+    pub fn from_ntt_array(coeffs_ntt: [Zq1<Q>; N]) -> Self {
+        Self(SVector::const_from_array(coeffs_ntt))
+    }
+
+    pub fn from_fn<F>(f: F, primitive_zth_root: Zq1<Q>) -> Self
+    where
+        F: FnMut(usize) -> Zq1<Q>,
+    {
+        Self::from_coefficient_array(core::array::from_fn(f), primitive_zth_root)
+    }
+
+    pub fn coefficients(&self, primitive_zth_root: Zq1<Q>) -> [Zq1<Q>; N] {
+        let mut coeffs = self.ntt_array();
+        Self::intt(&mut coeffs, primitive_zth_root);
+        coeffs
+    }
+
+    pub fn ntt_array(&self) -> [Zq1<Q>; N] {
+        self.0 .0.data.0[0]
+    }
+
+    pub fn ntt_values(&self) -> Vec<Zq1<Q>> {
+        self.0.iter().cloned().collect()
+    }
+
+    pub fn mul_with_root(&self, rhs: &Self, primitive_zth_root: Zq1<Q>) -> Self {
+        debug_assert_eq!(N, D * PHI_Z);
+
+        let lhs = self.ntt_array();
+        let rhs = rhs.ntt_array();
+        let mut products = [Zq1::<Q>::ZERO; N];
+        let roots = coprimes_set::<Z, PHI_Z>();
+
+        for (component_idx, power) in roots.into_iter().enumerate() {
+            let root = primitive_zth_root.pow(power as u64);
+            let base = component_idx * D;
+
+            for lhs_idx in 0..D {
+                for rhs_idx in 0..D {
+                    let mut coeff = lhs[base + lhs_idx] * rhs[base + rhs_idx];
+                    let target = lhs_idx + rhs_idx;
+                    let out_idx = base + (target % D);
+                    if target >= D {
+                        coeff *= root;
+                    }
+                    products[out_idx] += coeff;
                 }
             }
         }
-        Self::from_array(temp)
+
+        Self::from_ntt_array(products)
     }
 }
 
-// TODO: impl SplittedNTT
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize>
     PartialNTT<Q, N, D, Z, PHI_Z> for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
 {
-}
-
-impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Modulus
-    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
-{
-    fn modulus() -> BigUint {
-        Zq::<Q>::modulus()
-    }
-}
-
-const fn vec_from_element<const Q: u64, const N: usize>(elem: Zq<Q>) -> SVector<Zq<Q>, N> {
-    SVector::<Zq<Q>, N>::const_from_array([elem; N])
 }
 
 impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Add
     for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
 {
     type Output = Self;
+
     fn add(self, rhs: Self) -> Self::Output {
-        let mut res = [Zq::<Q>::from(0); N];
-        for i in 0..N {
-            res[i] = self.0[i] + rhs.0[i];
-        }
-        Self::from_array(res)
+        Self::from_ntt_array(core::array::from_fn(|idx| self.0[idx] + rhs.0[idx]))
     }
 }
 
-const fn coprimes_set<const Z: usize, const PHI_Z: usize>() -> [usize; PHI_Z] {
-    let mut i = 0;
-    let mut j = 0;
-    let mut set = [0; PHI_Z];
-    while i < Z {
-        if gcd::<Z>(i) {
-            set[j] = i;
-            j += 1;
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> AddAssign
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    fn add_assign(&mut self, rhs: Self) {
+        for idx in 0..N {
+            self.0[idx] += rhs.0[idx];
         }
-        i += 1;
     }
-    set
 }
 
-const fn gcd<const Z: usize>(i: usize) -> bool {
-    let mut a = i;
-    let mut b = Z;
-    while b != 0 {
-        let temp = b;
-        b = a % b;
-        a = temp
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Sub
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::from_ntt_array(core::array::from_fn(|idx| self.0[idx] - rhs.0[idx]))
     }
-    a == 1
+}
+
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> SubAssign
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    fn sub_assign(&mut self, rhs: Self) {
+        for idx in 0..N {
+            self.0[idx] -= rhs.0[idx];
+        }
+    }
+}
+
+impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: usize> Neg
+    for CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>
+{
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::from_ntt_array(core::array::from_fn(|idx| -self.0[idx]))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ring::{Ring, Zq};
+    use ark_std::{test_rng, UniformRand};
 
     use super::CyclotomicPolyRingSplittedNTT;
+    use crate::ring::{Pow2CyclotomicPolyRing, Zq1};
 
-    const Q: u64 = 15 * (1 << 27) + 1;
-    const N: usize = 1 << 4;
-    const Z: usize = 1 << 2;
-    const D: usize = 1 << 5 - 2;
-    const PHI_Z: usize = 1 << 1;
+    const Q: u64 = 17;
+    const N: usize = 16;
+    const Z: usize = 4;
+    const D: usize = 8;
+    const PHI_Z: usize = 2;
+
+    type BR = Zq1<Q>;
+    type SplitNTT = CyclotomicPolyRingSplittedNTT<Q, N, D, Z, PHI_Z>;
+    type CoeffRing = Pow2CyclotomicPolyRing<BR, N>;
+
     #[test]
-    fn mul_test() {
-        assert!(Q % Z as u64 == 1);
-        let resize_power = Q - 1 / Z as u64;
-        let rou = Zq::<Q>::from(76160998 as u64).pow([resize_power]);
-        let rou3 = rou.pow([3]);
-        let poly1 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
-            |i| Zq::<Q>::from(i as u64),
-            rou,
-        );
-        let mut red_poly = [Zq::<Q>::from(0); N];
-        for i in 0..N / 2 {
-            red_poly[i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou;
-        }
-        for i in 0..N / 2 {
-            red_poly[N / 2 + i] = Zq::<Q>::from(i as u64) + Zq::<Q>::from(8 + i as u64) * rou3;
-        }
-        let poly_reduced = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(red_poly);
-        assert_eq!(poly_reduced, poly1, "Poly NTT incorrect");
-        let poly2 = CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_fn(
-            |i| Zq::<Q>::from((N - 1 - i) as u64),
-            rou,
-        );
-        let final_poly = poly1.ntt_mul(&poly2, rou);
+    fn roundtrip_matches_coefficients() {
+        let root = SplitNTT::primitive_zth_root();
+        let rng = &mut test_rng();
 
-        let mut poly1_split1 = [Zq::<Q>::from(0); D];
-        let mut poly2_split1 = [Zq::<Q>::from(0); D];
-        let mut poly1_split2 = [Zq::<Q>::from(0); D];
-        let mut poly2_split2 = [Zq::<Q>::from(0); D];
-        for i in 0..D {
-            poly1_split1[i] = poly1.0[i];
-            poly2_split1[i] = poly2.0[i];
-
-            poly1_split2[i] = poly1.0[i + D];
-            poly2_split2[i] = poly2.0[i + D];
+        for _ in 0..32 {
+            let coeff_ring = CoeffRing::rand(rng);
+            let coeffs: [BR; N] = coeff_ring.coefficient_array();
+            let split = SplitNTT::from_coefficient_array(coeffs, root);
+            assert_eq!(split.coefficients(root), coeffs);
         }
-
-        let naive_mul_poly_split1 = poly_mul(&poly1_split1, &poly2_split1);
-        let naive_mul_poly_split2 = poly_mul(&poly1_split2, &poly2_split2);
-        let split1 = reduce(naive_mul_poly_split1, rou);
-        let split2 = reduce(naive_mul_poly_split2, rou3);
-        let mut naive_coeffs = [Zq::<Q>::from(0); N];
-        for i in 0..D {
-            naive_coeffs[i] = split1[i];
-            naive_coeffs[i + D] = split2[i];
-        }
-
-        let naive_poly =
-            CyclotomicPolyRingSplittedNTT::<Q, N, D, Z, PHI_Z>::from_array(naive_coeffs);
-        assert_eq!(
-            naive_poly, final_poly,
-            "Splitted NTT multiplication incorrect"
-        );
     }
 
-    fn poly_mul(a: &[Zq<Q>; D], b: &[Zq<Q>; D]) -> [Zq<Q>; 2 * D] {
-        let mut temp = [Zq::<Q>::from(0); 2 * D];
-        for i in 0..D {
-            for j in 0..D {
-                temp[i + j] += a[i] * b[j];
-            }
-        }
-        temp
-    }
+    #[test]
+    fn multiplication_matches_pow2_cyclotomic_ring() {
+        let root = SplitNTT::primitive_zth_root();
+        let rng = &mut test_rng();
 
-    fn reduce(a: [Zq<Q>; 2 * D], rou: Zq<Q>) -> [Zq<Q>; D] {
-        let mut temp = [Zq::<Q>::from(0); D];
-        for i in 0..D {
-            temp[i] += a[i];
+        for _ in 0..32 {
+            let lhs = CoeffRing::rand(rng);
+            let rhs = CoeffRing::rand(rng);
+
+            let lhs_split = SplitNTT::from_coefficient_array(lhs.coefficient_array(), root);
+            let rhs_split = SplitNTT::from_coefficient_array(rhs.coefficient_array(), root);
+
+            let product_split = lhs_split.mul_with_root(&rhs_split, root);
+            let product_coeffs = product_split.coefficients(root);
+            let expected = lhs * rhs;
+
+            assert_eq!(product_coeffs, expected.coefficient_array());
         }
-        for i in 0..D {
-            temp[i] += a[i + D] * rou;
-        }
-        temp
     }
 }

@@ -16,6 +16,7 @@ pub mod challenge_set;
 pub mod decomposition;
 pub mod linear_algebra;
 pub mod nimue;
+pub mod partial_ntt;
 pub mod ring;
 pub mod serde;
 pub mod traits;
