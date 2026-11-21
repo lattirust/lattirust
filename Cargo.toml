@@ -6,6 +6,12 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+ark-ff = "0.6.0"
+ark-relations = "0.6.0"
+ark-serialize = { version = "0.6.0", features = ["derive"] }
+ark-std = "0.6.0"
+
 [workspace.metadata.docs.rs]
 # To build locally, use 
 # RUSTDOCFLAGS="--html-in-header docs-header.html" cargo doc --no-deps --document-private-items --open

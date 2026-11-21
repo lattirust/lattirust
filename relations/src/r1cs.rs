@@ -196,7 +196,7 @@ impl<R: Ring> Relation for R1CS<R> {
 }
 
 pub fn sparse_matrix_from_ark_matrix<R: Scalar + Copy + Zero + AddAssign>(
-    matrix: ark_relations::r1cs::Matrix<R>,
+    matrix: ark_relations::utils::matrix::Matrix<R>,
     nrows: usize,
     ncols: usize,
 ) -> SparseMatrix<R> {

@@ -7,9 +7,9 @@ rust-version = "1.80"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-ff = "0.5.0"
-ark-serialize = { version = "0.5.0", features = ["derive"] }
-ark-std = "0.5.0"
+ark-ff.workspace = true
+ark-serialize.workspace = true
+ark-std.workspace = true
 bincode = "1.3.3"
 bitter = "0.7.0"
 const-primes = "0.10.3"

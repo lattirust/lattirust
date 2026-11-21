@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ark-relations = "0.5.0"
+ark-relations.workspace = true
 lattirust-arithmetic = { version = "0.0.1-alpha", path = "../lattirust-arithmetic" }
-ark-std = "0.5.0"
+ark-std.workspace = true
 nimue = "0.1.0"
 serde = { version = "1.0.215", features = ["derive"] }
 log = "0.4.22"
