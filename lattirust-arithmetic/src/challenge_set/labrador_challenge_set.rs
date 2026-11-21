@@ -149,23 +149,72 @@ impl<BaseRing: Ring, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing
     }
 }
 
+/// Fixed-weight Set for X^256+1 from the degree-256 LaBRADOR profile.
+/// The coefficient bound is one. The operator norm threshold is 9.5.
+fn degree_256_challenge(mut bytes: &[u8]) -> Option<[i8; 256]> {
+    const WEIGHT: usize = 22;
+    while !bytes.is_empty() {
+        let mut positions: [usize; 256] = std::array::from_fn(|i| i);
+        let mut coefficients = [0i8; 256];
+        for i in 0..WEIGHT {
+            let range = (256 - i) as u32;
+            let limit = 65_536 - (65_536 % range);
+            let choice = loop {
+                let (sample, remaining) = bytes.split_first_chunk::<3>()?;
+                bytes = remaining;
+                let value = u32::from(u16::from_le_bytes([sample[0], sample[1]]));
+                if value < limit {
+                    break ((value % range) as usize, sample[2] & 1);
+                }
+            };
+            positions.swap(i, i + choice.0);
+            coefficients[positions[i]] = 1 - 2 * choice.1 as i8;
+        }
+        let bounded = (0..128).all(|j| {
+            let angle = std::f64::consts::PI * (2 * j + 1) as f64 / 256.0;
+            let (mut re, mut im) = (0.0, 0.0);
+            for &pos in &positions[..WEIGHT] {
+                let (y, x) = (angle * pos as f64).sin_cos();
+                let sign = f64::from(coefficients[pos]);
+                re += sign * x;
+                im += sign * y;
+            }
+            re * re + im * im < 9.5 * 9.5 - 1.0e-9
+        });
+        if bounded {
+            return Some(coefficients);
+        }
+    }
+    None
+}
+
 impl<BaseRing: Ring, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRing<BaseRing, N>>
     for LabradorChallengeSet<Pow2CyclotomicPolyRing<BaseRing, N>>
 {
+    fn has_no_bias() -> bool {
+        true
+    }
+
     fn needs_bytes() -> usize {
+        if N == 256 {
+            return 32_768;
+        }
         Self::CUTOFF_OPERATOR_NORM_REJECTION_SAMPLES * Self::sample_byte_size()
     }
 
     fn try_from_random_bytes_inner(bytes: &[u8]) -> Option<Pow2CyclotomicPolyRing<BaseRing, N>> {
-        Some(Self::Field::from(
-            Self::checked_coeffs_from_random_bytes(bytes).try_map(|c| {
-                if c >= 0 {
-                    Self::BaseRing::try_from(c as u32).ok()
-                } else {
-                    Self::BaseRing::try_from(-c as u32).ok().map(|x| -x)
-                }
-            })?,
-        ))
+        let signed = if N == 256 {
+            let coeffs = degree_256_challenge(bytes)?;
+            std::array::from_fn(|i| coeffs[i])
+        } else if N == 64 {
+            Self::checked_coeffs_from_random_bytes(bytes)
+        } else {
+            return None;
+        };
+        Some(Self::Field::from(signed.try_map(|c| {
+            let magnitude = Self::BaseRing::try_from(c.unsigned_abs()).ok()?;
+            Some(if c < 0 { -magnitude } else { magnitude })
+        })?))
     }
 }
 
@@ -200,6 +249,10 @@ impl<BaseRing: Ring, const N: usize> LabradorChallengeSet<Pow2CyclotomicPolyRing
 impl<BaseRing: NttRing<N>, const N: usize> FromRandomBytes<Pow2CyclotomicPolyRingNTT<BaseRing, N>>
     for LabradorChallengeSet<Pow2CyclotomicPolyRingNTT<BaseRing, N>>
 {
+    fn has_no_bias() -> bool {
+        true
+    }
+
     fn needs_bytes() -> usize {
         LabradorChallengeSet::<Pow2CyclotomicPolyRing<BaseRing, N>>::byte_size()
     }
@@ -220,10 +273,25 @@ mod tests {
     use crate::linear_algebra::Vector;
     use crate::ring::ntt::ntt_prime;
     use crate::ring::pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
-    use crate::ring::{PolyRing, Zq1};
+    use crate::ring::{PolyRing, Ring, Zq1};
     use crate::traits::{FromRandomBytes, WithL2Norm};
 
     use super::LabradorChallengeSet;
+
+    #[test]
+    fn degree_256_sampler_has_twenty_two_ternary_nonzero_coefficients() {
+        type Q38 = Zq1<274877906837>;
+        type Poly = Pow2CyclotomicPolyRing<Q38, 256>;
+        type Challenges = LabradorChallengeSet<Poly>;
+        let mut stream = vec![0; Challenges::byte_size()];
+        test_rng().fill(stream.as_mut_slice());
+        let sampled = Challenges::try_from_random_bytes(&stream).unwrap();
+        let signed = sampled.coefficients();
+        assert_eq!(signed.iter().filter(|&&c| c != Q38::ZERO).count(), 22);
+        assert!(signed
+            .iter()
+            .all(|&c| c == Q38::ZERO || c == Q38::ONE || c == -Q38::ONE));
+    }
 
     const Q: u64 = ntt_prime::<64>(32);
     const D: usize = 64;
