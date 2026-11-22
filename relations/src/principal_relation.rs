@@ -1,18 +1,18 @@
 #![allow(non_snake_case)]
 
 use ark_std::rand;
-use ark_std::rand::Rng;
 use ark_std::rand::thread_rng;
+use ark_std::rand::Rng;
 use derive_more::Display;
 use num_bigint::BigUint;
 use num_traits::{One, ToPrimitive, Zero};
 use serde::Serialize;
 
-use lattirust_arithmetic::linear_algebra::inner_products::inner_products;
+use lattirust_arithmetic::linear_algebra::inner_products::dot_product;
 use lattirust_arithmetic::linear_algebra::SymmetricMatrix;
 use lattirust_arithmetic::linear_algebra::Vector;
-use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::ring::representatives::WithSignedRepresentative;
+use lattirust_arithmetic::ring::PolyRing;
 use lattirust_arithmetic::traits::WithL2Norm;
 
 use crate::Relation;
@@ -54,6 +54,22 @@ pub struct QuadraticConstraint<R: PolyRing> {
     _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
 }
 
+/// Evaluate only the nonzero terms in a principal quadratic form.
+fn quadratic_value<R: PolyRing>(a: &SymmetricMatrix<R>, witness: &Witness<R>) -> R {
+    let mut value = R::ZERO;
+    for i in 0..a.size() {
+        for j in 0..=i {
+            let coefficient = a[(i, j)];
+            if coefficient == R::ZERO {
+                continue;
+            }
+            let term = coefficient * dot_product(witness.s[i].as_slice(), witness.s[j].as_slice());
+            value += if i == j { term } else { term + term };
+        }
+    }
+    value
+}
+
 impl<R: PolyRing> QuadraticConstraint<R> {
     pub fn new(A: SymmetricMatrix<R>, phi: Vec<Vector<R>>, b: R) -> Self {
         let (r, n) = (A.size(), phi[0].len());
@@ -78,19 +94,12 @@ impl<R: PolyRing> QuadraticConstraint<R> {
     }
 
     pub fn eval(&self, witness: &Witness<R>) -> R {
-        let inner_prods = inner_products(&witness.s); // TODO: don't recompute every time
-
         let mut res = -self.b;
-        if let Some(A) = &self.A {
-            let r = A.size();
-            for i in 0..r {
-                for j in 0..r {
-                    res += A[(i, j)] * inner_prods[(i, j)];
-                }
-            }
+        if let Some(a) = &self.A {
+            res += quadratic_value(a, witness);
         }
         for i in 0..self.phi.len() {
-            res += self.phi[i].dot(&witness.s[i]);
+            res += dot_product(self.phi[i].as_slice(), witness.s[i].as_slice());
         }
 
         res
@@ -145,6 +154,7 @@ impl<R: PolyRing> QuadraticConstraint<R> {
 #[display("ConstantQuadraticConstraint: A: {:?}, phi: {:?}, b: {:?}", A, phi, b)]
 pub struct ConstantQuadraticConstraint<R: PolyRing> {
     pub A: Option<SymmetricMatrix<R>>,
+    /// Blocks with zero length represent an all-zero linear form.
     pub phi: Vec<Vector<R>>,
     pub b: R::BaseRing,
     _private: (), // Forbid direct initialization, force users to use new(), which does some basis debug_asserts
@@ -171,22 +181,27 @@ impl<R: PolyRing> ConstantQuadraticConstraint<R> {
         }
     }
 
-    pub fn eval(&self, witness: &Witness<R>) -> R::BaseRing {
-        let inner_prods = inner_products(&witness.s); // TODO: don't recompute every time
-
-        let mut res = -self.b;
-        if let Some(A) = &self.A {
-            let r = A.size();
-            for i in 0..r {
-                for j in 0..r {
-                    res += (A[(i, j)] * inner_prods[(i, j)]).coefficients()[0];
-                }
+    /// Drop identically zero linear blocks. Block order and the logical
+    /// width of the indexed relation are unchanged.
+    pub fn compact_zero_blocks(mut self) -> Self {
+        for block in &mut self.phi {
+            if block.iter().all(|&value| value == R::ZERO) {
+                *block = Vector::zeros(0);
             }
         }
-        for i in 0..self.phi.len() {
-            res += (self.phi[i].dot(&witness.s[i])).coefficients()[0];
-        }
+        self
+    }
 
+    pub fn eval(&self, witness: &Witness<R>) -> R::BaseRing {
+        let mut res = -self.b;
+        if let Some(a) = &self.A {
+            res += quadratic_value(a, witness).coefficients()[0];
+        }
+        for (i, phi) in self.phi.iter().enumerate() {
+            if phi.len() != 0 {
+                res += dot_product(phi.as_slice(), witness.s[i].as_slice()).coefficients()[0];
+            }
+        }
         res
     }
 
@@ -320,7 +335,9 @@ impl<R: PolyRing> Index<R> {
 
     pub fn is_wellformed_const_constraint(&self, c: &ConstantQuadraticConstraint<R>) -> bool {
         c.phi.len() == self.r
-            && c.phi.iter().all(|phi_i| phi_i.len() == self.n)
+            && c.phi
+                .iter()
+                .all(|phi_i| phi_i.len() == 0 || phi_i.len() == self.n)
             && match c.A {
                 Some(ref A) => A.size() == self.r,
                 None => true,
@@ -561,12 +578,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use lattirust_arithmetic::ring::{Pow2CyclotomicPolyRingNTT, Zq1};
     use lattirust_arithmetic::ring::ntt::ntt_prime;
+    use lattirust_arithmetic::ring::{Pow2CyclotomicPolyRingNTT, Zq1};
 
-    use crate::{test_generate_satisfied_instance, test_generate_unsatisfied_instance};
     use crate::principal_relation::{PrincipalRelation, Size};
     use crate::Relation;
+    use crate::{test_generate_satisfied_instance, test_generate_unsatisfied_instance};
 
     const Q: u64 = ntt_prime::<64>(32);
     const D: usize = 64;

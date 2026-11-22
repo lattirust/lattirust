@@ -1,6 +1,7 @@
 #![feature(associated_type_defaults)]
 
 pub mod ajtai_cm;
+pub mod linear_opening;
 pub mod principal_relation;
 pub mod r1cs;
 pub mod reduction;
