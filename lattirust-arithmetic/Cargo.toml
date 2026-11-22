@@ -34,3 +34,7 @@ rand = "0.9.0"
 log = "0.4.22"
 displaydoc = "0.2.5"
 num-integer = "0.1.46"
+
+[[bench]]
+name = "partial_ntt"
+harness = false

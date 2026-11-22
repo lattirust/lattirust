@@ -9,10 +9,7 @@ use std::io::{Read, Write};
 use std::iter::Iterator;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
-use ark_ff::{
-    AdditiveGroup, BigInt, BigInteger, FftField, Field, Fp, Fp64, FpConfig, MontBackend,
-    MontConfig, PrimeField,
-};
+use ark_ff::{AdditiveGroup, BigInt, BigInteger, FftField, Field, PrimeField, SmallFpConfig};
 use ark_serialize::{
     CanonicalDeserialize, CanonicalDeserializeWithFlags, CanonicalSerialize,
     CanonicalSerializeWithFlags, Compress, EmptyFlags, Flags, SerializationError, Valid, Validate,
@@ -679,9 +676,9 @@ macro_rules! zq_config_impl {
                     }
                     // Use BigUint to perform modular reductions for each modulus
                     Some(Zq::<Self, $L>((
-                        $( Self::[< F $i >]::new(
-                            BigInt::try_from(&biguint % &BigUint::from([< Q $i >])).unwrap()
-                        ) ,)+
+                        $( BigInt::<1>::try_from(&biguint % &BigUint::from([< Q $i >]))
+                            .unwrap()
+                            .into() ,)+
                     )))
                 }
 

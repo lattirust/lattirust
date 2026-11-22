@@ -1,5 +1,3 @@
-use ark_ff::{BigInt, Fp, Fp64, MontBackend};
-
 use crate::ring::f_p::{fq_zero, Fq, FqConfig};
 use crate::ring::Ring;
 
@@ -148,20 +146,11 @@ pub const fn pows_bit_reversed<const Q: u64, const N: usize>(psi: u64) -> [Fq<Q>
     pows_bit_reversed
 }
 
-pub const fn const_fq_from<const Q: u64>(x: u64) -> Fp64<MontBackend<FqConfig<Q>, 1>> {
+pub const fn const_fq_from<const Q: u64>(x: u64) -> Fq<Q> {
     if x >= Q {
         panic!("x must be less than Q");
     }
-    // Perform Montgomery reduction
-    if x == 0 {
-        Fp::new_unchecked(BigInt::<1>([x]))
-    } else {
-        // Put in Montgomery form
-        // Hacky, but the methods we need are either non-const or private :(
-        let r = Fq::<Q>::R.0[0];
-        let x_ = (((x as u128) * (r as u128)) % (Q as u128)) as u64;
-        Fp::new_unchecked(BigInt::<1>([x_]))
-    }
+    FqConfig::<Q>::from_u64(x)
 }
 
 pub const fn is_primitive_root_of_unity<const Q: u64>(x: u64, n: u64) -> bool {
@@ -257,66 +246,81 @@ impl<const Q: u64, const N: usize> RootOfUnity<Q, N> {
 }
 
 impl<const Q: u64, const N: usize> Ntt<N> for Fq<Q> {
-    /// Computes the NTT of the given coefficients in place.
-    /// Following Algorithm 1 of https://eprint.iacr.org/2016/504.pdf
-    fn ntt_inplace(coeffs: &mut [Self; N])
-    where
-        Self: Sized,
-    {
-        let mut t = N;
-        let mut m = 1;
-        let mut j1: usize;
-        let mut j2: usize;
-        let mut s: Fq<Q>;
-        let psi_bitrev = RootOfUnity::<Q, N>::POWS_ROOT_OF_UNITY_BIT_REVERSED;
-        while m < N {
-            t /= 2;
-            for i in 0..m {
-                j1 = 2 * i * t;
-                j2 = j1 + t - 1;
-                s = psi_bitrev[m + i];
-                for j in j1..j2 + 1 {
-                    let u = coeffs[j];
-                    let v = coeffs[j + t] * s;
-                    coeffs[j] = u + v;
-                    coeffs[j + t] = u - v;
-                }
-            }
-            m *= 2;
-        }
+    fn ntt_inplace(coeffs: &mut [Self; N]) {
+        ntt_inplace_with_roots(
+            coeffs,
+            &RootOfUnity::<Q, N>::POWS_ROOT_OF_UNITY_BIT_REVERSED,
+        );
     }
 
-    fn intt_inplace(evals: &mut [Self; N])
-    where
-        Self: Sized,
-    {
-        let mut t = 1;
-        let mut m = N;
-        let mut j1: usize;
-        let mut j2: usize;
-        let mut h: usize;
-        let mut s: Fq<Q>;
-        let psi_inv_bitrev = RootOfUnity::<Q, N>::NEG_POWS_ROOT_OF_UNITY_BIT_REVERSED;
-        while m > 1 {
-            j1 = 0;
-            h = m / 2;
-            for i in 0..h {
-                j2 = j1 + t - 1;
-                s = psi_inv_bitrev[h + i];
-                for j in j1..j2 + 1 {
-                    let u = evals[j];
-                    let v = evals[j + t];
-                    evals[j] = u + v;
-                    evals[j + t] = (u - v) * s;
-                }
-                j1 += 2 * t;
+    fn intt_inplace(evals: &mut [Self; N]) {
+        intt_inplace_with_roots(
+            evals,
+            &RootOfUnity::<Q, N>::NEG_POWS_ROOT_OF_UNITY_BIT_REVERSED,
+            RootOfUnity::<Q, N>::N_INV_MOD_Q,
+        );
+    }
+}
+
+/// Shared butterfly kernel; callers supply the validated, bit-reversed roots.
+#[inline]
+pub(crate) fn ntt_inplace_with_roots<const Q: u64, const N: usize>(
+    coeffs: &mut [Fq<Q>; N],
+    psi_bitrev: &[Fq<Q>; N],
+) {
+    let mut t = N;
+    let mut m = 1;
+    let mut j1: usize;
+    let mut j2: usize;
+    let mut s: Fq<Q>;
+    while m < N {
+        t /= 2;
+        for i in 0..m {
+            j1 = 2 * i * t;
+            j2 = j1 + t - 1;
+            s = psi_bitrev[m + i];
+            for j in j1..j2 + 1 {
+                let u = coeffs[j];
+                let v = coeffs[j + t] * s;
+                coeffs[j] = u + v;
+                coeffs[j + t] = u - v;
             }
-            t *= 2;
-            m /= 2;
         }
-        for evals_i in evals.iter_mut() {
-            *evals_i *= RootOfUnity::<Q, N>::N_INV_MOD_Q;
+        m *= 2;
+    }
+}
+
+#[inline]
+pub(crate) fn intt_inplace_with_roots<const Q: u64, const N: usize>(
+    evals: &mut [Fq<Q>; N],
+    psi_inv_bitrev: &[Fq<Q>; N],
+    inverse_length: Fq<Q>,
+) {
+    let mut t = 1;
+    let mut m = N;
+    let mut j1: usize;
+    let mut j2: usize;
+    let mut h: usize;
+    let mut s: Fq<Q>;
+    while m > 1 {
+        j1 = 0;
+        h = m / 2;
+        for i in 0..h {
+            j2 = j1 + t - 1;
+            s = psi_inv_bitrev[h + i];
+            for j in j1..j2 + 1 {
+                let u = evals[j];
+                let v = evals[j + t];
+                evals[j] = u + v;
+                evals[j + t] = (u - v) * s;
+            }
+            j1 += 2 * t;
         }
+        t *= 2;
+        m /= 2;
+    }
+    for evals_i in evals.iter_mut() {
+        *evals_i *= inverse_length;
     }
 }
 

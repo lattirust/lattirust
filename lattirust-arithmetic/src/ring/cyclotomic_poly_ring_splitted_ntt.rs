@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 
 use crate::linear_algebra::SVector;
-use crate::partial_ntt::{coprimes_set, PartialNTT};
+use crate::partial_ntt::{coprimes_set, PartialNTT, PartialNttPlan};
 use crate::ring::{Ring, Zq1};
 
 /// Transform-domain representation for rings that split only into factors
@@ -56,6 +56,15 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
         Self::from_ntt_array(coeffs)
     }
 
+    /// Construct using reusable public transform parameters.
+    pub fn from_coefficient_array_with_plan(
+        mut coeffs: [Zq1<Q>; N],
+        plan: &PartialNttPlan<Q, N, D, Z, PHI_Z>,
+    ) -> Self {
+        plan.ntt(&mut coeffs);
+        Self::from_ntt_array(coeffs)
+    }
+
     pub fn from_ntt_array(coeffs_ntt: [Zq1<Q>; N]) -> Self {
         Self(SVector::const_from_array(coeffs_ntt))
     }
@@ -73,6 +82,13 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
         coeffs
     }
 
+    /// Invert using the same root used to transform this element.
+    pub fn coefficients_with_plan(&self, plan: &PartialNttPlan<Q, N, D, Z, PHI_Z>) -> [Zq1<Q>; N] {
+        let mut coeffs = self.ntt_array();
+        plan.intt(&mut coeffs);
+        coeffs
+    }
+
     pub fn ntt_array(&self) -> [Zq1<Q>; N] {
         self.0 .0.data.0[0]
     }
@@ -82,15 +98,22 @@ impl<const Q: u64, const N: usize, const D: usize, const Z: usize, const PHI_Z: 
     }
 
     pub fn mul_with_root(&self, rhs: &Self, primitive_zth_root: Zq1<Q>) -> Self {
-        debug_assert_eq!(N, D * PHI_Z);
+        let roots = coprimes_set::<Z, PHI_Z>().map(|power| primitive_zth_root.pow(power as u64));
+        self.mul_with_factors(rhs, &roots)
+    }
 
+    /// Multiply using precomputed factor roots. The plan must use the root
+    /// used to transform both operands.
+    pub fn mul_with_plan(&self, rhs: &Self, plan: &PartialNttPlan<Q, N, D, Z, PHI_Z>) -> Self {
+        self.mul_with_factors(rhs, plan.roots())
+    }
+
+    fn mul_with_factors(&self, rhs: &Self, roots: &[Zq1<Q>; PHI_Z]) -> Self {
+        debug_assert_eq!(N, D * PHI_Z);
         let lhs = self.ntt_array();
         let rhs = rhs.ntt_array();
         let mut products = [Zq1::<Q>::ZERO; N];
-        let roots = coprimes_set::<Z, PHI_Z>();
-
-        for (component_idx, power) in roots.into_iter().enumerate() {
-            let root = primitive_zth_root.pow(power as u64);
+        for (component_idx, &root) in roots.iter().enumerate() {
             let base = component_idx * D;
 
             for lhs_idx in 0..D {

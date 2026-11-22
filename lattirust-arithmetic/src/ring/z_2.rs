@@ -385,6 +385,7 @@ impl Field for Z2 {
     type BasePrimeField = Self;
     const SQRT_PRECOMP: Option<SqrtPrecomputation<Self>> = None;
     const ONE: Self = Self(true);
+    const NEG_ONE: Self = Self(true);
 
     fn extension_degree() -> u64 {
         1

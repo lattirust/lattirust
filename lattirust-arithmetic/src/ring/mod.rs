@@ -10,10 +10,12 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use num_traits::{One, Zero};
 
+pub mod binary_trace;
+
 // Exports
+pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 pub use ntt::NttRing;
 pub use poly_ring::PolyRing;
-pub use cyclotomic_poly_ring_splitted_ntt::CyclotomicPolyRingSplittedNTT;
 pub use pow2_cyclotomic_poly_ring::Pow2CyclotomicPolyRing;
 pub use pow2_cyclotomic_poly_ring_ntt::Pow2CyclotomicPolyRingNTT;
 pub use z_2::*;
@@ -335,9 +337,9 @@ macro_rules! test_inverse_multiplication_ring {
     ($T:ty, $N:expr) => {
         #[test]
         fn test_inverse_multiplication_ring() {
-            use $crate::ring::Ring;
             use ark_std::UniformRand;
             use num_traits::{One, Zero};
+            use $crate::ring::Ring;
 
             let rng = &mut ark_std::test_rng();
             assert_eq!(<$T as Ring>::inverse(&<$T>::one()).unwrap(), <$T>::one());
