@@ -1,0 +1,17 @@
+[package]
+name = "lattirust-pcs"
+version = "0.0.1-alpha"
+edition = "2021"
+publish = false
+
+[dependencies]
+ark-ff.workspace = true
+ark-serialize.workspace = true
+lattirust-arithmetic = { path = "../lattirust-arithmetic" }
+relations = { path = "../relations" }
+sha3 = "0.10"
+thiserror = "2"
+
+nimue = "0.1"
+anyhow = "1"
+num-bigint = "0.4"
