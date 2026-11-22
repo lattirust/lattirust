@@ -100,6 +100,10 @@ pub trait Ring:
 + WithL2Norm
 + WithLinfNorm
 {
+    /// Optional batched arithmetic. The default uses ordinary ring operations.
+    type ProductBackend: crate::linear_algebra::ntt_products::BatchedProductBackend<Self> =
+        crate::linear_algebra::ntt_products::NoBatchedProducts;
+
     /// The additive identity of the ring.
     const ZERO: Self;
     /// The multiplicative identity of the ring.

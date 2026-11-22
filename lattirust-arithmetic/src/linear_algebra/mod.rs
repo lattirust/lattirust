@@ -1,8 +1,10 @@
 use std::ops::{Add, Mul, Sub};
 
+pub mod bit_matrix;
 mod generic_matrix;
 pub mod inner_products;
 mod matrix;
+pub mod ntt_products;
 pub mod serialization;
 mod sparse_matrix;
 mod symmetric_matrix;

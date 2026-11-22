@@ -8,6 +8,8 @@ use crate::linear_algebra::{
 };
 use crate::ring::{PolyRing, Ring};
 
+use super::ntt_products::products;
+
 /// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
 #[inline(always)]
 pub fn vec_from_lowertriang<T>(mut m: VecDeque<VecDeque<T>>) -> Vec<T> {
@@ -47,6 +49,31 @@ pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
     indices
 }
 
+/// Ring inner product with a generic fallback and the same dimension check as a vector dot.
+pub fn dot_product<R: Ring>(left: &[R], right: &[R]) -> R {
+    assert_eq!(left.len(), right.len(), "inner product dimension mismatch");
+    if left.len() >= 128 {
+        if let Some(values) = products(&[left], Some(&[right]), &[(0, 0)]) {
+            return values[0];
+        }
+    }
+    left.iter().zip(right).map(|(&a, &b)| a * b).sum()
+}
+
+/// Apply a ring matrix to one vector.
+pub fn matrix_vector_product<R: Ring>(matrix: &Matrix<R>, vector: &Vector<R>) -> Vector<R> {
+    if matrix.ncols() >= 128 && super::ntt_products::supports::<R>() {
+        assert_eq!(matrix.ncols(), vector.len(), "matrix dimension mismatch");
+        let rows: Vec<_> = matrix.row_iter().map(|row| row.transpose()).collect();
+        let slices: Vec<_> = rows.iter().map(Vector::as_slice).collect();
+        let pairs: Vec<_> = (0..rows.len()).map(|i| (i, 0)).collect();
+        if let Some(values) = products(&slices, Some(&[vector.as_slice()]), &pairs) {
+            return Vector::from_vec(values);
+        }
+    }
+    matrix * vector
+}
+
 pub fn inner_products_serial<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
     let mut symmetric_matrix = vec![vec![]; s.len()];
     for i in 0..s.len() {
@@ -84,6 +111,14 @@ pub fn inner_products_mat<R: Scalar + ClosedAddAssign + ClosedMulAssign + Zero +
 pub fn inner_products2<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
     debug_assert_eq!(s.len(), t.len());
     let ranges = lower_triang_indices(s.len());
+    if super::ntt_products::supports::<R>() {
+        let left: Vec<_> = s.iter().map(Vector::as_slice).collect();
+        let right: Vec<_> = t.iter().map(Vector::as_slice).collect();
+        let different = (!std::ptr::eq(s, t)).then_some(right.as_slice());
+        if let Some(values) = products(&left, different, &ranges) {
+            return lowertriang_from_vec(values.into(), s.len()).into();
+        }
+    }
 
     lowertriang_from_vec(
         ranges
@@ -93,6 +128,42 @@ pub fn inner_products2<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMa
         s.len(),
     )
     .into()
+}
+
+/// Symmetric cross products. The diagonal is <s_i,t_i> and the
+/// off-diagonal is <s_i,t_j> + <s_j,t_i>.
+pub fn symmetric_cross_products<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
+    assert_eq!(s.len(), t.len());
+    let ranges = lower_triang_indices(s.len());
+    if super::ntt_products::supports::<R>() {
+        let mut pairs = ranges.clone();
+        pairs.extend(ranges.iter().filter(|(i, j)| i != j).map(|&(i, j)| (j, i)));
+        let left: Vec<_> = s.iter().map(Vector::as_slice).collect();
+        let right: Vec<_> = t.iter().map(Vector::as_slice).collect();
+        if let Some(values) = products(&left, Some(&right), &pairs) {
+            let mut opposite = values[ranges.len()..].iter();
+            let terms = ranges.iter().zip(&values).map(|(&(i, j), &a)| {
+                if i == j {
+                    a
+                } else {
+                    a + opposite.next().unwrap()
+                }
+            });
+            return lowertriang_from_vec(terms.collect(), s.len()).into();
+        }
+    }
+    let terms = ranges
+        .into_par_iter()
+        .map(|(i, j)| {
+            let value = s[i].dot(&t[j]);
+            if i == j {
+                value
+            } else {
+                value + s[j].dot(&t[i])
+            }
+        })
+        .collect::<VecDeque<_>>();
+    lowertriang_from_vec(terms, s.len()).into()
 }
 
 #[cfg(test)]

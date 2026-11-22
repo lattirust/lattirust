@@ -38,3 +38,7 @@ num-integer = "0.1.46"
 [[bench]]
 name = "partial_ntt"
 harness = false
+
+[[bench]]
+name = "batched_products"
+harness = false

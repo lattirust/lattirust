@@ -1,0 +1,167 @@
+use std::collections::VecDeque;
+
+use num_traits::Zero;
+use rayon::prelude::*;
+
+use lattirust_arithmetic::linear_algebra::{
+    ClosedAddAssign, ClosedMulAssign, Matrix, Scalar, SymmetricMatrix, Vector,
+};
+use lattirust_arithmetic::ring::{PolyRing, Ring};
+
+use super::reference_products::products;
+
+/// Convert the entries of a lower triangular n x n matrix (in sparse representation) to a vector of length (n*(n+1)) / 2
+#[inline(always)]
+pub fn vec_from_lowertriang<T>(mut m: VecDeque<VecDeque<T>>) -> Vec<T> {
+    debug_assert!(!m.is_empty());
+    let mut v = Vec::<T>::with_capacity((m.len() * (m.len() + 1)) / 2);
+    for i in 0..m.len() {
+        let mut m_i = m.pop_front().unwrap();
+        debug_assert_eq!(
+            m_i.len(),
+            i + 1,
+            "representation of lower triangular matrix has wrong dimensions"
+        );
+        for _ in 0..i + 1 {
+            v.push(m_i.pop_front().unwrap()); // repeatedly remove
+        }
+    }
+    v
+}
+
+/// Convert a vector of length (n*(n+1)) / 2 to the sparse representation of a lower triangular n x n matrix
+#[inline(always)]
+pub fn lowertriang_from_vec<T>(mut v: VecDeque<T>, n: usize) -> Vec<Vec<T>> {
+    debug_assert_eq!(v.len(), n * (n + 1) / 2);
+    (0..n)
+        .map(|i| (0..i + 1).map(|_| v.pop_front().unwrap()).collect())
+        .collect()
+}
+
+#[inline(always)]
+pub fn lower_triang_indices(n: usize) -> Vec<(usize, usize)> {
+    let mut indices = Vec::<(usize, usize)>::with_capacity((n * (n + 1)) / 2);
+    for i in 0..n {
+        for j in 0..i + 1 {
+            indices.push((i, j));
+        }
+    }
+    indices
+}
+
+/// Ring inner product with a generic fallback and the same dimension check as a vector dot.
+pub fn dot_product<R: Ring>(left: &[R], right: &[R]) -> R {
+    assert_eq!(left.len(), right.len(), "inner product dimension mismatch");
+    if left.len() >= 128 {
+        if let Some(values) = products(&[left], Some(&[right]), &[(0, 0)]) {
+            return values[0];
+        }
+    }
+    left.iter().zip(right).map(|(&a, &b)| a * b).sum()
+}
+
+/// Apply a ring matrix to one vector.
+pub fn matrix_vector_product<R: Ring>(matrix: &Matrix<R>, vector: &Vector<R>) -> Vector<R> {
+    if matrix.ncols() >= 128 && super::reference_products::supports::<R>() {
+        assert_eq!(matrix.ncols(), vector.len(), "matrix dimension mismatch");
+        let rows: Vec<_> = matrix.row_iter().map(|row| row.transpose()).collect();
+        let slices: Vec<_> = rows.iter().map(Vector::as_slice).collect();
+        let pairs: Vec<_> = (0..rows.len()).map(|i| (i, 0)).collect();
+        if let Some(values) = products(&slices, Some(&[vector.as_slice()]), &pairs) {
+            return Vector::from_vec(values);
+        }
+    }
+    matrix * vector
+}
+
+pub fn inner_products_serial<R: PolyRing>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
+    let mut symmetric_matrix = vec![vec![]; s.len()];
+    for i in 0..s.len() {
+        symmetric_matrix[i] = Vec::<R>::with_capacity(i + 1);
+        for j in 0..i + 1 {
+            symmetric_matrix[i].push(s[i].dot(&s[j]));
+        }
+    }
+    symmetric_matrix.into()
+}
+
+/// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$ for $s \in R^{n \times m}$
+pub fn inner_products<R: Ring>(s: &[Vector<R>]) -> SymmetricMatrix<R> {
+    inner_products2(s, s)
+}
+
+/// Compute $(\langle s_{:,i}, s_{:,j}\rangle)_{i, j \in \[n\]}$, where $s \in R^{m \times, n}$
+/// This is equivalent to the lower triangular part of the symmetric matrix $s^T \cdot s$.
+pub fn inner_products_mat<R: Scalar + ClosedAddAssign + ClosedMulAssign + Zero + Sync + Send>(
+    s: &Matrix<R>,
+) -> SymmetricMatrix<R> {
+    let ranges = lower_triang_indices(s.ncols());
+
+    lowertriang_from_vec(
+        ranges
+            .into_par_iter()
+            .map(|(i, j)| s.column(i).dot(&s.column(j)))
+            .collect::<VecDeque<_>>(),
+        s.ncols(),
+    )
+    .into()
+}
+
+/// Compute $(\langle s_i, t_j\rangle)_{i, j \in \[n\]}$ for $s,t \in R^{n \times m}$
+pub fn inner_products2<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
+    debug_assert_eq!(s.len(), t.len());
+    let ranges = lower_triang_indices(s.len());
+    if super::reference_products::supports::<R>() {
+        let left: Vec<_> = s.iter().map(Vector::as_slice).collect();
+        let right: Vec<_> = t.iter().map(Vector::as_slice).collect();
+        let different = (!std::ptr::eq(s, t)).then_some(right.as_slice());
+        if let Some(values) = products(&left, different, &ranges) {
+            return lowertriang_from_vec(values.into(), s.len()).into();
+        }
+    }
+
+    lowertriang_from_vec(
+        ranges
+            .into_par_iter()
+            .map(|(i, j)| s[i].dot(&t[j]))
+            .collect::<VecDeque<_>>(),
+        s.len(),
+    )
+    .into()
+}
+
+/// Symmetric cross products. The diagonal is <s_i,t_i> and the
+/// off-diagonal is <s_i,t_j> + <s_j,t_i>.
+pub fn symmetric_cross_products<R: Ring>(s: &[Vector<R>], t: &[Vector<R>]) -> SymmetricMatrix<R> {
+    assert_eq!(s.len(), t.len());
+    let ranges = lower_triang_indices(s.len());
+    if super::reference_products::supports::<R>() {
+        let mut pairs = ranges.clone();
+        pairs.extend(ranges.iter().filter(|(i, j)| i != j).map(|&(i, j)| (j, i)));
+        let left: Vec<_> = s.iter().map(Vector::as_slice).collect();
+        let right: Vec<_> = t.iter().map(Vector::as_slice).collect();
+        if let Some(values) = products(&left, Some(&right), &pairs) {
+            let mut opposite = values[ranges.len()..].iter();
+            let terms = ranges.iter().zip(&values).map(|(&(i, j), &a)| {
+                if i == j {
+                    a
+                } else {
+                    a + opposite.next().unwrap()
+                }
+            });
+            return lowertriang_from_vec(terms.collect(), s.len()).into();
+        }
+    }
+    let terms = ranges
+        .into_par_iter()
+        .map(|(i, j)| {
+            let value = s[i].dot(&t[j]);
+            if i == j {
+                value
+            } else {
+                value + s[j].dot(&t[i])
+            }
+        })
+        .collect::<VecDeque<_>>();
+    lowertriang_from_vec(terms, s.len()).into()
+}

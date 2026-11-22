@@ -133,11 +133,30 @@ impl<C: ZqConfig<L>, const L: usize> One for Zq<C, L> {
 }
 
 impl<C: ZqConfig<L>, const L: usize> Ring for Zq<C, L> {
+    type ProductBackend = crate::linear_algebra::ntt_products::IntegerCoefficientBackend;
     const ZERO: Self = C::ZERO;
     const ONE: Self = C::ONE;
 
     fn inverse(&self) -> Option<Self> {
         C::inverse(self)
+    }
+}
+
+impl<C: ZqConfig<L>, const L: usize> crate::linear_algebra::ntt_products::IntegerCoefficient
+    for Zq<C, L>
+{
+    const MODULUS: Option<u64> = if L == 1 { Some(C::MODULI[0]) } else { None };
+
+    fn canonical_u64(self) -> u64 {
+        debug_assert_eq!(L, 1);
+        C::into_bigint(self).0[0]
+    }
+
+    fn from_canonical_u64(value: u64) -> Self {
+        debug_assert_eq!(L, 1);
+        let mut limbs = [0; L];
+        limbs[0] = value;
+        C::from_bigint(BigInt(limbs)).expect("canonical coefficient must belong to the ring")
     }
 }
 

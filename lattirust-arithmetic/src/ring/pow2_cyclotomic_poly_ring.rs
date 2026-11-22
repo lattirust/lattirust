@@ -45,6 +45,10 @@ impl<BaseRing: Ring, const N: usize> Pow2CyclotomicPolyRing<BaseRing, N> {
         self.0 .0.into()
     }
 
+    pub(crate) fn coefficient_slice(&self) -> &[BaseRing] {
+        self.0 .0.as_slice()
+    }
+
     pub fn div_rem(&self, other: &Self) -> (Self, Self) {
         let mut dividend = self.coefficients();
         let divisor = other.coefficients();
@@ -155,6 +159,8 @@ impl<BaseRing: Ring, const N: usize> CanonicalDeserialize for Pow2CyclotomicPoly
 }
 
 impl<BaseRing: Ring, const N: usize> Ring for Pow2CyclotomicPolyRing<BaseRing, N> {
+    type ProductBackend =
+        crate::linear_algebra::ntt_products::NegacyclicProductBackend<BaseRing, N>;
     const ZERO: Self = Self::const_from_element(BaseRing::ZERO);
     const ONE: Self = Self::const_from_element(BaseRing::ONE);
 
@@ -243,6 +249,17 @@ impl<BaseRing: Ring, const N: usize> Mul<Self> for Pow2CyclotomicPolyRing<BaseRi
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
+        if self == Self::ZERO || rhs == Self::ZERO {
+            return Self::ZERO;
+        }
+        let left = self.coefficient_array();
+        let right = rhs.coefficient_array();
+        if right.iter().skip(1).all(|&x| x == BaseRing::ZERO) {
+            return self * right[0];
+        }
+        if left.iter().skip(1).all(|&x| x == BaseRing::ZERO) {
+            return rhs * left[0];
+        }
         let mut out = vec![BaseRing::zero(); N];
         for i in 0..N {
             for j in 0..N {
@@ -398,7 +415,7 @@ impl<BaseRing: Ring, const N: usize> Mul<BaseRing> for Pow2CyclotomicPolyRing<Ba
     type Output = Self;
 
     fn mul(self, rhs: BaseRing) -> Self::Output {
-        self.mul(Self::from_scalar(rhs))
+        Self::from_fn(|i| self.0[i] * rhs)
     }
 }
 
@@ -477,4 +494,36 @@ mod test {
     test_polyring!(PR, NUM_TEST_REPETITIONS);
 
     test_conjugation_automorphism!(PR, NUM_TEST_REPETITIONS);
+}
+
+#[cfg(test)]
+mod scalar_product_tests {
+    use super::*;
+    use crate::ring::Zq1;
+
+    fn check<const Q: u64, const D: usize>() {
+        type F<const Q: u64> = Zq1<Q>;
+        let a = Pow2CyclotomicPolyRing::<F<Q>, D>::from_fn(|i| {
+            F::<Q>::try_from(((17 * i + 5) as u64) % Q).unwrap()
+        });
+        for scalar in [
+            F::<Q>::ZERO,
+            F::<Q>::ONE,
+            -F::<Q>::ONE,
+            F::<Q>::try_from(17u64).unwrap(),
+        ] {
+            let expected =
+                Pow2CyclotomicPolyRing::<F<Q>, D>::from_fn(|i| a.coefficient_array()[i] * scalar);
+            let constant = Pow2CyclotomicPolyRing::<F<Q>, D>::from_scalar(scalar);
+            assert_eq!(a * scalar, expected);
+            assert_eq!(a * constant, expected);
+            assert_eq!(constant * a, expected);
+        }
+    }
+
+    #[test]
+    fn constant_polynomials_match_coefficient_scaling() {
+        check::<3329, 8>();
+        check::<274877906837, 256>();
+    }
 }
