@@ -25,6 +25,60 @@ pub fn balanced_decomposition_max_length(b: u128, max: BigUint) -> usize {
     }
 }
 
+/// Split `x = low + basis * high`, with `|low| <= basis/2`.
+/// The high quotient is unrestricted; a two-digit gadget decomposition
+/// imposes an additional bound on the quotient and is a different operation.
+pub fn split_balanced<R>(value: &R, basis: u128) -> (R, R)
+where
+    R: Ring + WithSignedRepresentative,
+    R::SignedRepresentative: DecompositionFriendlySignedRepresentative,
+{
+    assert!(
+        basis >= 2 && basis % 2 == 0 && basis <= i128::MAX as u128,
+        "invalid split radix"
+    );
+    let b = R::SignedRepresentative::try_from(basis as i128).unwrap();
+    let half = R::SignedRepresentative::try_from((basis / 2) as i128).unwrap();
+    let value = Into::<R::SignedRepresentative>::into(*value);
+    let mut high = value.clone() / b.clone();
+    let mut low = value % b.clone();
+    if low.abs() > half {
+        let one = R::SignedRepresentative::try_from(1i128).unwrap();
+        if low.is_negative() {
+            low = low + b;
+            high = high - one;
+        } else {
+            low = low - b;
+            high = high + one;
+        }
+    }
+    (R::try_from(low).unwrap(), R::try_from(high).unwrap())
+}
+
+/// Apply [`split_balanced`] coefficient-wise without a bound on the high part.
+pub fn split_balanced_vec_polyring<R: PolyRing>(values: &[R], basis: u128) -> [Vector<R>; 2]
+where
+    R::BaseRing: WithSignedRepresentative,
+    <R::BaseRing as WithSignedRepresentative>::SignedRepresentative:
+        DecompositionFriendlySignedRepresentative,
+{
+    let split: Vec<_> = values
+        .par_iter()
+        .map(|value| {
+            let (low, high): (Vec<_>, Vec<_>) = value
+                .coefficients()
+                .iter()
+                .map(|value| split_balanced(value, basis))
+                .unzip();
+            (R::from(low), R::from(high))
+        })
+        .collect();
+    [
+        Vector::from(split.iter().map(|(low, _)| *low).collect::<Vec<_>>()),
+        Vector::from(split.into_iter().map(|(_, high)| high).collect::<Vec<_>>()),
+    ]
+}
+
 /// Returns the balanced decomposition of a slice as a Vec of Vecs.
 ///
 /// # Arguments
@@ -318,6 +372,46 @@ mod tests {
 
     type R = Zq1<Q>;
     type PolyR = Pow2CyclotomicPolyRingNTT<R, N>;
+
+    #[test]
+    fn balanced_split_preserves_large_quotients_and_agrees_with_short_decompositions() {
+        type C = Zq1<274877906837>;
+        for basis in [2, 4, 256, 8192] {
+            let b = C::try_from(basis).unwrap();
+            for integer in [
+                -137438953418i128,
+                -1000000,
+                -129,
+                -128,
+                -1,
+                0,
+                1,
+                128,
+                129,
+                1000000,
+                137438953418,
+            ] {
+                let value = C::try_from(integer.unsigned_abs()).unwrap();
+                let value = if integer < 0 { -value } else { value };
+                let (low, high) = split_balanced(&value, basis);
+                assert_eq!(low + b * high, value);
+                assert!(low.linf_norm() <= BigUint::from(basis / 2));
+                if integer.unsigned_abs() < basis / 2 {
+                    let old = decompose_balanced(&value, basis, Some(2));
+                    assert_eq!([low, high], [old[0], old[1]]);
+                }
+                if integer.unsigned_abs() > basis * basis {
+                    assert!(high.linf_norm() > BigUint::from(basis / 2));
+                }
+            }
+        }
+        type P = crate::ring::Pow2CyclotomicPolyRing<C, 8>;
+        let values = vec![P::from_fn(|i| C::try_from((i as u64 + 1) * 1000000).unwrap()); 3];
+        let [low, high] = split_balanced_vec_polyring(&values, 256);
+        for ((a, b), original) in low.iter().zip(high.iter()).zip(values) {
+            assert_eq!(*a + *b * C::try_from(256u64).unwrap(), original);
+        }
+    }
 
     #[test]
     fn test_decompose_balanced() {

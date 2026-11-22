@@ -18,5 +18,6 @@ pub mod linear_algebra;
 pub mod nimue;
 pub mod partial_ntt;
 pub mod ring;
+pub mod sampling;
 pub mod serde;
 pub mod traits;
